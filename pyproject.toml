@@ -43,7 +43,7 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://github.com/dashasierra/dasha-framework"
-Documentation = "https://dasha.readthedocs.io/"
+Documentation = "https://dasha-framework.readthedocs.io/"
 Source = "https://github.com/dashasierra/dasha-framework"
 Issues = "https://github.com/dashasierra/dasha-framework/issues"
 Changelog = "https://github.com/dashasierra/dasha-framework/blob/HEAD/CHANGELOG.md"
