@@ -1,0 +1,9 @@
+/* The tutorial's screen pictures: the whole screen, as wide as the page
+   allows, with a little shadow to set the screen apart from the page. */
+img.screen {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 1rem auto;
+    box-shadow: 0 0.2rem 0.6rem rgba(0, 0, 0, 0.35);
+}
