@@ -1,0 +1,90 @@
+# Builds Dasha Framework for release: the one build that pre-release.yml (to
+# TestPyPI) and release.yml (to PyPI) both call, so the two can't drift.
+#
+# Checks that the release's tag is v followed by dasha.__version__,
+# builds the sdist and wheel, checks them with twine and checks that the
+# wheel holds only dasha. They are uploaded as the artifact "dist" for the
+# calling workflow to publish.
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: The release's tag, such as v0.0.1
+        required: true
+        type: string
+    outputs:
+      version:
+        description: dasha.__version__
+        value: ${{ jobs.build.outputs.version }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      # A release event checks out the release's tag.
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Version
+        id: version
+        run: |
+          version=$(python -c "import sys; sys.path.insert(0, 'src'); import dasha; print(dasha.__version__)")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "dasha $version"
+      - name: The tag matches the version
+        env:
+          TAG: ${{ inputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "The tag $TAG is not v$VERSION (src/dasha/__init__.py)" >&2
+            exit 1
+          fi
+      # As tests/test_package.py checks on every pull request.
+      - name: The changelog has the version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          escaped=${VERSION//./\\.}
+          heading=$(grep -E "^## \[$escaped\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md || true)
+          if [ -z "$heading" ] || ! date -d "${heading##* - }" +%F >/dev/null 2>&1; then
+            echo "CHANGELOG.md has no '## [$VERSION] - YYYY-MM-DD' heading with a real date" >&2
+            exit 1
+          fi
+          if ! grep -qE "^\[$escaped\]: https://github\.com/.+/releases/tag/v$escaped$" CHANGELOG.md; then
+            echo "CHANGELOG.md has no '[$VERSION]: .../releases/tag/v$VERSION' link" >&2
+            exit 1
+          fi
+          echo "$heading"
+      - name: Build and check
+        run: |
+          python -m pip install build twine
+          python -m build
+          python -m twine check --strict dist/*
+      - name: Only dasha in the wheel
+        run: |
+          python - <<'EOF'
+          import glob, zipfile
+          (wheel,) = glob.glob("dist/*.whl")
+          tops = {name.split("/")[0] for name in zipfile.ZipFile(wheel).namelist()}
+          extra = {top for top in tops if top != "dasha"}
+          extra = {top for top in extra if not top.endswith(".dist-info")}
+          print("top level:", sorted(tops))
+          if extra:
+              raise SystemExit(f"unexpected in the wheel: {sorted(extra)}")
+          EOF
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
