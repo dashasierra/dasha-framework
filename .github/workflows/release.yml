@@ -1,0 +1,63 @@
+# Publishes a release of Dasha Framework to PyPI.
+#
+# Runs when a GitHub release that is not a pre-release is published
+# (directly or from a draft), and when a published pre-release is changed
+# into a full release, so a version tried on TestPyPI (pre-release.yml) can
+# be promoted to PyPI as it is. The release's tag must be v followed by
+# dasha.__version__. build.yml builds the package, then it is uploaded
+# to PyPI and attached to the release.
+#
+# Uploading uses the repository secret PYPI_API_TOKEN, an API token from
+# pypi.org. The pypi environment is created by GitHub the first time this
+# runs, and can be given protection rules in the repository's settings.
+name: Release
+
+on:
+  release:
+    types: [released]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: ${{ !github.event.release.prerelease }}
+    uses: ./.github/workflows/build.yml
+    with:
+      tag: ${{ github.event.release.tag_name }}
+
+  pypi:
+    name: publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/dasha-framework/${{ needs.build.outputs.version }}/
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@v1.14.3
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+  assets:
+    name: attach to the release
+    needs: pypi
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # to add files to the release
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" dist/* --clobber

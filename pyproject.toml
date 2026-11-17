@@ -1,0 +1,124 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dasha-framework"
+description = "Dasha Framework: a dependency-free text-mode desktop and application framework for local and SSH terminals."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Dasha Sierra" }]
+requires-python = ">=3.12"
+dynamic = ["version"]
+# Dasha Framework deliberately has no runtime dependencies: only the standard library
+# (ctypes, os, termios, etc.) may be used.
+dependencies = []
+keywords = [
+    "terminal",
+    "tui",
+    "text-mode",
+    "desktop",
+    "windows",
+    "widgets",
+    "dialogs",
+    "ssh",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Terminals",
+    "Topic :: Software Development :: User Interfaces",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/dashasierra/dasha-framework"
+Documentation = "https://dasha.readthedocs.io/"
+Source = "https://github.com/dashasierra/dasha-framework"
+Issues = "https://github.com/dashasierra/dasha-framework/issues"
+Changelog = "https://github.com/dashasierra/dasha-framework/blob/HEAD/CHANGELOG.md"
+
+[project.optional-dependencies]
+# Development tooling only; never needed to run Dasha Framework.
+# Install with: python -m pip install -e ".[dev]"
+dev = [
+    "autopep8>=2.3",
+    # Pinned to a year's style: black changes its style each January, which
+    # would fail every pull request's Format check at once.
+    "black>=26.10,<27",
+    # Building the package and checking it as PyPI will (the Package check).
+    "build>=1.2",
+    "coverage>=7.10",
+    "mypy>=1.15",
+    "pylint>=3.3",
+    "twine>=6.0",
+]
+# Building the documentation (docs/, published on Read the Docs).
+# Install with: python -m pip install -e ".[docs]"
+docs = [
+    "furo>=2025.7",
+    "myst-parser>=4.0",
+    # Only for drawing the tutorial's screens (docs/tutorial/make_screens.py).
+    "pillow>=11.0",
+    "sphinx>=8.2",
+]
+
+[project.scripts]
+dasha = "dasha.__main__:main"
+# `dasha desktop`: the desktop, with any applications named started on it.
+dasha-desktop = "dasha.__main__:desktop_main"
+
+[tool.setuptools.dynamic]
+version = { attr = "dasha.__version__" }
+
+[tool.setuptools.package-data]
+dasha = ["py.typed", "helppages/*.md"]
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.autopep8]
+# Matches black, so the two formatters agree.
+max_line_length = 88
+aggressive = 1
+
+[tool.coverage.run]
+# Dasha Framework's own code only, not the tests or the example applications.
+source = ["dasha"]
+branch = true
+# The tests start real application processes (python -m dasha.host);
+# measure those too, each writing a file of its own to combine.
+patch = ["subprocess"]
+parallel = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+precision = 1
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    'if __name__ == "__main__":',
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "tests", "frozen"]
+strict = true
+warn_unreachable = true
+
+# pylint's settings are in .pylintrc.

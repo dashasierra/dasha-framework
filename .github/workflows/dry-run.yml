@@ -1,0 +1,101 @@
+# Tries a release's build without publishing anything. build.yml builds the
+# package and uploads it as the artifact "dist", just as for a release; it
+# is then downloaded as pre-release.yml and release.yml download it, and its
+# files are checked, installed and run. Nothing goes to TestPyPI, PyPI or a
+# GitHub release.
+#
+# Runs on a pull request that changes the workflows (Dependabot's updates to
+# the actions among them), because no other check runs a release's build or
+# its artifacts; and by hand, on any branch (Actions > Dry run > Run
+# workflow). The tag it builds for is v followed by dasha.__version__, as a
+# release's must be.
+name: Dry run
+
+on:
+  pull_request:
+    # "edited" covers a pull request moved onto the default branch.
+    types: [opened, synchronize, reopened, edited]
+    paths:
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tag:
+    name: the tag a release would have
+    # Pull requests into the default branch only, whatever it is called;
+    # by hand, any branch.
+    if: >-
+      github.event_name != 'pull_request'
+      || github.base_ref == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Tag
+        id: tag
+        run: |
+          version=$(python3 -c "import sys; sys.path.insert(0, 'src'); import dasha; print(dasha.__version__)")
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "A release of dasha $version would be tagged v$version"
+
+  build:
+    needs: tag
+    uses: ./.github/workflows/build.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+
+  download:
+    name: download, check and install, as a release would
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # The same as pre-release.yml and release.yml, so that an update to
+      # the action is tried here first.
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: The files a release would publish
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          ls -l dist/
+          for file in "dasha_framework-$VERSION.tar.gz" "dasha_framework-$VERSION-py3-none-any.whl"; do
+            if [ ! -f "dist/$file" ]; then
+              echo "dist/$file is missing" >&2
+              exit 1
+            fi
+          done
+          count=$(find dist -type f | wc -l)
+          if [ "$count" -ne 2 ]; then
+            echo "dist/ holds $count files, not the sdist and the wheel" >&2
+            exit 1
+          fi
+          python -m pip install twine
+          python -m twine check --strict dist/*
+      - name: Installs and runs
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          python -m venv /tmp/clean
+          /tmp/clean/bin/python -m pip install "dist/dasha_framework-$VERSION-py3-none-any.whl"
+          shown=$(/tmp/clean/bin/dasha --version)
+          echo "$shown"
+          if [ "$shown" != "Dasha Framework $VERSION" ]; then
+            echo "dasha --version shows '$shown', not 'Dasha Framework $VERSION'" >&2
+            exit 1
+          fi
+          /tmp/clean/bin/dasha-desktop --version
