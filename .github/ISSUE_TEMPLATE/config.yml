@@ -4,5 +4,5 @@ contact_links:
     url: https://github.com/dashasierra/dasha-framework/security/advisories/new
     about: Please report security problems privately, not in a public issue.
   - name: Documentation
-    url: https://dasha.readthedocs.io/
+    url: https://dasha-framework.readthedocs.io/
     about: The guides, the tutorial and the API reference.
