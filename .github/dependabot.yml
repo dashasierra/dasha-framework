@@ -1,0 +1,12 @@
+# Keeps the actions the workflows use up to date, with a pull request a
+# month at most (each still has to pass the checks). Dasha Framework has no
+# runtime dependencies, so there is nothing else for it to watch.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
