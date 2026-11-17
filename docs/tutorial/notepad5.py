@@ -1,0 +1,239 @@
+"""Notepad, step 5: opening files."""
+
+import os
+import sys
+from collections.abc import Callable, Sequence
+from typing import Protocol
+
+from dasha.application import Application
+from dasha.canvas import Rect
+from dasha.dialog import information
+from dasha.filedialog import FileDialog
+from dasha.menu import Menu, MenuItem, separator
+from dasha.widgets import TextArea
+from dasha.window import Window
+
+FILTERS = [("Text files", "*.txt;*.md;*.log;*.ini;*.cfg"), ("Python", "*.py")]
+"""The file types Notepad's Open and Save as dialogs offer."""
+
+
+def line_ending(text: str) -> str:
+    """The line ending a file's text uses: ``"\\r\\n"`` if it has any (as
+    Windows files do), otherwise ``"\\n"``."""
+    return "\r\n" if "\r\n" in text else "\n"
+
+
+class NotepadWindow(Window):
+    """One file being edited: a window holding nothing but a text area."""
+
+    def __init__(
+        self,
+        notepad: "Notepad",
+        rect: Rect,
+        path: str | None = None,
+        text: str = "",
+    ) -> None:
+        super().__init__(
+            title="Untitled",
+            rect=rect,
+            resizable=True,
+            maximisable=True,
+            minimisable=True,
+            closable=True,
+        )
+        self.notepad = notepad
+        self.path = path
+        """The file it was opened from or saved to; ``None`` until saved."""
+        self.newline = line_ending(text)
+        """The file's line ending, kept when it is saved: a text area's
+        lines always end in ``"\\n"``."""
+        self.area = self.add(
+            widget=TextArea(
+                row=0,
+                column=0,
+                text=text,
+                name="text",
+            )
+        )
+        self._show_title()
+
+    @property
+    def file_name(self) -> str:
+        """The file's name, or "Untitled"."""
+        return os.path.basename(self.path) if self.path else "Untitled"
+
+    def _show_title(self) -> None:
+        self.title = self.file_name
+
+    def load(self, path: str, text: str) -> None:
+        """Show a file's text in this window."""
+        self.path = path
+        self.newline = line_ending(text)
+        self.area.text = text
+        self._show_title()
+
+
+class WindowAction(Protocol):  # pylint: disable=too-few-public-methods
+    """Something to do with a Notepad window, given as ``window=``."""
+
+    def __call__(self, *, window: NotepadWindow) -> object: ...
+
+
+class Notepad(Application):
+    """Edit plain text files (UTF-8), each in a window of its own."""
+
+    name = "Notepad"
+
+    def __init__(self, paths: Sequence[str] = ()) -> None:
+        super().__init__()
+        self.paths = list(paths)
+        """The files to open when it starts (a new, empty one if none)."""
+
+    def start(self) -> None:
+        self.menus = self._menus()
+        for path in self.paths:
+            self.open_path(path=path)
+        if not self.windows:
+            self.new()
+
+    def _place(self) -> Rect:
+        """Where the next window goes: each a little down and right of the
+        one before."""
+        step = len(self.windows) % 6
+        return Rect(row=2 + step, column=4 + 2 * step, height=15, width=60)
+
+    def new(self, path: str | None = None, text: str = "") -> NotepadWindow:
+        """Open a window for a new file (or for a file's text)."""
+        window = NotepadWindow(notepad=self, rect=self._place(), path=path, text=text)
+        self.open(window=window)
+        return window
+
+    def show(self, window: NotepadWindow) -> None:
+        """Bring one of its windows to the front (restoring it if it was
+        minimised)."""
+        if self.manager is not None:
+            self.manager.show_window(window)
+
+    def tell(self, title: str, message: str) -> None:
+        """Show a message: straight away, or, while Notepad is starting (a
+        file named on the command line that cannot be read), once the
+        desktop is running."""
+        manager = self.manager
+        if manager is None:
+            return
+        dialog = information(title=title, message=message)
+        manager.call_when_running(callback=lambda: manager.execute(dialog=dialog))
+
+    # Opening
+
+    def read(self, path: str) -> str | None:
+        """A file's text, or ``None`` after saying why it cannot be read."""
+        try:
+            with open(path, encoding="utf-8", newline="") as file:
+                return file.read()
+        except UnicodeDecodeError:
+            self.tell(
+                title="Open",
+                message=f"{os.path.basename(path)} is not UTF-8 text.",
+            )
+        except OSError as error:
+            self.tell(
+                title="Open",
+                message=f"Cannot open {os.path.basename(path)}:\n{error.strerror}",
+            )
+        return None
+
+    def open_path(self, path: str) -> NotepadWindow | None:
+        """Open a file: in the front window if that is new and untouched,
+        otherwise in a new window. A file already open comes to the front.
+        A file that is not there yet opens empty, to be saved under that
+        name."""
+        path = os.path.abspath(path)
+        for window in self.windows:
+            if isinstance(window, NotepadWindow) and window.path == path:
+                self.show(window=window)
+                return window
+        text = "" if not os.path.exists(path) else self.read(path=path)
+        if text is None:
+            return None
+        front = self._front()
+        if front is not None and front.path is None and not front.area.text:
+            front.load(path=path, text=text)
+            return front
+        return self.new(path=path, text=text)
+
+    def open_file(self) -> None:
+        """Choose a file to open (File > Open...)."""
+        manager = self.manager
+        if manager is None or not manager.is_running:
+            return
+        front = self._front()
+        start = os.path.dirname(front.path) if front and front.path else "."
+        dialog = FileDialog(
+            title="Open",
+            directory=start,
+            filters=FILTERS,
+            must_exist=True,
+        )
+        if manager.execute(dialog=dialog) == "ok":
+            self.open_path(path=dialog.path)
+
+    def _front(self) -> NotepadWindow | None:
+        """Its window nearest the front of the desktop: the file its menus
+        act on."""
+        window = self.active_window
+        return window if isinstance(window, NotepadWindow) else None
+
+    def _on_front(self, act: WindowAction) -> Callable[[], None]:
+        """A menu action: ``act(window=...)`` on the front window, if there
+        is one by the time the item is chosen."""
+
+        def action() -> None:
+            window = self._front()
+            if window is not None:
+                act(window=window)
+
+        return action
+
+    # Menus
+
+    def _menus(self) -> list[Menu]:
+        """Notepad's menu bar. Items that need a file are greyed out while
+        no window is open."""
+        return [
+            Menu(title="&File", items=self._file_items()),
+        ]
+
+    def _file_items(self) -> list[MenuItem]:
+        assert self.manager is not None
+        hint = self.manager.shortcuts.hint
+        return [
+            MenuItem(
+                label="&New",
+                action=self.new,
+                status="Starts a new file in a new window",
+            ),
+            MenuItem(
+                label="&Open...",
+                action=self.open_file,
+                shortcut=hint(action="open_file"),
+                status="Opens a file",
+            ),
+            separator(),
+            MenuItem(
+                label="&Close",
+                action=self._on_front(act=lambda window: self.close(window=window)),
+                shortcut=hint(action="close_window"),
+                status="Closes this file",
+                enabled=self.has_window,
+            ),
+            MenuItem(
+                label="E&xit",
+                action=self.exit,
+                status="Exits Notepad",
+            ),
+        ]
+
+
+if __name__ == "__main__":
+    raise SystemExit(Notepad(paths=sys.argv[1:]).run())
