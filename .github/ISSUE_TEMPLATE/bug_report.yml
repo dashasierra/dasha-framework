@@ -1,0 +1,72 @@
+name: Bug report
+description: Something in Dasha Framework does not work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Thanks for reporting this. Terminals differ a lot, so the details
+        below matter. For a security problem, please use the Security tab's
+        "Report a vulnerability" instead of an issue.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen
+      description: The steps, from starting Dasha Framework (or your application).
+      placeholder: |
+        1. Run `dasha notepad`
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Dasha Framework version
+      description: The output of `dasha --version`.
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.13.1"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Windows 11, Ubuntu 24.04, macOS 15, ..."
+    validations:
+      required: true
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal
+      description: The terminal program, and anything in between (SSH, tmux, screen).
+      placeholder: "Windows Terminal; iTerm2 over SSH; xterm in tmux; ..."
+    validations:
+      required: true
+  - type: textarea
+    id: keytest
+    attributes:
+      label: Key test output
+      description: >
+        For a key, the mouse or pasting not working: run `dasha --key-test`,
+        press the keys concerned, and paste what it shows.
+      render: text
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Traceback or log
+      description: >
+        Any traceback shown. For an application on the desktop that stopped,
+        its log is in `~/.dasha/logs/`.
+      render: text
