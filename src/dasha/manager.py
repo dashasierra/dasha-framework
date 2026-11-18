@@ -111,6 +111,17 @@ def _catch_ending_signals() -> dict[int, Any]:
     return caught
 
 
+def _with_mnemonic(label: str, taken: set[str]) -> str:
+    """``label`` with its first letter not in ``taken`` marked as its
+    mnemonic, and that letter added to ``taken``; unmarked if every letter
+    is taken. The label must not hold ``&``."""
+    for index, char in enumerate(label):
+        if char.isalnum() and char.lower() not in taken:
+            taken.add(char.lower())
+            return f"{label[:index]}&{label[index:]}"
+    return label
+
+
 class _RestoreItem(MenuItem):  # pylint: disable=too-few-public-methods
     """A menu item that restores a minimised window (or the separator
     before them), which the manager replaces as windows come and go."""
@@ -492,15 +503,18 @@ class PresentationManager:
     def _list_themes(self, menu: Menu) -> None:
         """Fill the Themes menu as it opens: the built-in themes, those in
         ``themes_folder`` as they are now, and the colours file if there is
-        one, the one in use marked."""
+        one, the one in use marked. Each built-in theme has a letter of its
+        own: the first in its name that no theme before it has (so Dark is
+        D&ark, Default having D), keeping C for the colours file."""
         items: list[MenuItem] = []
+        taken = {"c"}  # Colours file
         for name in theme.theme_names(self.themes_folder):
             built_in = name in theme.BASES
             label = name.capitalize() if built_in else name.replace("&", "&&")
             mark = "\N{SQUARE ROOT} " if name == self.theme_name else "  "
             items.append(
                 MenuItem(
-                    f"{mark}&{label}" if built_in else f"{mark}{label}",
+                    mark + (_with_mnemonic(label, taken) if built_in else label),
                     partial(self.set_theme, name),
                     status=f"Changes to the {label} theme",
                 )
