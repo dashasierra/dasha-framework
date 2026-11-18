@@ -83,7 +83,7 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
     then onwards. Choosing another page while the focus was on the previous
     page moves the focus to the tabs. ``value`` (and ``selected``) is the selected
     page's number, and ``selected_page`` is the page itself. ``select(index)`` and
-    ``step(1)`` choose a page as the user does, and ``on_change(tabs)`` is
+    ``step(step=1)`` choose a page as the user does, and ``on_change(tabs)`` is
     called for every change the user makes. The colours are ``tabs`` (the tabs
     not selected, and the lines), ``tabs.selected`` and ``tabs.focused``;
     colours left as ``default`` are the window's.

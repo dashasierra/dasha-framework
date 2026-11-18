@@ -23,6 +23,7 @@ import os
 import shutil
 import sys
 from collections.abc import Callable, Sequence
+from typing import Protocol
 
 from dasha.application import Application
 from dasha.canvas import Rect
@@ -58,6 +59,12 @@ def powershell() -> str | None:
 def program_name(argv: Sequence[str]) -> str:
     """A command's name, for a title: ``bash`` for ``/bin/bash -l``."""
     return os.path.basename(argv[0]) if argv else "Terminal"
+
+
+class ViewAction(Protocol):  # pylint: disable=too-few-public-methods
+    """Something to do with a window's terminal, given as ``view=``."""
+
+    def __call__(self, *, view: TerminalView) -> object: ...
 
 
 class TerminalWindow(Window):
@@ -118,12 +125,12 @@ class TerminalWindow(Window):
         if not self.keep_open:
             self.app.close(window=self)
             return
-        view.screen.feed(f"\r\n[Ended: exit code {view.exit_code}]")
+        view.screen.feed(text=f"\r\n[Ended: exit code {view.exit_code}]")
         self._show_title()
 
     def _show_title(self) -> None:
         view = self.view
-        title = view.screen.title or program_name(view.command)
+        title = view.screen.title or program_name(argv=view.command)
         self.title = f"{title} (ended)" if view.exit_code is not None else title
 
     def footer_parts(self) -> list[str]:
@@ -204,7 +211,7 @@ class Terminal(Application):
         try:
             window.view.start()
         except OSError as error:
-            self._cannot_start(name=program_name(window.view.command), error=error)
+            self._cannot_start(name=program_name(argv=window.view.command), error=error)
             self.close(window=window)
             return None
         return window
@@ -233,13 +240,13 @@ class Terminal(Application):
         window = self.active_window
         return window if isinstance(window, TerminalWindow) else None
 
-    def _on_front(self, act: Callable[[TerminalView], object]) -> Callable[[], None]:
+    def _on_front(self, act: ViewAction) -> Callable[[], None]:
         """A menu action on the front window's terminal, if there is one."""
 
         def action() -> None:
             window = self._front()
             if window is not None:
-                act(window.view)
+                act(view=window.view)
 
         return action
 
@@ -248,7 +255,7 @@ class Terminal(Application):
     def window_closed(self, window: Window) -> None:
         """A window has closed: its program ends; and with the last of them,
         so does Terminal."""
-        super().window_closed(window)
+        super().window_closed(window=window)
         if isinstance(window, TerminalWindow):
             window.view.close()
         self._end_if_empty()
@@ -311,7 +318,7 @@ class Terminal(Application):
                     status="Opens a window running PowerShell",
                 )
             )
-        self._fill_send_keys(self.send_keys)
+        self._fill_send_keys(menu=self.send_keys)
         items += [
             MenuItem(
                 label="Send &key",
@@ -361,28 +368,28 @@ class Terminal(Application):
         return [
             MenuItem(
                 label="&Copy",
-                action=self._on_front(TerminalView.copy),
+                action=self._on_front(act=lambda view: view.copy()),
                 shortcut=hint(action="terminal_copy"),
                 status="Copies the text selected with the mouse",
                 enabled=self.has_window,
             ),
             MenuItem(
                 label="&Paste",
-                action=self._on_front(TerminalView.paste),
+                action=self._on_front(act=lambda view: view.paste()),
                 shortcut=hint(action="terminal_paste"),
                 status="Sends the clipboard's text to the program, as typed",
                 enabled=self.has_window,
             ),
             MenuItem(
                 label="Select &all",
-                action=self._on_front(TerminalView.select_all),
+                action=self._on_front(act=lambda view: view.select_all()),
                 status="Selects everything, the scrollback too",
                 enabled=self.has_window,
             ),
             separator(),
             MenuItem(
                 label="Clear &scrollback",
-                action=self._on_front(TerminalView.clear_scrollback),
+                action=self._on_front(act=lambda view: view.clear_scrollback()),
                 status="Forgets the lines scrolled off the top",
                 enabled=self.has_window,
             ),
@@ -395,30 +402,30 @@ class Terminal(Application):
         shortcuts = self.manager.shortcuts
         keys: list[str] = []
         for action in RESERVED_ACTIONS:
-            for key in shortcuts.keys(action):
-                if key not in keys and encode_key(key) is not None:
+            for key in shortcuts.keys(action=action):
+                if key not in keys and encode_key(key=key) is not None:
                     keys.append(key)
         return keys
 
     def _fill_send_keys(self, menu: Menu) -> None:
         menu.items[:] = [
             MenuItem(
-                label=pretty_key(key),
-                action=self._on_front(self._sender(key)),
-                status=f"Sends {pretty_key(key)} to the program",
+                label=pretty_key(name=key),
+                action=self._on_front(act=self._sender(key=key)),
+                status=f"Sends {pretty_key(name=key)} to the program",
                 enabled=self.has_window,
             )
             for key in self.reserved_keys()
         ]
 
     @staticmethod
-    def _sender(key: str) -> Callable[[TerminalView], None]:
+    def _sender(key: str) -> ViewAction:
         """What sends ``key`` to a terminal's program."""
 
-        def send(view: TerminalView) -> None:
-            data = encode_key(key, app_cursor_keys=view.screen.app_cursor_keys)
+        def send(*, view: TerminalView) -> None:
+            data = encode_key(key=key, app_cursor_keys=view.screen.app_cursor_keys)
             if data is not None:
-                view.send(data)
+                view.send(data=data)
 
         return send
 

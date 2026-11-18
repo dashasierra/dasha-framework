@@ -37,7 +37,7 @@ DISABLE_BRACKETED_PASTE = CSI + "?2004l"
 SPACE_RELEASED = CSI + "32;1:3u"
 """What the Windows backend puts in the input when Space is released. This
 is how the kitty keyboard protocol writes a release (code 32, no modifiers,
-event 3), and ``dasha.events`` decodes it as ``KeyReleaseEvent(" ")``."""
+event 3), and ``dasha.events`` decodes it as ``KeyReleaseEvent(key=" ")``."""
 
 
 def move_to(row: int, column: int) -> str:

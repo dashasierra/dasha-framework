@@ -317,15 +317,20 @@ docstring that is not valid reST is caught. Open
 - **The example applications stay out of the package.** They live in
   `apps/` at the repository root rather than under `src/`, so that the wheel
   contains only the framework. Dasha Framework's code and tests never import them.
-- **The example applications pass arguments by name.** In `apps/`, every
-  call into Dasha Framework, and to the applications' own methods, names its
-  arguments (`Label(text="Name:", row=2, column=1)`, not
-  `Label("Name:", 2, 1)`), because the applications double as examples for
-  newcomers. Calls to built-in and standard library functions (`len`,
-  `os.path.join`) are left as they are, since many of them accept nothing
-  else. Callbacks that an application calls with an argument also take it
-  by a fixed name: for example, Notepad's menu actions are `WindowAction`s,
-  called as `act(window=...)`.
+- **Examples pass arguments by name.** In `apps/`, in the tutorial, and in
+  every example in the documentation (the README, these pages and the
+  docstrings), every call into Dasha Framework, and to the example's own
+  functions and methods, names its arguments
+  (`Label(text="Name:", row=2, column=1)`, not `Label("Name:", 2, 1)`),
+  because the examples are how newcomers learn what each argument is.
+  Calls to built-in and standard library functions (`len`, `os.path.join`)
+  are left as they are, since many of them accept nothing else, as are
+  arguments that can only be given by position (`CLIPBOARD.get(*types)`).
+  Callbacks that an application calls with an argument also take it by a
+  fixed name: for example, Notepad's menu actions are `WindowAction`s,
+  called as `act(window=...)`, and Terminal's are `ViewAction`s, called as
+  `act(view=...)`. Signatures written out in the text, such as
+  `confirm(title, message)`, name the parameters and are not examples.
 - **Nothing reaches the terminal unfiltered.** The screen is drawn on a
   `Canvas`, whose `render` method shows control characters as pictures. A
   message printed directly on the terminal uses `dasha.printing.say`
