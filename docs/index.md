@@ -50,8 +50,17 @@ class Hello(Application):
     name = "Hello"
 
     def start(self) -> None:
-        self.menus = [Menu("&File", [MenuItem("E&xit", self.exit)])]
-        self.open(Window("Hello", Rect(2, 2, 6, 30), ["Hello, world"], closable=True))
+        self.menus = [
+            Menu(title="&File", items=[MenuItem(label="E&xit", action=self.exit)])
+        ]
+        self.open(
+            window=Window(
+                title="Hello",
+                rect=Rect(row=2, column=2, height=6, width=30),
+                lines=["Hello, world"],
+                closable=True,
+            )
+        )
 
 
 if __name__ == "__main__":

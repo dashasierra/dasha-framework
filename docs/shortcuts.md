@@ -156,6 +156,6 @@ UTF-16, which is what Windows PowerShell 5.1 writes with `>`.
 
 The bindings are held in `dasha.shortcuts.Shortcuts`. To use custom
 bindings, pass a `Shortcuts` to `PresentationManager(shortcuts=...)`. To
-respond to an action, check the key with `shortcuts.matches("action", key)`
+respond to an action, check the key with `shortcuts.matches(action="action", key=key)`
 rather than comparing keys directly, so that the user's remapping keeps
 working.

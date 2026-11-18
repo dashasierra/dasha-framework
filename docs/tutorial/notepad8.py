@@ -45,7 +45,7 @@ class NotepadWindow(Window):
         self.notepad = notepad
         self.path = path
         """The file it was opened from or saved to; ``None`` until saved."""
-        self.newline = line_ending(text)
+        self.newline = line_ending(text=text)
         """The file's line ending, kept when it is saved: a text area's
         lines always end in ``"\\n"``."""
         self.area = self.add(
@@ -76,7 +76,7 @@ class NotepadWindow(Window):
     def load(self, path: str, text: str) -> None:
         """Show a file's text in this window."""
         self.path = path
-        self.newline = line_ending(text)
+        self.newline = line_ending(text=text)
         self.area.text = text
         self.modified = False
         self._show_title()
@@ -201,7 +201,7 @@ class Notepad(Application):
         """Bring one of its windows to the front (restoring it if it was
         minimised)."""
         if self.manager is not None:
-            self.manager.show_window(window)
+            self.manager.show_window(window=window)
 
     def tell(self, title: str, message: str) -> None:
         """Show a message: straight away, or, while Notepad is starting (a

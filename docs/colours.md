@@ -47,7 +47,7 @@ applies:
    theme.
 
 An application can also change the theme, by name or by the path of a theme
-file, with `self.set_theme("dark")`, just as the menu does. This is useful
+file, with `self.set_theme(name="dark")`, just as the menu does. This is useful
 for an application running on its own, which has no system menu. On the
 desktop, only the application the user is working in can change the theme.
 
@@ -247,8 +247,8 @@ window.view.default_style = Style(foreground=WHITE, background=BLACK)
 ```
 
 - A colour in a `Style` is a number from 0 to 255 or a
-  `dasha.style.Rgb`, such as `Rgb(255, 136, 0)` or
-  `Rgb.parse("#ff8800")`. `style.set_colour_depth(depth)`, or
+  `dasha.style.Rgb`, such as `Rgb(red=255, green=136, blue=0)` or
+  `Rgb.parse(text="#ff8800")`. `style.set_colour_depth(depth)`, or
   `PresentationManager.set_colour_depth(depth)` while Dasha Framework is running,
   chooses how colours are drawn. `Rgb.nearest_256()`, `Rgb.nearest_16()`
   and `Rgb.of_palette(number)` convert between them.

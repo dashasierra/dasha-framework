@@ -340,7 +340,11 @@ Windows are fixed-size unless they are created with `resizable=True` (or
 have `resizable` set later):
 
 ```python
-Window("Editor", Rect(2, 4, 12, 40), resizable=True)
+Window(
+    title="Editor",
+    rect=Rect(row=2, column=4, height=12, width=40),
+    resizable=True,
+)
 ```
 
 - **The grip.** The last two cells of a resizable window's bottom edge are
@@ -608,8 +612,14 @@ resized, maximised or restored.
 | `Grow.STICK_BOTTOM` (`TOP \| BOTTOM`) | It moves down, keeping its size |
 
 ```python
-files.add(ListBox(names, 0, 0, 32, 7, columns=2), grow=Grow.ALL)
-files.add(Label("Selected: ...", 7, 1), grow=Grow.STICK_BOTTOM)
+files.add(
+    widget=ListBox(items=names, row=0, column=0, width=32, height=7, columns=2),
+    grow=Grow.ALL,
+)
+files.add(
+    widget=Label(text="Selected: ...", row=7, column=1),
+    grow=Grow.STICK_BOTTOM,
+)
 ```
 
 The flags can be combined (`Grow.STICK_RIGHT | Grow.STICK_BOTTOM` keeps a
@@ -784,10 +794,15 @@ It suits any hierarchy, such as folders on a drive.
 
 ```python
 def subfolders(node):
-    return [TreeNode(name, data=path, load=subfolders) for name, path in folders_in(node.data)]
+    return [
+        TreeNode(label=name, data=path, load=subfolders)
+        for name, path in folders_in(folder=node.data)
+    ]
 
-roots = [TreeNode("C:\\", data="C:\\", load=subfolders)]
-picker = window.add(TreeView(roots, 0, 0, 30, 12))  # multiple=True to pick several
+roots = [TreeNode(label="C:\\", data="C:\\", load=subfolders)]
+picker = window.add(
+    widget=TreeView(roots=roots, row=0, column=0, width=30, height=12)
+)  # multiple=True to pick several
 ```
 
 - **Items.** The application supplies the items. An item's children can be
@@ -817,12 +832,17 @@ A widget or a window can have a menu that pops up for it, called a
 **context menu**.
 
 ```python
-files.context_menu = Menu("File", [
-    MenuItem("&Open", open_file),
-    separator(),
-    MenuItem("&Delete", delete_file),
-])
-window.context_menu = Menu("Window", [MenuItem("&Refresh", refresh)])
+files.context_menu = Menu(
+    title="File",
+    items=[
+        MenuItem(label="&Open", action=open_file),
+        separator(),
+        MenuItem(label="&Delete", action=delete_file),
+    ],
+)
+window.context_menu = Menu(
+    title="Window", items=[MenuItem(label="&Refresh", action=refresh)]
+)
 ```
 
 - **Opening one.** A right-click brings the window to the front and pops up
@@ -1030,11 +1050,13 @@ for the types it understands:
 ```python
 from dasha.clipboard import CLIPBOARD, ClipboardItem
 
-CLIPBOARD.copy_text("hello", source="notes")
+CLIPBOARD.copy_text(text="hello", source="notes")
 CLIPBOARD.text                             # "hello"
-CLIPBOARD.copy(ClipboardItem("text/uri-list", ["file:///tmp/notes.txt"]))
+CLIPBOARD.copy(
+    item=ClipboardItem(type="text/uri-list", data=["file:///tmp/notes.txt"])
+)
 CLIPBOARD.text                             # None: not text any more
-CLIPBOARD.get("text/uri-list")             # the item
+CLIPBOARD.get("text/uri-list")             # the item (types, so by position)
 ```
 
 `get(*types)` returns the item only if it is one of the given types, and
@@ -1094,13 +1116,17 @@ The dialog then leaves the screen, but the caller still holds it and can
 read **every component** in it before deciding what to do:
 
 ```python
-dialog = Dialog("Save changes?", 40, 9)
-dialog.add(Label("notes.txt has changed.", 1, 2, name="message"))
-dialog.add(Button("&Save", 3, 2, result="save", default=True))
-dialog.add(Button("&Discard", 3, 14, result="discard"))
-dialog.add(Button("Cancel", 3, 26, result="cancel"))
+dialog = Dialog(title="Save changes?", width=40, height=9)
+dialog.add(
+    widget=Label(text="notes.txt has changed.", row=1, column=2, name="message")
+)
+dialog.add(
+    widget=Button(label="&Save", row=3, column=2, result="save", default=True)
+)
+dialog.add(widget=Button(label="&Discard", row=3, column=14, result="discard"))
+dialog.add(widget=Button(label="Cancel", row=3, column=26, result="cancel"))
 
-answer = manager.execute(dialog)
+answer = manager.execute(dialog=dialog)
 if answer == "save":
     save()
 elif answer == "discard":
@@ -1149,13 +1175,15 @@ be opened or saved depends on its title and on what the calling code does
 with the path.
 
 ```python
-dialog = FileDialog("Open", filters=[("Text files", "*.txt")], must_exist=True)
-if manager.execute(dialog) == "ok":
-    load(dialog.path)
+dialog = FileDialog(
+    title="Open", filters=[("Text files", "*.txt")], must_exist=True
+)
+if manager.execute(dialog=dialog) == "ok":
+    load(path=dialog.path)
 
-dialog = FileDialog("Save as", name="notes.txt")
-if manager.execute(dialog) == "ok":
-    save(dialog.path)   # ask about overwriting with confirm(), if wanted
+dialog = FileDialog(title="Save as", name="notes.txt")
+if manager.execute(dialog=dialog) == "ok":
+    save(path=dialog.path)   # ask about overwriting with confirm(), if wanted
 ```
 
 ```
@@ -1289,20 +1317,34 @@ class Hello(Application):
 
     def start(self) -> None:
         self.menus = [
-            Menu("&File", [
-                MenuItem("&New window", self.new_window),
-                MenuItem("&Close", self.close_window, enabled=self.has_window),
-                MenuItem("E&xit", self.exit),
-            ])
+            Menu(
+                title="&File",
+                items=[
+                    MenuItem(label="&New window", action=self.new_window),
+                    MenuItem(
+                        label="&Close",
+                        action=self.close_window,
+                        enabled=self.has_window,
+                    ),
+                    MenuItem(label="E&xit", action=self.exit),
+                ],
+            )
         ]
         self.new_window()
 
     def new_window(self) -> None:
-        self.open(Window("Hello", Rect(2, 2, 6, 30), ["Hello, world"], closable=True))
+        self.open(
+            window=Window(
+                title="Hello",
+                rect=Rect(row=2, column=2, height=6, width=30),
+                lines=["Hello, world"],
+                closable=True,
+            )
+        )
 
     def close_window(self) -> None:
         if self.active_window is not None:
-            self.close(self.active_window)
+            self.close(window=self.active_window)
 
 
 if __name__ == "__main__":
@@ -1788,11 +1830,15 @@ class MyApp(Application):
     help_folder = Path(__file__).parent / "help"
 
     def start(self) -> None:
-        window = Window("Details", Rect(2, 2, 12, 50), closable=True)
-        box = window.add(TextBox(1, 2, 30))
+        window = Window(
+            title="Details",
+            rect=Rect(row=2, column=2, height=12, width=50),
+            closable=True,
+        )
+        box = window.add(widget=TextBox(row=1, column=2, width=30))
         box.help = "user_name"      # help/user_name.md
         window.help = "details"     # for its other widgets
-        self.open(window)
+        self.open(window=window)
 ```
 
 Help is off by default. An application with no `help_folder`, or with no
@@ -1806,7 +1852,7 @@ the folder, without `.md`, and can name a heading too
 (`"guide/editing#saving"`). A topic with no page shows a page that says so,
 with a link to the index, so that a mistake shows and the reader is not
 stranded. `Application.show_help()` does just what F1 does, so that it can be
-given to a menu item as it is, and `show_help("topic")` goes to a topic.
+given to a menu item as it is, and `show_help(topic="topic")` goes to a topic.
 
 ### The help window
 
@@ -2006,7 +2052,7 @@ at that moment. The system menu is an ordinary `Menu`, stored in
 `PresentationManager.system_menu`, so more items can be added to it:
 
 ```python
-manager.system_menu.items.insert(0, MenuItem("&Help", show_help))
+manager.system_menu.items.insert(0, MenuItem(label="&Help", action=show_help))
 ```
 
 A window's menus are a plain list, `Window.menus`:
@@ -2015,12 +2061,15 @@ A window's menus are a plain list, `Window.menus`:
 from dasha.menu import Menu, MenuItem, separator
 
 editor.menus = [
-    Menu("&File", [
-        MenuItem("&Open...", open_file, "F3"),
-        MenuItem("&Save", save_file, "F2"),
-        separator(),
-        MenuItem("&Close", lambda: manager.remove(editor)),
-    ]),
+    Menu(
+        title="&File",
+        items=[
+            MenuItem(label="&Open...", action=open_file, shortcut="F3"),
+            MenuItem(label="&Save", action=save_file, shortcut="F2"),
+            separator(),
+            MenuItem(label="&Close", action=lambda: manager.remove(window=editor)),
+        ],
+    ),
 ]
 ```
 
@@ -2065,7 +2114,7 @@ editor.menus = [
 | A click outside every open menu | | Close them all |
 
 **Submenus.** An item can open a menu of its own instead of running an
-action: `MenuItem("&Recent", submenu=Menu("Recent", [...]))`. Such an item
+action: `MenuItem(label="&Recent", submenu=Menu(title="Recent", items=[...]))`. Such an item
 is drawn with `►` (code page 437 glyph 16) on its right, and submenus can
 have submenus of their own. A submenu opens beside its item, with its first
 item level with it. It opens to the right of its parent menu if there is
@@ -2157,8 +2206,8 @@ it: the menu bar, the focused widget, a dialog waiting for an answer, or an
 application running in its own process.
 
 ```python
-MenuItem("&Open...", open_file, "F3", "Opens a file")
-Window("Editor", rect, status="Editing notes.txt")
+MenuItem(label="&Open...", action=open_file, shortcut="F3", status="Opens a file")
+Window(title="Editor", rect=rect, status="Editing notes.txt")
 ```
 
 Status text is always **optional**. `MenuItem.status` and `Window.status`
@@ -2214,7 +2263,7 @@ exception, because its input records include key releases. The Windows
 backend turns the release of Space into `ESC [ 32 ; 1 : 3 u`
 (`ansi.SPACE_RELEASED`), which is how the kitty keyboard protocol writes a
 release, and the decoder reads that sequence (from any terminal that sends
-it) as a `KeyReleaseEvent`, in this case `KeyReleaseEvent(" ")`. Other
+it) as a `KeyReleaseEvent`, in this case `KeyReleaseEvent(key=" ")`. Other
 releases are not passed on.
 
 `Terminal.can_report_key_releases` says whether releases arrive (true on
