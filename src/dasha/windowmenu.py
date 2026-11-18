@@ -63,7 +63,7 @@ def window_menu(manager: "PresentationManager", window: Window) -> Menu:
             status="Moves this window behind all the others",
         ),
         MenuItem(
-            "&Next window",
+            "Nex&t window",
             manager.activate_next,
             hint("next_window"),
             "Brings the next window to the front",
@@ -136,7 +136,7 @@ def fill_application_window_menu(
             status="Moves this window behind all the others",
         ),
         MenuItem(
-            "&Next window",
+            "Nex&t window",
             manager.activate_next if many else None,
             hint("next_window"),
             "Brings the next window to the front",

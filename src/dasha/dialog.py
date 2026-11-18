@@ -21,7 +21,7 @@ from dasha.canvas import Canvas, Rect
 from dasha.style import BLACK, BLUE, BRIGHT_GREEN, BRIGHT_WHITE, WHITE, Style
 from dasha.border import SINGLE
 from dasha.events import MouseEvent
-from dasha.menu import Menu, MenuBar, MenuItem, mnemonic_key, split_mnemonic
+from dasha.menu import Menu, MenuBar, MenuItem, split_mnemonic, unique_mnemonics
 from dasha.shortcuts import Shortcuts
 from dasha.widgets import AutoCompleteBox, Button, Label, ListBox, Widget
 
@@ -370,14 +370,17 @@ class _MenuItems(Widget):
     def paint(self, canvas: Canvas, origin: Rect, focused: bool) -> None:
         del focused
         width = self.rect.width
-        for number, item in enumerate(self.menu.items):
+        items = self.menu.items
+        for number, (item, letter) in enumerate(
+            zip(items, unique_mnemonics(item.label for item in items))
+        ):
             row = origin.row + self.rect.row + number
             column = origin.column + self.rect.column
             if item.is_separator:
                 canvas.write(row, column, LINE * width, MenuBar.bar_style, clip=origin)
                 continue
             style, mnemonic = self._styles(number, item)
-            text, letter = split_mnemonic(item.label)
+            text = split_mnemonic(item.label)[0]
             right = (
                 "\N{BLACK RIGHT-POINTING POINTER}" if item.submenu else item.shortcut
             )
@@ -480,8 +483,8 @@ class MenuPopup(Popup):
         elif shortcuts.matches("menu_close", key):
             self.cancel()
         elif (letter := key.casefold() if len(key) == 1 else None) is not None:
-            for index, item in enumerate(items):
-                if item.is_available and mnemonic_key(item.label) == letter:
+            for index, mnemonic in enumerate(self.menu.mnemonics()):
+                if mnemonic == letter and items[index].is_available:
                     self.choose(index)
                     break
         else:

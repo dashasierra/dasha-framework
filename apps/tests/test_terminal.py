@@ -13,7 +13,7 @@ from dasha.client import colours_of
 from dasha.clipboard import CLIPBOARD
 from dasha.events import MouseEvent
 from dasha.manager import PresentationManager
-from dasha.menu import Menu, MenuItem
+from dasha.menu import Menu, MenuBar, MenuItem
 from dasha.shell import shell_command
 from dasha.shortcuts import Shortcuts
 from dasha.style import BLACK
@@ -247,6 +247,14 @@ class WindowTests(_Terminal):
 
 class MenuTests(_Terminal):
     """Send key and the Edit menu."""
+
+    def test_no_letter_is_repeated(self) -> None:
+        """No two menus on the bar, and no two items of a menu, share a
+        letter."""
+        self.launch()
+        menu_bar = MenuBar()
+        menu_bar.set_menus(self.manager.bar_menus())
+        menu_bar.check_mnemonics()
 
     def test_alt_and_a_letter(self) -> None:
         """Alt+T and Alt+E open the menus, rather than reaching the shell,

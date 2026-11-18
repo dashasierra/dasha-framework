@@ -8,14 +8,17 @@ from dasha.events import MouseEvent
 from dasha.manager import PresentationManager
 from dasha.menu import (
     SEPARATOR_LEFT,
+    DuplicateMnemonicError,
     Menu,
     MenuBar,
     MenuItem,
     mnemonic_key,
     separator,
     split_mnemonic,
+    unique_mnemonics,
 )
 from dasha.window import Window
+from tests.hosted_apps import Hello, Helpful
 
 
 class MnemonicTests(unittest.TestCase):
@@ -32,6 +35,129 @@ class MnemonicTests(unittest.TestCase):
         """The mnemonic letter is lower-cased."""
         self.assertEqual(mnemonic_key("E&Xit"), "x")
         self.assertIsNone(mnemonic_key("Exit"))
+
+
+class DuplicateMnemonicTests(unittest.TestCase):
+    """Two items, or two menu titles, marking the same letter: the first
+    keeps it, and the others are treated as having none."""
+
+    def setUp(self) -> None:
+        self.chosen: list[str] = []
+        self.themes = Menu(
+            "&Themes",
+            [
+                MenuItem("&Default", lambda: self.chosen.append("default")),
+                MenuItem("&Dark", lambda: self.chosen.append("dark")),
+                separator(),
+                MenuItem("&Monochrome", lambda: self.chosen.append("mono")),
+            ],
+        )
+        self.menu_bar = MenuBar()
+        self.menu_bar.set_menus([self.themes])
+
+    def test_first_label_keeps_the_letter(self) -> None:
+        """In either case; labels without one, and separators, stay without."""
+        self.assertEqual(
+            unique_mnemonics(["&Default", "&dark", "", "Plain", "&Monochrome"]),
+            [0, None, None, None, 0],
+        )
+        self.assertEqual(self.themes.mnemonics(), ["d", None, None, "m"])
+
+    def test_strict(self) -> None:
+        """Strictly, a repeated letter is an error naming both labels."""
+        with self.assertRaisesRegex(DuplicateMnemonicError, "'&Dark'.*'&Default'"):
+            unique_mnemonics(["&Default", "&Dark"], strict=True)
+        self.assertIsInstance(DuplicateMnemonicError(), ValueError)
+        self.assertEqual(unique_mnemonics(["&A", "&B"], strict=True), [0, 0])
+
+    def test_check_mnemonics(self) -> None:
+        """A menu checks its own items and, separately, its submenus'."""
+        with self.assertRaises(DuplicateMnemonicError):
+            self.themes.check_mnemonics()
+        submenu = Menu("Sub", [MenuItem("&One", print), MenuItem("&Other", print)])
+        menu = Menu("&Menu", [MenuItem("&Open", submenu=submenu)])
+        with self.assertRaises(DuplicateMnemonicError):
+            menu.check_mnemonics()
+        submenu.items[1].label = "O&ther"
+        menu.check_mnemonics()  # O in the menu and in its submenu is fine
+        submenu.items.append(MenuItem("&Back", submenu=menu))
+        menu.check_mnemonics()  # a menu that is its own submenu, somewhere
+
+    def test_the_letter_chooses_the_first(self) -> None:
+        """D chooses Default, never Dark."""
+        self.menu_bar.open(0)
+        self.menu_bar.handle_key("d")
+        self.assertEqual(self.chosen, ["default"])
+
+    def test_a_disabled_first_does_not_pass_it_on(self) -> None:
+        """With the first greyed out, the letter does nothing, rather than
+        choosing the later item whose letter is not shown."""
+        self.themes.items[0].action = None
+        self.menu_bar.open(0)
+        self.menu_bar.handle_key("d")
+        self.assertEqual(self.chosen, [])
+        self.assertTrue(self.menu_bar.is_open)
+
+    def test_only_the_first_letter_is_highlighted(self) -> None:
+        """D is lit in Default, and not in Dark."""
+        canvas = Canvas(30, 8)
+        self.menu_bar.open(0)
+        self.menu_bar.handle_key("down")  # Dark highlighted, Default not
+        self.menu_bar.paint(canvas)
+        self.assertEqual(canvas.cell(2, 3), ("D", self.menu_bar.mnemonic_style))
+        self.assertEqual(canvas.cell(3, 3), ("D", self.menu_bar.selected_style))
+        self.assertEqual(canvas.cell(5, 3), ("M", self.menu_bar.mnemonic_style))
+
+    def test_check_the_bar(self) -> None:
+        """The bar checks its titles, and each menu's items, filled in by
+        ``on_open`` first."""
+        self.menu_bar.set_menus([Menu("&File"), Menu("&Format")])
+        with self.assertRaisesRegex(DuplicateMnemonicError, "&Format"):
+            self.menu_bar.check_mnemonics()
+
+        def fill(menu: Menu) -> None:
+            menu.items = [MenuItem("&Default", print), MenuItem("&Dark", print)]
+
+        self.menu_bar.set_menus([Menu("&Themes", on_open=fill)])
+        with self.assertRaisesRegex(DuplicateMnemonicError, "&Dark"):
+            self.menu_bar.check_mnemonics()
+
+    def test_menu_titles(self) -> None:
+        """On the bar too: Alt+F opens the first F menu, and only its F is
+        lit, even with that menu inert."""
+        file, form = Menu("&File", [MenuItem("&New", print)]), Menu("&Format")
+        self.menu_bar.set_menus([file, form])
+        self.menu_bar.handle_key("alt+f")
+        self.assertIs(self.menu_bar.open_menu, file)
+        canvas = Canvas(30, 8)
+        self.menu_bar.paint(canvas)
+        self.assertEqual(canvas.cell(0, 8), ("F", self.menu_bar.bar_style))
+        self.menu_bar.handle_key("escape")
+        self.menu_bar.set_menus([file, form], inert=[0])
+        self.assertFalse(self.menu_bar.handle_key("alt+f"))
+        self.assertFalse(self.menu_bar.is_open)
+
+
+class BuiltInMenusTests(unittest.TestCase):
+    """Dasha Framework's own menus never repeat a letter."""
+
+    def test_the_desktops_menus(self) -> None:
+        """The system menu (with Themes, and running applications listed),
+        an application's Window menu, and the bar with a window of no
+        application's in front."""
+        manager = PresentationManager()
+        manager.handle_resize(80, 24)
+        manager.launch(Hello)
+        manager.launch(Helpful)
+        menu_bar = MenuBar()
+        menu_bar.set_menus(manager.bar_menus())
+        self.assertIn("&Window", [menu.title for menu in menu_bar.menus])
+        menu_bar.check_mnemonics()
+        lone = PresentationManager()
+        lone.handle_resize(80, 24)
+        lone.add(Window("Lone", Rect(2, 2, 6, 20)))
+        menu_bar.set_menus(lone.bar_menus())
+        menu_bar.check_mnemonics()
 
 
 class MenuBarTests(unittest.TestCase):

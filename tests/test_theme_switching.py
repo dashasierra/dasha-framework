@@ -178,7 +178,7 @@ class MenuTests(Folder):
         manager = self.desktop()
         labels = [item.label for item in self.themes(manager).items]
         self.assertEqual(
-            labels, ["\N{SQUARE ROOT} &Default", "  &Dark", "  &Monochrome", "  ocean"]
+            labels, ["\N{SQUARE ROOT} &Default", "  D&ark", "  &Monochrome", "  ocean"]
         )
         self.write("forest", {})
         manager.set_theme("ocean")
@@ -189,14 +189,27 @@ class MenuTests(Folder):
         """Choosing an item changes the theme, through the menu bar too."""
         manager = self.desktop()
         menu = self.themes(manager)
-        dark = next(item for item in menu.items if "Dark" in item.label)
+        dark = next(item for item in menu.items if "D&ark" in item.label)
         assert dark.action is not None
         dark.action()
         self.assertEqual(manager.theme_name, "dark")
         manager.handle_event("f10")
         for key in ("down", "down", "right"):  # Themes, opened by the menu bar
             manager.handle_event(key)
-        self.assertIn("\N{SQUARE ROOT} &Dark", [i.label for i in menu.items])
+        self.assertIn("\N{SQUARE ROOT} D&ark", [i.label for i in menu.items])
+
+    def test_each_has_a_letter_of_its_own(self) -> None:
+        """Default and Dark do not share D: Dark has A, and no two items
+        share a letter, with the colours file and a theme file named after
+        a letter there too."""
+        manager = self.desktop()
+        assert manager.colours_path is not None
+        manager.colours_path.write_text(json.dumps(OCEAN), encoding="utf-8")
+        self.write("&a", {})
+        menu = self.themes(manager)
+        menu.check_mnemonics()
+        self.assertEqual(menu.mnemonics(), ["d", "a", "m", None, None, None, "c"])
+        self.assertEqual(menu.items[3].label, "  &&a")
 
     def test_the_colours_file(self) -> None:
         """Offered while there is one: choosing it uses it, and forgets the

@@ -2036,7 +2036,15 @@ editor.menus = [
   never count as shortcuts, because they are used for typing and for
   choosing items by their letters.
 - **Mnemonics.** `&` marks a mnemonic letter, which is drawn in a highlight
-  colour. Write `&&` for a literal ampersand.
+  colour. Write `&&` for a literal ampersand. A letter belongs to one item
+  of a menu (and to one title on the bar): if a later item marks the same
+  letter, in either case, the first keeps it and the later one is drawn
+  and treated as having no letter, so pressing the letter never depends on
+  which item is greyed out. `Menu.mnemonics()` gives each item's letter as
+  it works. `Menu.check_mnemonics()` and `MenuBar.check_mnemonics()` raise
+  `DuplicateMnemonicError` (a `ValueError`) instead, so a test can catch
+  the mistake; Dasha Framework's tests check its own menus, and the
+  example applications', this way.
 
 | Input | Menu closed | Menu open |
 | --- | --- | --- |

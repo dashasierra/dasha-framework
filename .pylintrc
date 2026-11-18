@@ -29,6 +29,7 @@ max-args = 10
 # The window and presentation manager classes are the framework's hubs.
 max-attributes = 16
 max-public-methods = 45
+max-locals = 20
 # ctypes structures mirror C structs and have no methods of their own.
 exclude-too-few-public-methods = .*ctypes.*Structure,
                                  .*ctypes.*Union
