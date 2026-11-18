@@ -23,6 +23,10 @@ the menu bar.
 
 **How it works.**
 
+- **The imports** at the top bring in what the program uses from Dasha
+  Framework: `Application` from `dasha.application`, and `Menu` and
+  `MenuItem` from `dasha.menu`. Each step from here on says which imports it
+  adds, and where they come from.
 - **`name`** is the name Dasha Framework uses for the application: on the status
   bar, in messages, and later on in the desktop's Applications menu.
 - **`menus`** is the application's menu bar: a list of
