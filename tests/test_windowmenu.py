@@ -51,7 +51,7 @@ class WindowMenuTests(unittest.TestCase):
                 "&Move",
                 "&Size",
                 "Send to &back",
-                "&Next window",
+                "Nex&t window",
                 "&Close",
             ],
         )
@@ -76,7 +76,7 @@ class WindowMenuTests(unittest.TestCase):
         self.assertFalse(self.window.maximised)
         self.choose(menu, "Send to &back")
         self.assertIs(self.manager.windows[0], self.window)
-        self.choose(menu, "&Next window")
+        self.choose(menu, "Nex&t window")
         self.assertIs(self.manager.windows[-1], self.window)
         self.choose(menu, "Mi&nimise")
         self.assertIn(self.window, self.manager.minimised)

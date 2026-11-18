@@ -355,7 +355,7 @@ class WindowMenuTests(Desktop):
         self.assertEqual(
             labels(self.window_menu()),
             ["Ma&ximise / restore", "Mi&nimise", "&Move", "&Size", "",
-             "Send to &back", "&Next window", "", "&Close", "",
+             "Send to &back", "Nex&t window", "", "&Close", "",
              "&1 First", "&2 Second"],
         )  # fmt: skip
         maximise, minimise, move, size = self.window_menu().items[:4]

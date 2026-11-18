@@ -7,6 +7,7 @@ import unittest
 from unittest import mock
 
 from dasha.canvas import Canvas
+from dasha.menu import MenuBar
 
 from notepad import MODIFIED, Notepad, NotepadWindow
 from tests.support import Scripted, run
@@ -322,6 +323,14 @@ class DisplayTests(_Notepad):
 
 class MenuTests(_Notepad):
     """Notepad's Edit and Format menus."""
+
+    def test_no_letter_is_repeated(self) -> None:
+        """No two menus on the bar, and no two items of a menu, share a
+        letter."""
+        self.launch(self.notes)
+        bar = MenuBar()
+        bar.set_menus(self.manager.bar_menus())
+        bar.check_mnemonics()
 
     def test_insert_needs_a_window(self) -> None:
         """Edit > Insert, and everything in it, greyed out with no file open."""

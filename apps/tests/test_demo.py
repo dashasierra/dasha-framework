@@ -15,6 +15,7 @@ from dasha.help import (
 )
 from dasha.manager import PresentationManager
 from dasha.markdown import lay_out, parse
+from dasha.menu import MenuBar
 from dasha.shortcuts import Shortcuts
 from dasha.canvas import Rect
 from dasha.widgets import (
@@ -70,6 +71,13 @@ class DemoTests(unittest.TestCase):
     def titles(self) -> list[str]:
         """The demo's windows' titles."""
         return [window.title for window in self.demo.windows]
+
+    def test_no_letter_is_repeated(self) -> None:
+        """No two menus on the bar, and no two items of a menu, share a
+        letter."""
+        bar = MenuBar()
+        bar.set_menus(self.manager.bar_menus())
+        bar.check_mnemonics()
 
     def test_windows(self) -> None:
         """It starts with its three windows, Widgets in front."""

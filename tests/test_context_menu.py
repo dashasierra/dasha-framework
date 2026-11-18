@@ -207,6 +207,23 @@ class ContextMenuTests(unittest.TestCase):
         popup.status = "ignored"
         self.assertEqual(popup.status, "First")
 
+    def test_a_repeated_letter(self) -> None:
+        """Two items marking the same letter: the first keeps it, lit and
+        chosen by it; the second's is not lit."""
+        menu = Menu(
+            "",
+            [MenuItem("&Default", lambda: None), MenuItem("&Dark", lambda: None)],
+        )
+        popup = MenuPopup(menu)
+        popup.move_to(0, 0)
+        canvas = Canvas(30, 8)
+        popup.paint(canvas, active=True)
+        self.assertEqual(canvas.cell(1, 2), ("D", MenuBar.selected_mnemonic_style))
+        self.assertEqual(canvas.cell(2, 2), ("D", MenuBar.bar_style))
+        popup.items.move(1)  # Dark highlighted
+        self.assertTrue(popup.handle_key("d", Shortcuts()))
+        self.assertIs(popup.chosen, menu.items[0])
+
     def test_not_running(self) -> None:
         """With no running manager, nothing pops up."""
         manager = PresentationManager()
