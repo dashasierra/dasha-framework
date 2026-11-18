@@ -213,6 +213,21 @@ class MenuBarTests(unittest.TestCase):
         self.menu_bar.handle_key("left")
         self.assertIs(self.menu_bar.open_menu, self.help)
 
+    def test_left_and_right_with_one_menu(self) -> None:
+        """With no other menu on the bar and no submenu, Left and Right do
+        nothing: the highlight stays where it is, and ``on_open`` is not run
+        again."""
+        opened: list[Menu] = []
+        self.file.on_open = opened.append
+        self.menu_bar.set_menus(menus=[self.file])
+        self.menu_bar.open(index=0)
+        self.menu_bar.handle_key(key="down")  # Exit
+        for key in ("right", "left"):
+            self.assertTrue(self.menu_bar.handle_key(key=key))
+            self.assertIs(self.menu_bar.open_menu, self.file)
+            self.assertEqual(self.menu_bar.highlighted, self.file.items[3])
+        self.assertEqual(opened, [self.file])
+
     def test_enter_and_mnemonic_choose_items(self) -> None:
         """Enter chooses the highlighted item; a letter chooses by mnemonic."""
         self.menu_bar.open(0)

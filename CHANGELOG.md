@@ -10,6 +10,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - In the system menu's Themes, Default and Dark both had D as their letter, so pressing D could only ever choose Default. Dark now has A (D&ark). Each built-in theme takes the first letter of its name that no theme before it has, and C is kept for Colours file.
 - In the Window menu, Minimise and Next window both had N, so Next window could not be chosen by its letter. Next window now has T (Nex&t window).
+- With a menu open, pressing Right on an item with no submenu, or Left in the drop-down, when there is no other menu on the bar to go to (such as the system menu on a desktop with no applications running, or when the other menus are inert behind a dialog), opened the same menu again, sending the highlight back to its first item. Now nothing happens, and the highlight stays where it was.
 
 ### Changed
 

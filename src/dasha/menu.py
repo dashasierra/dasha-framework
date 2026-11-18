@@ -306,13 +306,7 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         inert menu is not opened; with ``step`` (1 or -1, for moving along
         the bar), the next menu in that direction that is not inert is
         opened instead."""
-        count = len(self.menus)
-        index %= count
-        if step:
-            for _ in range(count):
-                if index not in self.inert:
-                    break
-                index = (index + step) % count
+        index = self._not_inert(index, step)
         if index in self.inert:
             return
         self._open = index
@@ -321,6 +315,29 @@ class MenuBar:  # pylint: disable=too-many-public-methods
             menu.on_open(menu)
         self._levels = [_Level(menu)]
         self._move_highlight(1)  # to the first item that can be chosen
+
+    def _not_inert(self, index: int, step: int) -> int:
+        """``index`` on the bar, wrapped round; with ``step`` (1 or -1), the
+        first menu from there in that direction that is not inert. If every
+        menu is inert, the result is one of them."""
+        count = len(self.menus)
+        index %= count
+        if step:
+            for _ in range(count):
+                if index not in self.inert:
+                    break
+                index = (index + step) % count
+        return index
+
+    def _step_along_bar(self, step: int) -> None:
+        """Open the next menu along the bar in the direction of ``step`` (1
+        or -1) that is not inert, wrapping round. If that is the open menu
+        itself, because no other can be opened, it is left as it is, its
+        highlight where it was."""
+        assert self._open is not None
+        index = self._not_inert(self._open + step, step)
+        if index != self._open:
+            self.open(index)
 
     def close(self) -> None:
         """Close any open drop-down, along with its submenus."""
@@ -620,7 +637,8 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         """The keys that move about the open menus; whether ``key`` was one.
         Escape and Left go back a submenu at a time (Left, from the
         drop-down, to the menu before); Right opens a submenu, or the next
-        menu; F10 closes them all."""
+        menu. With no other menu to go to, Left and Right do nothing. F10
+        closes them all."""
         assert self._open is not None
         shortcuts = self.shortcuts
         if shortcuts.matches("open_menu", key):
@@ -630,10 +648,10 @@ class MenuBar:  # pylint: disable=too-many-public-methods
                 self.close()
         elif shortcuts.matches("menu_left", key):
             if not self.close_submenu():
-                self.open(self._open - 1, step=-1)
+                self._step_along_bar(-1)
         elif shortcuts.matches("menu_right", key):
             if not self.open_submenu():
-                self.open(self._open + 1, step=1)
+                self._step_along_bar(1)
         elif shortcuts.matches("menu_up", key):
             self._move_highlight(-1)
         elif shortcuts.matches("menu_down", key):
