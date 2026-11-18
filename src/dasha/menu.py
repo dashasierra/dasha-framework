@@ -43,6 +43,49 @@ def mnemonic_key(label: str) -> str | None:
     return None if index is None else text[index].lower()
 
 
+class DuplicateMnemonicError(ValueError):
+    """Two items of one menu, or two titles on the menu bar, mark the same
+    mnemonic letter (raised by ``Menu.check_mnemonics`` and
+    ``unique_mnemonics(..., strict=True)``)."""
+
+
+def unique_mnemonics(
+    labels: Iterable[str], *, strict: bool = False
+) -> list[int | None]:
+    """Where each label's mnemonic letter is, as ``split_mnemonic`` gives it,
+    except that a letter can only be used once: the first label to mark it
+    keeps it, and any later label marking the same letter (in either case)
+    is treated as having none, so its letter is neither highlighted nor
+    pressed. With ``strict``, a repeated letter raises
+    ``DuplicateMnemonicError`` instead."""
+    owners: dict[str, str] = {}
+    positions: list[int | None] = []
+    for label in labels:
+        text, index = split_mnemonic(label)
+        if index is not None:
+            letter = text[index].lower()
+            if letter not in owners:
+                owners[letter] = label
+            elif strict:
+                raise DuplicateMnemonicError(
+                    f"{label!r} marks the mnemonic {letter!r},"
+                    f" which {owners[letter]!r} already has"
+                )
+            else:
+                index = None
+        positions.append(index)
+    return positions
+
+
+def _letters(labels: Sequence[str]) -> list[str | None]:
+    """Each label's mnemonic letter, in lower case, as ``unique_mnemonics``
+    leaves them: ``None`` for a label with none, or with a repeated one."""
+    return [
+        None if index is None else split_mnemonic(label)[0][index].lower()
+        for label, index in zip(labels, unique_mnemonics(labels))
+    ]
+
+
 SUBMENU_MARK = "\N{BLACK RIGHT-POINTING POINTER}"
 """``►`` (code page 437 glyph 16), shown on the right of an item that has
 a submenu."""
@@ -97,6 +140,12 @@ class Menu:
 
     ``items`` is an ordinary list, so items can be added or removed at any
     time.
+
+    Each mnemonic letter belongs to one item: if two items mark the same
+    letter, the first keeps it and the later one is shown and treated as
+    if it had none (``mnemonics``). ``check_mnemonics`` raises
+    ``DuplicateMnemonicError`` instead, for catching such a mistake in a
+    test.
     """
 
     title: str
@@ -113,6 +162,30 @@ class Menu:
     """Whether the menu bar shows this menu, one of an application's
     ``menus``, after the Window menu that Dasha Framework adds, rather than before
     it, as a Help menu usually is."""
+
+    def mnemonics(self) -> list[str | None]:
+        """Each item's mnemonic letter, in lower case, in the order of
+        ``items``: ``None`` for an item (or separator) without one, and for
+        an item whose letter an earlier item already has."""
+        return _letters([item.label for item in self.items])
+
+    def check_mnemonics(self) -> None:
+        """Raise ``DuplicateMnemonicError`` if two of the items mark the
+        same mnemonic letter, in this menu or in any submenu opened from it
+        (each submenu is checked on its own, since its letters only work
+        while it is open). Each menu's ``on_open`` is called first, so that
+        items it fills in are checked as they would be shown."""
+        seen: set[int] = set()
+        pending: list[Menu] = [self]
+        while pending:
+            menu = pending.pop()
+            if id(menu) in seen:
+                continue  # a menu that is its own submenu, somewhere
+            seen.add(id(menu))
+            if menu.on_open is not None:
+                menu.on_open(menu)
+            unique_mnemonics((item.label for item in menu.items), strict=True)
+            pending += [item.submenu for item in menu.items if item.submenu]
 
 
 @dataclass
@@ -186,6 +259,15 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         self.inert = frozenset(inert)
         if self._open is not None and self._open in self.inert:
             self.close()
+
+    def check_mnemonics(self) -> None:
+        """Raise ``DuplicateMnemonicError`` if two menu titles on the bar
+        mark the same letter, or if any of the menus fails
+        ``Menu.check_mnemonics``. Shown as they are, a repeated letter goes
+        to the first title or item with it, and the others have none."""
+        unique_mnemonics((menu.title for menu in self.menus), strict=True)
+        for menu in self.menus:
+            menu.check_mnemonics()
 
     @property
     def is_open(self) -> bool:
@@ -382,9 +464,11 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         column: int,
         label: str,
         styles: tuple[Style, Style],
+        mnemonic: int | None,
     ) -> None:
-        """Write a label, its mnemonic letter in the second style."""
-        text, mnemonic = split_mnemonic(label)
+        """Write a label, its mnemonic letter (at ``mnemonic``, as
+        ``unique_mnemonics`` gives it) in the second style."""
+        text = split_mnemonic(label)[0]
         canvas.write(row, column, text, styles[0])
         if mnemonic is not None:
             canvas.write(row, column + mnemonic, text[mnemonic], styles[1])
@@ -417,13 +501,16 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         fraction of it has come out from under the bar, and its submenus are
         not drawn yet."""
         canvas.fill(Rect(0, 0, 1, canvas.width), " ", self.bar_style)
+        letters = unique_mnemonics(menu.title for menu in self.menus)
         for index, (menu, span) in enumerate(zip(self.menus, self.title_spans)):
             if index == self._open:
                 styles = (self.selected_style, self.selected_mnemonic_style)
             else:
                 styles = (self.bar_style, self.mnemonic_style)
             canvas.fill(span, " ", styles[0])
-            self._write_label(canvas, 0, span.column + 1, menu.title, styles)
+            self._write_label(
+                canvas, 0, span.column + 1, menu.title, styles, letters[index]
+            )
         below_bar = Rect(1, 0, canvas.height - 1, canvas.width)
         for depth, rect in enumerate(self._shown_rects(canvas, shown)):
             if depth > 0 and self.shadow_style is not None:
@@ -466,6 +553,7 @@ class MenuBar:  # pylint: disable=too-many-public-methods
             )
 
         frame_row(rect.row, border.top_left, border.horizontal, border.top_right)
+        letters = unique_mnemonics(item.label for item in level.menu.items)
         for offset, item in enumerate(level.menu.items):
             row = rect.row + 1 + offset
             if item.is_separator:
@@ -479,7 +567,9 @@ class MenuBar:  # pylint: disable=too-many-public-methods
                 styles = (self.disabled_style, self.disabled_style)
             frame_row(row, border.vertical, " ", border.vertical)
             canvas.fill(Rect(row, left + 1, 1, inner), " ", styles[0])
-            self._write_label(canvas, row, left + 2, item.label, styles)
+            self._write_label(
+                canvas, row, left + 2, item.label, styles, letters[offset]
+            )
             right = SUBMENU_MARK if item.submenu is not None else item.shortcut
             if right:
                 canvas.write(row, left + inner - len(right), right, styles[0])
@@ -490,9 +580,11 @@ class MenuBar:  # pylint: disable=too-many-public-methods
     # Input
 
     def _menu_for_mnemonic(self, letter: str) -> int | None:
-        for index, menu in enumerate(self.menus):
-            if index not in self.inert and mnemonic_key(menu.title) == letter:
-                return index
+        """The menu on the bar with this letter, if any (only the first
+        title to mark a letter has it), unless that menu is inert."""
+        letters = _letters([menu.title for menu in self.menus])
+        if letter in letters and letters.index(letter) not in self.inert:
+            return letters.index(letter)
         return None
 
     def _mnemonic_menu(self, key: str) -> int | None:
@@ -569,11 +661,13 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         """A plain letter while menus are open: the innermost open submenu
         with an enabled item of that letter wins, then each menu out from
         it, then a menu on the bar with that letter. Submenus that are not
-        showing do not count, nor do disabled items; otherwise the letter is
+        showing do not count, nor do disabled items, nor items whose letter
+        an earlier item in the same menu already has; otherwise the letter is
         ignored."""
         for depth in range(len(self._levels) - 1, -1, -1):
-            for index, item in enumerate(self._levels[depth].menu.items):
-                if item.is_available and mnemonic_key(item.label) == letter:
+            menu = self._levels[depth].menu
+            for index, mnemonic in enumerate(menu.mnemonics()):
+                if mnemonic == letter and menu.items[index].is_available:
                     self._activate(depth, index)
                     return
         bar_index = self._menu_for_mnemonic(letter)
