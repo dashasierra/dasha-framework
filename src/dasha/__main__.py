@@ -53,9 +53,9 @@ def _desktop(  # pylint: disable=too-many-arguments
 
     ``alone`` runs just the named applications, as each would run on its
     own (``PresentationManager.stand_alone``): no system menu, and it ends
-    when they do. ``dasha notepad`` is so the same as running Notepad's
-    script, and ``dasha desktop notepad`` (or ``dasha-desktop notepad``) the
-    desktop with Notepad on it.
+    when they do. So ``dasha notepad`` is the same as running Notepad's
+    script, and ``dasha desktop notepad`` (or ``dasha-desktop notepad``) is
+    the desktop with Notepad on it.
 
     ``paths`` are the shortcuts file and the colours file, to which
     Settings... saves (by default, ``~/.dasha/shortcuts.json`` and
@@ -113,14 +113,14 @@ def _find(name: str, entries: dict[str, AppEntry]) -> list[str]:
 def _startup(
     names: Sequence[str], *, desktop: bool = False
 ) -> tuple[dict[str, AppEntry], list[str]] | None:
-    """The applications Dasha Framework knows, and the ids of those to start: the
-    ones named, by id or by name (``_find``), and, for the ``desktop``,
-    first those ``autostart`` in the settings (an application both named
-    and autostart's is started once). Problems with manifests are reported
-    and those left out; an unknown name, one that more than one application
-    has, or a settings file that cannot be read, is reported and gives
-    ``None``; as is starting inside the command prompt of a desktop already
-    running (see ``dasha.shell``)."""
+    """The applications Dasha Framework knows, and the ids of those to start:
+    the ones named, by id or by name (``_find``), and, for the ``desktop``,
+    first those listed in ``autostart`` in the settings (an application
+    that is both named and listed there is started once). Manifests with
+    problems are reported and left out. An unknown name, a name that more
+    than one application has, or a settings file that cannot be read is
+    reported and gives ``None``, as does starting inside the command prompt
+    of a desktop that is already running (see ``dasha.shell``)."""
     if os.environ.get(shell.SUSPENDED_VARIABLE):
         say(
             "dasha: Dasha Framework is already running in this terminal; "
@@ -332,10 +332,10 @@ def _load_colours(  # pylint: disable=too-many-return-statements
 
     ``--monochrome``, or a terminal with no colours, comes first, and is the
     Monochrome theme exactly, as the Themes menu gives it: a colours file's
-    changes are left out, as they may well add colours. Then ``--colours``,
-    then the theme last
-    chosen from the system menu (``theme`` in the settings), then the
-    colours file, then the default theme (or ``NO_COLOR``'s monochrome)."""
+    changes are left out, as they may well add colours. Then come the file
+    given with ``--colours``, the theme last chosen from the system menu
+    (``theme`` in the settings), the colours file, and finally the default
+    theme (or, with ``NO_COLOR``, the Monochrome theme)."""
     if explicit and not path.exists():
         say(f"dasha: colours file {path} does not exist", file=sys.stderr)
         return None
