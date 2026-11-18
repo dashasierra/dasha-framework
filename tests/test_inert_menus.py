@@ -54,6 +54,18 @@ class MenuBarTests(unittest.TestCase):
         self.menu_bar.handle_key(key="e")  # Edit's letter, with a menu open
         self.assertIs(self.menu_bar.open_menu, self.first)
 
+    def test_right_and_left_keep_the_highlight(self) -> None:
+        """With every other menu inert, Right and Left leave the open menu
+        as it is, rather than opening it again at its first item."""
+        say = self.chosen.append
+        self.first.items.append(MenuItem(label="&Stop", action=lambda: say("stop")))
+        self.menu_bar.handle_key(key="f10")
+        self.menu_bar.handle_key(key="down")
+        self.menu_bar.handle_key(key="right")
+        self.assertIs(self.menu_bar.highlighted, self.first.items[1])
+        self.menu_bar.handle_key(key="left")
+        self.assertIs(self.menu_bar.highlighted, self.first.items[1])
+
     def test_clicks_do_not_open_them(self) -> None:
         """A click on an inert title, or moving over one, opens nothing."""
         file_title = self.menu_bar.title_spans[1]
