@@ -54,8 +54,11 @@ class MouseEvent:
     row: int
     column: int
     shift: bool = False
+    """Whether Shift was held down."""
     alt: bool = False
+    """Whether Alt was held down."""
     ctrl: bool = False
+    """Whether Ctrl was held down."""
     clicks: int = 1
     """For a press, 2 for the second press of a double-click, 3 for a
     triple-click, and so on. The presentation manager counts these clicks,
