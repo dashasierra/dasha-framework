@@ -220,7 +220,7 @@ class Style:
     module), which work on practically every terminal, and colours 16 to 255
     use the 256-colour palette. An ``Rgb`` colour is a 24-bit colour, drawn
     as the nearest 256-palette colour where the terminal cannot show it.
-    Where the terminal has only 16 colours (``set_colour_depth("16")``),
+    Where the terminal has only 16 colours (``set_colour_depth(depth="16")``),
     every colour is drawn as the nearest of those.
     Bold, underline and reverse need no colour support at all, which is what
     the monochrome theme relies on. Under a theme with no colours, colours
