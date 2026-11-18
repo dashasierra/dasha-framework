@@ -149,15 +149,15 @@ class BuiltInMenusTests(unittest.TestCase):
         manager.handle_resize(80, 24)
         manager.launch(Hello)
         manager.launch(Helpful)
-        bar = MenuBar()
-        bar.set_menus(manager.bar_menus())
-        self.assertIn("&Window", [menu.title for menu in bar.menus])
-        bar.check_mnemonics()
+        menu_bar = MenuBar()
+        menu_bar.set_menus(manager.bar_menus())
+        self.assertIn("&Window", [menu.title for menu in menu_bar.menus])
+        menu_bar.check_mnemonics()
         lone = PresentationManager()
         lone.handle_resize(80, 24)
         lone.add(Window("Lone", Rect(2, 2, 6, 20)))
-        bar.set_menus(lone.bar_menus())
-        bar.check_mnemonics()
+        menu_bar.set_menus(lone.bar_menus())
+        menu_bar.check_mnemonics()
 
 
 class MenuBarTests(unittest.TestCase):

@@ -464,6 +464,7 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         column: int,
         label: str,
         styles: tuple[Style, Style],
+        *,
         mnemonic: int | None,
     ) -> None:
         """Write a label, its mnemonic letter (at ``mnemonic``, as
@@ -509,7 +510,7 @@ class MenuBar:  # pylint: disable=too-many-public-methods
                 styles = (self.bar_style, self.mnemonic_style)
             canvas.fill(span, " ", styles[0])
             self._write_label(
-                canvas, 0, span.column + 1, menu.title, styles, letters[index]
+                canvas, 0, span.column + 1, menu.title, styles, mnemonic=letters[index]
             )
         below_bar = Rect(1, 0, canvas.height - 1, canvas.width)
         for depth, rect in enumerate(self._shown_rects(canvas, shown)):
@@ -539,7 +540,7 @@ class MenuBar:  # pylint: disable=too-many-public-methods
             )
 
     def _paint_level(self, canvas: Canvas, level: _Level, rect: Rect) -> None:
-        border, style = self.border, self.bar_style
+        border = self.border
         pad = " " * self.frame_padding
         left = rect.column + self.frame_padding  # where the frame starts
         inner = rect.width - 2 - 2 * self.frame_padding
@@ -549,7 +550,7 @@ class MenuBar:  # pylint: disable=too-many-public-methods
                 row,
                 rect.column,
                 pad + left_char + fill * inner + right_char + pad,
-                style,
+                self.bar_style,
             )
 
         frame_row(rect.row, border.top_left, border.horizontal, border.top_right)
@@ -568,7 +569,7 @@ class MenuBar:  # pylint: disable=too-many-public-methods
             frame_row(row, border.vertical, " ", border.vertical)
             canvas.fill(Rect(row, left + 1, 1, inner), " ", styles[0])
             self._write_label(
-                canvas, row, left + 2, item.label, styles, letters[offset]
+                canvas, row, left + 2, item.label, styles, mnemonic=letters[offset]
             )
             right = SUBMENU_MARK if item.submenu is not None else item.shortcut
             if right:

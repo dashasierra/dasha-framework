@@ -75,9 +75,9 @@ class DemoTests(unittest.TestCase):
     def test_no_letter_is_repeated(self) -> None:
         """No two menus on the bar, and no two items of a menu, share a
         letter."""
-        bar = MenuBar()
-        bar.set_menus(self.manager.bar_menus())
-        bar.check_mnemonics()
+        menu_bar = MenuBar()
+        menu_bar.set_menus(self.manager.bar_menus())
+        menu_bar.check_mnemonics()
 
     def test_windows(self) -> None:
         """It starts with its three windows, Widgets in front."""

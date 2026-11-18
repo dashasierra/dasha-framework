@@ -252,9 +252,9 @@ class MenuTests(_Terminal):
         """No two menus on the bar, and no two items of a menu, share a
         letter."""
         self.launch()
-        bar = MenuBar()
-        bar.set_menus(self.manager.bar_menus())
-        bar.check_mnemonics()
+        menu_bar = MenuBar()
+        menu_bar.set_menus(self.manager.bar_menus())
+        menu_bar.check_mnemonics()
 
     def test_alt_and_a_letter(self) -> None:
         """Alt+T and Alt+E open the menus, rather than reaching the shell,

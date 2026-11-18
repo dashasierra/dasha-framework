@@ -370,15 +370,17 @@ class _MenuItems(Widget):
     def paint(self, canvas: Canvas, origin: Rect, focused: bool) -> None:
         del focused
         width = self.rect.width
-        letters = unique_mnemonics(item.label for item in self.menu.items)
-        for number, item in enumerate(self.menu.items):
+        items = self.menu.items
+        for number, (item, letter) in enumerate(
+            zip(items, unique_mnemonics(item.label for item in items))
+        ):
             row = origin.row + self.rect.row + number
             column = origin.column + self.rect.column
             if item.is_separator:
                 canvas.write(row, column, LINE * width, MenuBar.bar_style, clip=origin)
                 continue
             style, mnemonic = self._styles(number, item)
-            text, letter = split_mnemonic(item.label)[0], letters[number]
+            text = split_mnemonic(item.label)[0]
             right = (
                 "\N{BLACK RIGHT-POINTING POINTER}" if item.submenu else item.shortcut
             )
