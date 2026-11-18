@@ -11,9 +11,11 @@ understands, and ignores anything else; a text box, for example, accepts
 
     from dasha.clipboard import CLIPBOARD, ClipboardItem
 
-    CLIPBOARD.copy_text("hello")
+    CLIPBOARD.copy_text(text="hello")
     CLIPBOARD.text                        # "hello"
-    CLIPBOARD.copy(ClipboardItem("application/octet-stream", b"\\x00\\x01"))
+    CLIPBOARD.copy(
+        item=ClipboardItem(type="application/octet-stream", data=b"\\x00\\x01")
+    )
     CLIPBOARD.text                        # None: not text any more
 
 This is Dasha Framework's own clipboard, not the operating system's, which a
