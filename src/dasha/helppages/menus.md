@@ -17,8 +17,10 @@ The system menu is the one at the far left, which is there whichever application
 
 | Item | What it does |
 |---|---|
-| Help | Opens this help |
 | About | Says which version of Dasha Desktop this is |
+| Applications | Starts one of the [installed applications](applications.md) |
+| Run... | [Runs a program](running.md) that is not installed |
+| Help | Opens this help |
 | Settings... | Changes [the settings](settings.md) |
 | Themes | Changes the colours of everything on the screen |
 | Animations | Turns the animations of windows and menus on or off |
