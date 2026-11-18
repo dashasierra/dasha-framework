@@ -6,6 +6,10 @@ each window. The program for this step is Notepad itself, `apps/notepad.py`.
 
 {download}`Download step 10 <../../apps/notepad.py>`
 
+**No new imports.** Everything this step uses is already imported:
+`Menu` and `MenuItem` from `dasha.menu` (since [step 1](step-1.md)), and
+`TextArea` from `dasha.widgets` (since [step 3](step-3.md)).
+
 A text area supports both features, and both are off unless asked for:
 
 - With `word_wrap` on, a line too long for the window continues on the rows
@@ -14,7 +18,9 @@ A text area supports both features, and both are off unless asked for:
   by a `│`. A wrapped line is numbered on its first row only, and the column
   of numbers widens once there are a thousand lines.
 
-So each window's text area is created with Notepad's own settings:
+So each window's text area is created with Notepad's own settings, which
+it reaches through `notepad`, the application that [step 4](step-4.md)
+passes to each window:
 
 ```{literalinclude} ../../apps/notepad.py
 :language: python
@@ -23,7 +29,10 @@ So each window's text area is created with Notepad's own settings:
 ```
 
 Notepad creates the settings, and the menu items that show them, when it is
-created itself:
+created itself, at the end of its `__init__` from [step 5](step-5.md). The
+items are kept, as `_wrap_item` and `_numbers_item`, so that their labels
+can be changed later. Their actions, `toggle_word_wrap` and
+`toggle_line_numbers`, are shown below:
 
 ```{literalinclude} ../../apps/notepad.py
 :language: python
@@ -31,7 +40,8 @@ created itself:
 :end-before: "    def start(self)"
 ```
 
-Each item's label is marked with `√` while its setting is on:
+Each item's label is marked with `√` while its setting is on, by `marked`,
+a function of its own that goes after `line_ending`:
 
 ```{literalinclude} ../../apps/notepad.py
 :language: python
@@ -40,7 +50,9 @@ Each item's label is marked with `√` while its setting is on:
 
 Choosing an item switches its setting in every window, and updates the
 item's mark. A menu item's `label` can be changed at any time, and the menu
-shows the new label the next time it opens.
+shows the new label the next time it opens. `_areas` gathers the text area
+of each of Notepad's windows, and the three methods go at the end of
+`Notepad`:
 
 ```{literalinclude} ../../apps/notepad.py
 :language: python
@@ -53,8 +65,7 @@ Format menu's letter is O, and Alt+O opens it:
 
 ```{literalinclude} ../../apps/notepad.py
 :language: python
-:start-at: "        return ["
-:end-at: "        ]"
+:pyobject: Notepad._menus
 ```
 
 ```{image} screens/format-menu.png
@@ -71,11 +82,22 @@ The footer starts with `☼` while the file has unsaved changes, followed by
 the cursor position as COL:ROW: the character position along the line
 (where a tab counts as one character), and the line number. With word wrap
 on, ROW counts lines rather than the rows they wrap onto, just as the line
-numbers do.
+numbers do. The text area's `cursor` is where the cursor is, as (line,
+character), both counted from 0, so `footer_parts` adds 1 to each.
+`footer_parts` goes in `NotepadWindow`, after `_show_title`:
 
 ```{literalinclude} ../../apps/notepad.py
 :language: python
 :pyobject: NotepadWindow.footer_parts
+```
+
+`MODIFIED` is the `☼`, written by name as the boxes are in
+[step 9](step-9.md). It goes after the boxes:
+
+```{literalinclude} ../../apps/notepad.py
+:language: python
+:start-at: "MODIFIED = "
+:end-before: "def line_ending"
 ```
 
 The frame draws the line between the parts itself (`╚═ ☼ ═ 12:3 ═══`), in

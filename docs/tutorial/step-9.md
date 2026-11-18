@@ -6,16 +6,42 @@ is marked with `►`, and opens that menu beside it.
 
 {download}`Download step 9 <notepad9.py>`
 
+**New imports.** This step adds `time`, from Python's standard library,
+for the date and time that Insert > Date and time types
+(`time.strftime`). The top of the program is now:
+
+```{literalinclude} notepad9.py
+:language: python
+:start-at: "import os"
+:end-before: "FILTERS = ["
+```
+
+**The menus.** `_insert_menu` builds the Insert menu, with its Box submenu,
+`boxes`. Each `Menu` here is given to a `MenuItem` as its `submenu`, rather
+than going on the menu bar. The method goes after `_edit_items`:
+
 ```{literalinclude} notepad9.py
 :language: python
 :pyobject: Notepad._insert_menu
 ```
 
-`_insert` types text into the front window's text area. The boxes are
-drawn with code page 437's line-drawing characters, the same ones that
-Dasha Framework uses for its frames. The source writes them by name
-(`"\N{BOX DRAWINGS LIGHT DOWN AND RIGHT}"`), so that the file stays
-readable in any editor:
+**Inserting.** `_insert` types text into the front window's text area,
+using the text area's `insert` method, which puts the text in place of the
+selection, or at the cursor, just as typing and pasting do. It goes in
+`Notepad`, after `_on_front`:
+
+```{literalinclude} notepad9.py
+:language: python
+:pyobject: Notepad._insert
+```
+
+**Boxes.** `box` is given one of the strings below, and takes it apart
+into its six characters, `tuple(lines)`, to draw a box with room for ten
+characters inside.
+The boxes are drawn with code page 437's line-drawing characters, the same
+ones that Dasha Framework uses for its frames. The source writes them by
+name (`"\N{BOX DRAWINGS LIGHT DOWN AND RIGHT}"`), so that the file stays
+readable in any editor. They go below `FILTERS`:
 
 ```{literalinclude} notepad9.py
 :language: python
@@ -23,7 +49,9 @@ readable in any editor:
 :end-before: "def line_ending"
 ```
 
-Insert is added at the end of the Edit menu:
+Insert is added at the end of the Edit menu, after the items that
+`_edit_items` builds from its table in [step 8](step-8.md), and before it
+returns them:
 
 ```{literalinclude} notepad9.py
 :language: python

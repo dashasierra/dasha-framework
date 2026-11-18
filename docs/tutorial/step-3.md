@@ -2,7 +2,8 @@
 
 A window holds **widgets**, the controls inside it. A
 {py:class}`~dasha.widgets.textarea.TextArea` holds many lines of text
-to edit. Add one to the window before opening it:
+to edit. Import `TextArea` from `dasha.widgets`, which holds all of Dasha
+Framework's widgets, and add one to the window before opening it:
 
 ```{literalinclude} notepad3.py
 :language: python
@@ -22,7 +23,12 @@ Run it and start typing:
 
 - **`window.add(widget=...)`** puts a widget in a window, positioned
   relative to the inside of the frame, so row 0, column 0 is the first cell
-  inside it.
+  inside it. `add` also returns the widget, which [step 4](step-4.md) makes
+  use of.
+- **`name="text"`** names the widget. Every widget can have a name, which
+  code can use to find it again; dialogs use names to find their fields.
+  Notepad keeps its text area in a variable instead, from the next step on,
+  so the name is only a label.
 - **A text area fills its window.** It is always at least as big as the
   inside of the window, and grows with its text: type more lines than will
   fit, and the window's own scroll bars appear.

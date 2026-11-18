@@ -2,8 +2,9 @@
 
 Next, Notepad needs a window. A {py:class}`~dasha.window.Window` is a
 framed rectangle with a title. `self.open` puts it on the desktop, in
-front of the others. Add the imports, and open a window at the end of
-`start`:
+front of the others. Add two imports, `Rect` from `dasha.canvas` and
+`Window` from `dasha.window`, and open a window at the end of `start`. The
+highlighted lines are the ones that are new:
 
 ```{literalinclude} notepad2.py
 :language: python
@@ -21,6 +22,7 @@ Run it, and the window opens on the desktop:
 
 **How it works.**
 
+- **`title`** is the text shown in the window's title bar.
 - **`Rect(row=2, column=4, height=15, width=60)`** is where the window
   goes, measured in screen cells. Row 0 is the top of the screen, where the
   menu bar is, so row 2 leaves a gap below it. The size includes the frame.
@@ -29,6 +31,8 @@ Run it, and the window opens on the desktop:
   `[↑]` at its right, and `resizable` gives it a grip in its bottom right
   corner. Without these flags, a window keeps the position and size it was
   opened with.
+- **`self.open(window=window)`** is a method of `Application`. It shows
+  the window and records that it belongs to Notepad.
 - **The active window** has a double frame, and other windows have a
   single one.
 
