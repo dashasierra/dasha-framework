@@ -6,6 +6,16 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- In the system menu's Themes, Default and Dark both had D as their letter, so pressing D could only ever choose Default. Dark now has A (D&ark). Each built-in theme takes the first letter of its name that no theme before it has, and C is kept for Colours file.
+- In the Window menu, Minimise and Next window both had N, so Next window could not be chosen by its letter. Next window now has T (Nex&t window).
+
+### Changed
+
+- A mnemonic letter belongs to one item of a menu, and to one title on the menu bar. If a later item or title marks the same letter (in either case), the first keeps it, and the later one is drawn and treated as having no letter. This applies to the menu bar's menus and to context menus. Before, both letters were highlighted, the letter chose whichever of them was enabled first, and a greyed-out first item passed the letter on to the second.
+- `Menu.check_mnemonics()` and `MenuBar.check_mnemonics()` raise the new `DuplicateMnemonicError` (a `ValueError`) if two items of a menu, or of any submenu, or two titles on the bar, mark the same letter. `on_open` fills each menu in first, so menus like Themes are checked as they would be shown. `Menu.mnemonics()` gives each item's letter as it works, and `dasha.menu.unique_mnemonics(labels, strict=False)` does the same for any labels. Dasha Framework's tests now check every menu of the desktop and of the example applications this way, so a repeated letter fails the tests.
+
 ## [0.0.1] - 2026-11-14
 
 The first public release of Dasha Framework, a text-mode desktop and application framework for local and SSH terminals, written in pure Python with no third-party dependencies.
