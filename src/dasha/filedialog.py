@@ -4,13 +4,15 @@ The dialog only chooses a path: whether the file is to be opened or saved
 depends on the dialog's title, and on what the calling code does with the
 answer::
 
-    dialog = FileDialog("Open", filters=[("Text files", "*.txt")], must_exist=True)
-    if manager.execute(dialog) == "ok":
-        load(dialog.path)
+    dialog = FileDialog(
+        title="Open", filters=[("Text files", "*.txt")], must_exist=True
+    )
+    if manager.execute(dialog=dialog) == "ok":
+        load(path=dialog.path)
 
-    dialog = FileDialog("Save as", name="notes.txt")
-    if manager.execute(dialog) == "ok":
-        save(dialog.path)  # ask about overwriting with confirm(), if wanted
+    dialog = FileDialog(title="Save as", name="notes.txt")
+    if manager.execute(dialog=dialog) == "ok":
+        save(path=dialog.path)  # ask about overwriting with confirm(), if wanted
 """
 
 import fnmatch
@@ -58,13 +60,13 @@ class FileDialog(Dialog):  # pylint: disable=too-many-instance-attributes
 
         ╔═[■]═══════════════════ Open ═══════════════════════╗
         ║ Name                                               ║
-        ║  notes.txt                            OK       ▄   ║
-        ║ Files                                ▀▀▀▀▀▀▀▀▀▀    ║
-        ║  ..\\              │ notes.txt        Cancel    ▄   ║
-        ║  docs\\            │ readme.txt      ▀▀▀▀▀▀▀▀▀▀    ║
+        ║  notes.txt                            OK        ▄  ║
+        ║ Files                                  ▀▀▀▀▀▀▀▀▀▀  ║
+        ║  ..\\              │ notes.txt        Cancel    ▄  ║
+        ║  docs\\            │ readme.txt        ▀▀▀▀▀▀▀▀▀▀  ║
         ║  ...                                               ║
         ║ Type  All files (*)         ▼  Drive  C:   ▼       ║
-        ║ C:\\GitHub\\dasha                                     ║
+        ║ C:\\GitHub\\dasha                                  ║
         ║ notes.txt  1,204 bytes  17 Oct 2026 10:30          ║
         ╚════════════════════════════════════════════════════╝
 
