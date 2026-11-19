@@ -17,6 +17,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - A mnemonic letter belongs to one item of a menu, and to one title on the menu bar. If a later item or title marks the same letter (in either case), the first keeps it, and the later one is drawn and treated as having no letter. This applies to the menu bar's menus and to context menus. Before, both letters were highlighted, the letter chose whichever of them was enabled first, and a greyed-out first item passed the letter on to the second.
 - `Menu.check_mnemonics()` and `MenuBar.check_mnemonics()` raise the new `DuplicateMnemonicError` (a `ValueError`) if two items of a menu, or of any submenu, or two titles on the bar, mark the same letter. `on_open` fills each menu in first, so menus like Themes are checked as they would be shown. `Menu.mnemonics()` gives each item's letter as it works, and `dasha.menu.unique_mnemonics(labels, strict=False)` does the same for any labels. Dasha Framework's tests now check every menu of the desktop and of the example applications this way, so a repeated letter fails the tests.
+- Extended the dasha namespace `__path__` in order to enable packages to share the dasha namespace.
 
 ## [0.0.1] - 2026-11-14
 
