@@ -1,0 +1,295 @@
+# Releases a new patch version of Dasha Framework on the 1st of every month,
+# if anything new has reached master since the last release.
+#
+# "Something new" means a commit since the last release's tag (v*) that was
+# not made by dashabot[bot], so the version bumps this workflow makes don't
+# count. Merge commits aren't counted either: a pull request is counted by
+# its own commits. If nothing is new, or CHANGELOG.md's "## [Unreleased]"
+# section has no entries, the month is skipped.
+#
+# Otherwise, dashabot[bot]:
+#   1. adds 1 to the patch of dasha.__version__ (0.0.1 -> 0.0.2; the major
+#      and minor versions stay the same) in src/dasha/__init__.py;
+#   2. renames CHANGELOG.md's "## [Unreleased]" section to
+#      "## [0.0.2] - YYYY-MM-DD" with a new, empty "## [Unreleased]" above
+#      it, and updates the links at the bottom, as build.yml and
+#      tests/test_package.py require;
+#   3. opens a pull request into master and merges it at once with --admin,
+#      bypassing the rulesets;
+#   4. publishes the GitHub release v0.0.2 on the merge commit, with the
+#      changelog's entries as its notes. release.yml then publishes it to
+#      PyPI. The release must be made with dashabot's token: a release made
+#      with GITHUB_TOKEN would not start release.yml.
+#
+# dashabot is a GitHub App whose Client ID is in the secret DASHABOT_CLIENTID
+# and whose private key is in DASHABOT_PK. It needs the Contents and Pull
+# requests permissions (read and write) on this repository, and to be
+# allowed to bypass its rulesets.
+#
+# The workflow runs every month, even when there is nothing to release:
+# such a run passes, and its summary says why nothing was released. In a
+# public repository GitHub disables scheduled workflows after 60 days with
+# no repository activity, and a workflow's own runs don't count as
+# activity. So each run also calls the REST API to enable this workflow
+# (the keepalive job), which is how keepalive tools keep schedules running
+# without dummy commits. GitHub doesn't document that this resets the 60
+# days, so if a month is ever missed, check Actions > Monthly release.
+#
+# It can also be run by hand (Actions > Monthly release > Run workflow),
+# with the same rules. "Dry run", ticked by default, shows the changes and
+# release notes it would make without pushing, merging or releasing
+# anything.
+name: Monthly release
+
+on:
+  schedule:
+    # 18:17 UTC on the 1st. Not on the hour, when GitHub's scheduled runs are
+    # busiest and most often late.
+    - cron: "17 18 1 * *"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Dry run (show what would be released, but change nothing)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  BASE: master
+
+jobs:
+  keepalive:
+    name: keep the schedule enabled
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write # to enable this workflow
+    steps:
+      - name: Enable this workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          # owner/repo/.github/workflows/monthly-release.yml@refs/heads/master
+          file=$(basename "${WORKFLOW_REF%@*}")
+          gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/$file/enable"
+          echo "Enabled $file"
+
+  release:
+    name: bump the patch version and release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: dashabot's token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.DASHABOT_CLIENTID }}
+          private-key: ${{ secrets.DASHABOT_PK }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      # All of master's history and tags, to find the last release. git
+      # pushes as dashabot with its token.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.BASE }}
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Anything new since the last release
+        id: check
+        env:
+          BOT: ${{ steps.app-token.outputs.app-slug }}[bot]
+        run: |
+          version=$(python3 -c "import sys; sys.path.insert(0, 'src'); import dasha; print(dasha.__version__)")
+          if [[ ! $version =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "dasha.__version__ is '$version', not MAJOR.MINOR.PATCH" >&2
+            exit 1
+          fi
+          next="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1))"
+
+          if last=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null); then
+            range="$last..HEAD"
+          else
+            last="(no release yet)"
+            range=HEAD
+          fi
+
+          new=$(git log --no-merges --format='%an%x09%h %an: %s' "$range" |
+            awk -F '\t' -v bot="$BOT" '$1 != bot { print $2 }')
+
+          echo "dasha $version; last release $last; next would be $next"
+          if [ -z "$new" ]; then
+            note="Nothing new on $BASE since $last (not counting $BOT), so there is nothing to release this month."
+            echo "::notice::$note"
+            echo "$note" >> "$GITHUB_STEP_SUMMARY"
+            echo "changes=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "New on $BASE since $last:"
+          echo "$new"
+
+          if git rev-parse -q --verify "refs/tags/v$next" >/dev/null; then
+            echo "The tag v$next already exists" >&2
+            exit 1
+          fi
+          {
+            echo "changes=true"
+            echo "version=$next"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Bump the version and the changelog
+        id: bump
+        if: steps.check.outputs.changes == 'true'
+        env:
+          VERSION: ${{ steps.check.outputs.version }}
+          NOTES: ${{ runner.temp }}/notes.md
+        run: |
+          export DATE=$(date -u +%F)
+          python3 - <<'EOF'
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          version, date = os.environ["VERSION"], os.environ["DATE"]
+          output = open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8")
+
+          changelog = Path("CHANGELOG.md")
+          text = changelog.read_text(encoding="utf-8")
+          heading = re.search(r"^## \[Unreleased\]\n", text, re.M)
+          if heading is None:
+              sys.exit("CHANGELOG.md has no '## [Unreleased]' heading")
+          # The section ends at the next version's heading, or at the links.
+          end = re.compile(r"^(## \[|\[[^\]]+\]: )", re.M).search(text, heading.end())
+          notes = text[heading.end() : end.start() if end else len(text)].strip()
+          if not any(
+              line.strip() and not line.startswith("#") for line in notes.splitlines()
+          ):
+              note = (
+                  "CHANGELOG.md has nothing under '## [Unreleased]', so there is"
+                  " nothing to release this month."
+              )
+              print(f"::notice::{note}")
+              with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+                  summary.write(note + "\n")
+              output.write("release=false\n")
+              sys.exit(0)
+
+          # A new, empty [Unreleased] above the release's own section.
+          text = (
+              text[: heading.end()]
+              + f"\n## [{version}] - {date}\n"
+              + text[heading.end() :]
+          )
+          # [Unreleased]: .../compare/vOLD...HEAD becomes
+          # [Unreleased]: .../compare/vNEW...HEAD
+          # [NEW]: .../releases/tag/vNEW
+          text, found = re.subn(
+              r"^\[Unreleased\]: (https://github\.com/[^/\s]+/[^/\s]+)/compare/\S+\.\.\.HEAD$",
+              lambda link: (
+                  f"[Unreleased]: {link[1]}/compare/v{version}...HEAD\n"
+                  f"[{version}]: {link[1]}/releases/tag/v{version}"
+              ),
+              text,
+              flags=re.M,
+          )
+          if found != 1:
+              sys.exit("CHANGELOG.md has no '[Unreleased]: .../compare/v...HEAD' link")
+          changelog.write_text(text, encoding="utf-8")
+
+          init = Path("src/dasha/__init__.py")
+          source, found = re.subn(
+              r'^__version__ = "[^"]*"$',
+              f'__version__ = "{version}"',
+              init.read_text(encoding="utf-8"),
+              flags=re.M,
+          )
+          if found != 1:
+              sys.exit(f"{init} has no single '__version__ = \"...\"' line")
+          init.write_text(source, encoding="utf-8")
+
+          Path(os.environ["NOTES"]).write_text(notes + "\n", encoding="utf-8")
+          output.write("release=true\n")
+          EOF
+
+      - name: The changes
+        if: steps.bump.outputs.release == 'true'
+        env:
+          NOTES: ${{ runner.temp }}/notes.md
+          DRY_RUN: ${{ inputs.dry-run == true }}
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          git diff
+          echo "--- Release notes ---"
+          cat "$NOTES"
+          if [ "$DRY_RUN" = true ]; then
+            echo "Dry run: v$VERSION would be released with these notes. Nothing was changed." >> "$GITHUB_STEP_SUMMARY"
+            cat "$NOTES" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Pull request, merged with --admin
+        id: merge
+        if: steps.bump.outputs.release == 'true' && !inputs.dry-run
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BOT: ${{ steps.app-token.outputs.app-slug }}[bot]
+          VERSION: ${{ steps.check.outputs.version }}
+          NOTES: ${{ runner.temp }}/notes.md
+        run: |
+          # Commits made as dashabot, so the next run doesn't count them.
+          bot_id=$(gh api "/users/$BOT" --jq .id)
+          git config user.name "$BOT"
+          git config user.email "$bot_id+$BOT@users.noreply.github.com"
+
+          branch="release/v$VERSION"
+          git switch -c "$branch"
+          git commit -a -m "Release v$VERSION"
+          git push origin "$branch"
+
+          body=$(printf 'Bumps the version to %s for the monthly release, made by the Monthly release workflow.\n\n%s\n' "$VERSION" "$(cat "$NOTES")")
+          url=$(gh pr create --base "$BASE" --head "$branch" --title "Release v$VERSION" --body "$body")
+          echo "$url"
+
+          # GitHub may still be working out whether a new pull request can
+          # be merged, so try again for a little while.
+          for attempt in 1 2 3 4 5 6; do
+            if gh pr merge "$url" --admin --merge --delete-branch; then
+              break
+            fi
+            if [ "$(gh pr view "$url" --json state --jq .state)" = MERGED ]; then
+              break
+            fi
+            if [ "$attempt" -eq 6 ]; then
+              echo "Could not merge $url" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+
+          sha=$(gh pr view "$url" --json mergeCommit --jq .mergeCommit.oid)
+          echo "Merged as $sha"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      # Made with dashabot's token so that release.yml runs.
+      - name: Release
+        if: steps.merge.outputs.sha
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          VERSION: ${{ steps.check.outputs.version }}
+          SHA: ${{ steps.merge.outputs.sha }}
+          NOTES: ${{ runner.temp }}/notes.md
+        run: |
+          gh release create "v$VERSION" \
+            --target "$SHA" \
+            --title "Release v$VERSION" \
+            --notes-file "$NOTES" \
+            --latest
+          echo "Released v$VERSION. release.yml publishes it to PyPI." >> "$GITHUB_STEP_SUMMARY"
