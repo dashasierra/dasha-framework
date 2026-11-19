@@ -250,6 +250,7 @@ class Style:
 
 
 DEFAULT = Style()
+"""The terminal's own colours, with no attributes."""
 
 SHADOW = Style(foreground=BRIGHT_BLACK, background=BLACK)
 """The style of drop shadows, which redraw whatever lies beneath them in
