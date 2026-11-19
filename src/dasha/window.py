@@ -62,9 +62,9 @@ class Window:
     drawing code. To draw something other than plain lines of text, override
     ``paint_content``.
 
-    While the window is active, its ``menus`` are shown on the menu bar,
-    after the system menu, and its optional ``status`` text is shown on the
-    status bar.
+    While the window is active, its ``status`` text (if its focused widget
+    has none) is shown on the status bar. Its ``menus`` are shown only if it
+    belongs to no application, as an application's windows show its menus.
 
     A ``resizable`` window has a two-cell grip in its bottom-right corner,
     highlighted while the window is active, and dragging the grip resizes
@@ -91,11 +91,13 @@ class Window:
 
     border: Border = DOUBLE
     inactive_border: Border = SINGLE
+    """The frame's lines while the window is active, and while it is not."""
     adjusting_border: Border = SINGLE
     """The frame's lines while the window is being moved or resized, with the
     mouse or the keyboard (drawn in ``adjusting_frame_style``)."""
     frame_style: Style = Style(foreground=BRIGHT_WHITE, background=BLUE, bold=True)
     inactive_frame_style: Style = Style(foreground=WHITE, background=BLUE)
+    """The frame's and title's colours while active, and while not."""
     adjusting_frame_style: Style = Style(
         foreground=BRIGHT_GREEN, background=BLUE, bold=True
     )
@@ -128,6 +130,7 @@ class Window:
     keyboard. The presentation manager sets this while it happens, and the
     frame changes style to show it."""
     body_style: Style = Style(foreground=WHITE, background=BLUE)
+    """The colours inside the frame, which labels and other widgets build on."""
 
     shadow_style: Style | None = SHADOW
     """How the drop shadow recolours what lies beneath it; ``None`` for no
@@ -193,10 +196,15 @@ class Window:
         if rect.height < 2 or rect.width < 2:
             raise ValueError("A window needs room for its frame (at least 2x2)")
         self.title = title
+        """The text centred in the top edge of the frame."""
         self._rect = rect
         self.lines = list(lines)
+        """Lines of plain text drawn inside the frame."""
         self.menus = list(menus)
+        """The menus on the menu bar while the window is in front, if it
+        belongs to no application (see the class's description)."""
         self.status = status
+        """Help for the status bar while active (see the class's description)."""
         self.resizable = resizable
         self.maximisable = maximisable
         self.minimisable = minimisable
