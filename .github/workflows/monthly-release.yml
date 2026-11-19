@@ -16,10 +16,14 @@
 #      tests/test_package.py require;
 #   3. opens a pull request into master and merges it at once with --admin,
 #      bypassing the rulesets;
-#   4. publishes the GitHub release v0.0.2 on the merge commit, with the
-#      changelog's entries as its notes. release.yml then publishes it to
-#      PyPI. The release must be made with dashabot's token: a release made
-#      with GITHUB_TOKEN would not start release.yml.
+#   4. publishes v0.0.2 on the merge commit as a GitHub pre-release, with the
+#      changelog's entries as its notes. pre-release.yml then publishes it
+#      to TestPyPI. The release must be made with dashabot's token: a
+#      release made with GITHUB_TOKEN would not start pre-release.yml.
+#
+# Once the pre-release has been checked, edit it on GitHub, untick "Set as a
+# pre-release" (and tick "Set as the latest release"), and update it.
+# release.yml then publishes that same version to PyPI.
 #
 # dashabot is a GitHub App whose Client ID is in the secret DASHABOT_CLIENTID
 # and whose private key is in DASHABOT_PK. It needs the Contents and Pull
@@ -231,7 +235,7 @@ jobs:
           echo "--- Release notes ---"
           cat "$NOTES"
           if [ "$DRY_RUN" = true ]; then
-            echo "Dry run: v$VERSION would be released with these notes. Nothing was changed." >> "$GITHUB_STEP_SUMMARY"
+            echo "Dry run: v$VERSION would be published as a pre-release with these notes. Nothing was changed." >> "$GITHUB_STEP_SUMMARY"
             cat "$NOTES" >> "$GITHUB_STEP_SUMMARY"
           fi
 
@@ -278,8 +282,9 @@ jobs:
           echo "Merged as $sha"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
-      # Made with dashabot's token so that release.yml runs.
-      - name: Release
+      # A pre-release, so pre-release.yml (TestPyPI) runs rather than
+      # release.yml (PyPI). Made with dashabot's token so that it runs at all.
+      - name: Pre-release
         if: steps.merge.outputs.sha
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -291,5 +296,9 @@ jobs:
             --target "$SHA" \
             --title "Release v$VERSION" \
             --notes-file "$NOTES" \
-            --latest
-          echo "Released v$VERSION. release.yml publishes it to PyPI." >> "$GITHUB_STEP_SUMMARY"
+            --prerelease
+          {
+            echo "Published v$VERSION as a pre-release. pre-release.yml publishes it to TestPyPI."
+            echo
+            echo "To publish it to PyPI, edit the release on GitHub and untick \"Set as a pre-release\"; release.yml then runs."
+          } >> "$GITHUB_STEP_SUMMARY"
