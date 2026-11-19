@@ -107,11 +107,11 @@ or, for short:
 dasha-desktop
 ```
 
-`dasha` on its own only says what it needs: `desktop`, or an application to
-run. Dasha Framework starts with an empty desktop. The Applications submenu of the
+Run on its own, `dasha` only shows its usage: it needs `desktop`, or an
+application to run. The desktop starts empty. The Applications submenu of the
 system menu (`≡`) lists the installed applications. None come with the
-package, but the repository's `apps/` folder has two to try: Notepad, and a
-Demo of the widgets (see [apps/README.md](https://github.com/dashasierra/dasha-framework/blob/HEAD/apps/README.md)).
+package, but the repository's `apps/` folder has three to try: Notepad, a
+Demo of the widgets, and Terminal, which runs your shell in a window (see [apps/README.md](https://github.com/dashasierra/dasha-framework/blob/HEAD/apps/README.md)).
 Install them with:
 
 ```bash
@@ -120,6 +120,10 @@ dasha install-app apps/notepad.py
 
 ```bash
 dasha install-app apps/demo.py
+```
+
+```bash
+dasha install-app apps/terminal.py
 ```
 
 Then start the desktop (`dasha desktop`) and choose them from the
