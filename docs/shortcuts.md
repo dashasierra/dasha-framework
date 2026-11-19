@@ -136,8 +136,8 @@ wrong, it lists every problem and does not start. It looks for:
 
 To get going again, fix the file, or move it aside to use the defaults.
 
-Dasha Framework also refuses a set of shortcuts that would leave no way to quit
-using the keyboard:
+Dasha Framework also refuses a set of shortcuts that would leave the
+keyboard with no way out of something:
 
 - `exit` and `open_menu` cannot both be empty, because Shutdown is reached
   through the system menu.
@@ -145,6 +145,11 @@ using the keyboard:
   there would be no key to close a menu.
 - `dialog_cancel` and `press_button` cannot both be empty, because
   otherwise there would be no key to answer a dialog box.
+- `adjust_accept` and `adjust_cancel` cannot both be empty, because
+  otherwise there would be no key to finish moving or resizing a window.
+- `area_next_widget` and `area_previous_widget` cannot both be empty,
+  because otherwise there would be no key to leave a text area, where Tab
+  types a tab.
 
 The mouse always works too: clicking the `≡` menu and choosing Shutdown
 quits Dasha Framework, whatever the shortcuts are.
