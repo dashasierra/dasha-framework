@@ -108,11 +108,24 @@ class TreeView(ListBox):  # pylint: disable=too-many-instance-attributes
 
     ::
 
-        roots = [TreeNode("C:", [TreeNode("Documents"),
-                                 TreeNode("Programs", load=find_files)],
-                          expanded=True)]
-        folders = window.add(TreeView(roots, 0, 0, 18, 12, on_change=show_files))
-        several = TreeView(other_roots, 0, 0, 18, 12, multiple=True)
+        roots = [
+            TreeNode(
+                label="C:",
+                children=[
+                    TreeNode(label="Documents"),
+                    TreeNode(label="Programs", load=find_files),
+                ],
+                expanded=True,
+            )
+        ]
+        folders = window.add(
+            widget=TreeView(
+                roots=roots, row=0, column=0, width=18, height=12, on_change=show_files
+            )
+        )
+        several = TreeView(
+            roots=other_roots, row=0, column=0, width=18, height=12, multiple=True
+        )
 
     - **Nodes.** A ``TreeNode`` has a ``label``, ``children``, ``expanded``,
       ``data`` for the application, and optionally ``load``, which is called with
@@ -150,14 +163,18 @@ class TreeView(ListBox):  # pylint: disable=too-many-instance-attributes
       single selection, for every move of the highlight), and
       ``on_expand(tree, node)`` for every item expanded. ``visible_nodes`` holds
       the items shown. The colours are ``tree``, ``tree.focused``,
-      ``tree.selected`` (highlighted, without the focus) and ``tree.lines``.
+      ``tree.selected`` (highlighted, without the focus, or selected) and
+      ``tree.lines``.
     """
 
     style: Style = Style(foreground=BLACK, background=CYAN)
+    """The style of the items."""
     focused_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
+    """The style of the highlighted item, while the tree view has the
+    focus."""
     selected_style: Style = Style(foreground=BRIGHT_YELLOW, background=CYAN, bold=True)
-    """The style of the highlighted item, while the tree view does not have
-    the focus."""
+    """The style of the highlighted item while the tree view does not have
+    the focus, and, with multiple selection, of the selected items."""
     lines_style: Style = Style(foreground=BLUE, background=CYAN)
     """The style of the lines joining the items."""
 
