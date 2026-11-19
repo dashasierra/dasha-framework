@@ -7,7 +7,7 @@ built entirely on the Python standard library.
 from pkgutil import extend_path
 
 # Enable packages to use the dasha namespace
-__path__ = extend_path(__path__, __name__)  # type: ignore[name-defined]
+__path__ = extend_path(__path__, __name__)
 
 __all__ = ["__version__"]
 
