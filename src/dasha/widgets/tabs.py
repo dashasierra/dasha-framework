@@ -61,13 +61,13 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
 
     ::
 
-        tabs = dialog.add(Tabs(1, 2, 50, 13))
-        general = tabs.add_page("&General")
-        general.add(CheckBoxes(["&Window shadows"], 0, 1))
-        account = tabs.add_page("Accou&nt")
-        account.add(PasswordBox(1, 11, 30, name="password"))
+        tabs = dialog.add(widget=Tabs(row=1, column=2, width=50, height=13))
+        general = tabs.add_page(label="&General")
+        general.add(widget=CheckBoxes(labels=["&Window shadows"], row=0, column=1))
+        account = tabs.add_page(label="Accou&nt")
+        account.add(widget=PasswordBox(row=1, column=11, width=30, name="password"))
 
-    Each page is a container (a ``TabPage``; see Containers).
+    Each page is a container (a ``TabPage``; see ``dasha.widgets.container``).
     ``page.add(widget)`` places a widget relative to the area below the tabs,
     and only the selected page's widgets are shown. The widgets of every page
     are included in ``dialog.values``.
@@ -83,7 +83,8 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
     then onwards. Choosing another page while the focus was on the previous
     page moves the focus to the tabs. ``value`` (and ``selected``) is the selected
     page's number, and ``selected_page`` is the page itself. ``select(index)`` and
-    ``step(step=1)`` choose a page as the user does, and ``on_change(tabs)`` is
+    ``step(step)`` (``step(step=1)`` for the next page, ``step(step=-1)`` for
+    the previous one) choose a page as the user does, and ``on_change(tabs)`` is
     called for every change the user makes. The colours are ``tabs`` (the tabs
     not selected, and the lines), ``tabs.selected`` and ``tabs.focused``;
     colours left as ``default`` are the window's.
