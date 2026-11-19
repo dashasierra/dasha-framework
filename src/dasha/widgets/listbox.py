@@ -17,8 +17,18 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
 
     ::
 
-        ListBox(names, 0, 0, 32, 7, columns=2)                # pick one
-        ListBox(names, 2, 2, 34, 8, multiple=True, name="files")  # pick several
+        # Pick one, from two columns:
+        ListBox(items=names, row=0, column=0, width=32, height=7, columns=2)
+        # Pick several:
+        ListBox(
+            items=names,
+            row=2,
+            column=2,
+            width=34,
+            height=8,
+            multiple=True,
+            name="files",
+        )
 
     - **Single selection** (the default). The highlighted item is the selected
       one: moving onto an item selects it, and it stays selected. ``value`` is its
@@ -81,8 +91,9 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
     ``on_choose(box)`` if it was given one, and otherwise presses the window's
     default button, so that in a dialog a double-click is the same as OK. With
     multiple selection, the first press of the double-click has already toggled
-    the item, and the second press does not toggle it back. ``choose()`` and
-    ``select_range(first, last)`` do the same from code.
+    the item, and the second press does not toggle it back. ``choose()`` does
+    the same from code, and ``select_range(first, last)`` does what Shift and
+    a click do.
 
     Tab, Escape and Enter are left for the window, so Enter presses a dialog's
     default button. The colours are ``listbox``, ``listbox.focused`` (the
@@ -92,6 +103,7 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
 
     focusable = True
     style: Style = Style(foreground=BLACK, background=CYAN)
+    """The style of the items."""
     focused_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
     """The style of the highlighted item, while the list box has the
     focus."""
@@ -99,6 +111,8 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
     """The style of selected items (with single selection, when the box does
     not have the focus)."""
     divider: str = "\N{BOX DRAWINGS LIGHT VERTICAL}"
+    """The line between columns of items: ``│`` (code page 437 glyph
+    179)."""
     type_ahead_timeout: float = 1.0
     """How many seconds without typing before what was typed is forgotten,
     so that typing starts a new search. Set ``ListBox.type_ahead_timeout`` to

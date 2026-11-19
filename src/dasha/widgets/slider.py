@@ -54,7 +54,9 @@ class Slider(Widget):  # pylint: disable=too-many-instance-attributes
     focused_style: Style = Style(foreground=BRIGHT_WHITE, background=CYAN, bold=True)
     """The style of the track while the slider has the focus."""
     knob_style: Style = Style(foreground=WHITE, background=CYAN)
+    """The style of the knob."""
     focused_knob_style: Style = Style(foreground=BRIGHT_GREEN, background=CYAN)
+    """The style of the knob while the slider has the focus."""
 
     def __init__(  # pylint: disable=too-many-arguments
         self,

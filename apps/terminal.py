@@ -134,8 +134,8 @@ class TerminalWindow(Window):
         self.title = f"{title} (ended)" if view.exit_code is not None else title
 
     def footer_parts(self) -> list[str]:
-        """At the foot of the frame: the terminal's size, as COLSxLINES,
-        while scrolled back, ``↑`` and how far, and ``Mouse`` while the
+        """At the foot of the frame: the terminal's size, as COLSxLINES;
+        while scrolled back, ``↑`` and how far; and ``Mouse`` while the
         mouse goes to the program."""
         screen = self.view.screen
         parts = [f"{screen.columns}x{screen.lines}"]

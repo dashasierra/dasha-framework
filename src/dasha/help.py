@@ -8,11 +8,15 @@ window by naming the page about it::
         help_folder = Path(__file__).parent / "help"
 
         def start(self) -> None:
-            window = Window("Details", Rect(2, 2, 12, 50), closable=True)
-            box = window.add(TextBox(1, 2, 30))
+            window = Window(
+                title="Details",
+                rect=Rect(row=2, column=2, height=12, width=50),
+                closable=True,
+            )
+            box = window.add(widget=TextBox(row=1, column=2, width=30))
             box.help = "user_name"          # help/user_name.md
             window.help = "details"         # for its other widgets
-            self.open(window)
+            self.open(window=window)
 
 The default page is ``index.md``. F1 goes to the focused widget's topic, or
 that of a container it is in (a tab page, say), or its window's, or else the
@@ -296,13 +300,19 @@ class HelpView(Widget):
     """How many columns are left clear on each side of the page."""
 
     heading_style: Style = Style(foreground=BRIGHT_WHITE, background=CYAN, bold=True)
+    """The style of headings."""
     bold_style: Style = Style(foreground=BRIGHT_WHITE, background=CYAN, bold=True)
+    """The style of bold text."""
     emphasis_style: Style = Style(foreground=BLACK, background=CYAN, underline=True)
+    """The style of italic text, and of the places of images."""
     code_style: Style = Style(foreground=BLACK, background=WHITE)
+    """The style of code."""
     link_style: Style = Style(foreground=BLUE, background=CYAN, underline=True)
+    """The style of links, and of the parts of the top row that can be used."""
     focused_link_style: Style = Style(
         foreground=BRIGHT_WHITE, background=BLUE, bold=True
     )
+    """The style of the highlighted link."""
     disabled_style: Style = Style(foreground=BRIGHT_BLACK, background=CYAN)
     """The parts of the top row that cannot be used now."""
 

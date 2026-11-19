@@ -22,16 +22,16 @@ conventions. In short:
   it will stay that way. Development tools belong in the `dev` extra.
 - **Code page 437 glyphs** for anything drawn on screen, written in the
   source as escapes such as `"\N{FULL BLOCK}"`.
-- **British spelling**, such as "colour" and "centre", everywhere. Text
-  shown on screen uses "-ise" (Maximise), while code and documentation use
-  "-ize" (`maximise`).
+- **British spelling**, such as "colour" and "centre", everywhere, with
+  "-ise" rather than "-ize": on screen (Maximise), in the documentation, and
+  in the code (`maximise`).
 - **Tests** go in `tests/` for Dasha Framework itself and in `apps/tests/` for
   the example applications. Every change should come with tests that would
   have caught the problem it fixes.
 - **Before opening a pull request**, run black, pylint, mypy and the tests
-  (see the development guide). Each pull request runs them all on Linux,
-  Windows and macOS and builds the documentation and the package, and can
-  be merged once they pass.
+  (see the development guide). Each pull request runs them all (the lint,
+  type checks and tests on Linux, Windows and macOS), and builds the
+  documentation and the package; it can be merged once they pass.
 
 If users would notice your change, add a line about it to the "Unreleased"
 section of [CHANGELOG.md](CHANGELOG.md).

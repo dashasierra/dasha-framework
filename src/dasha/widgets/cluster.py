@@ -26,10 +26,24 @@ class Cluster(Widget):  # pylint: disable=too-many-instance-attributes
 
     ::
 
-        dialog.add(RadioButtons(["&Small", "&Medium", "&Large"], 2, 2, selected=1,
-                                name="size"))
-        dialog.add(CheckBoxes(["&Bold", "&Italic", "&Underline"], 2, 20, checked=[0],
-                              name="style"))
+        dialog.add(
+            widget=RadioButtons(
+                labels=["&Small", "&Medium", "&Large"],
+                row=2,
+                column=2,
+                selected=1,
+                name="size",
+            )
+        )
+        dialog.add(
+            widget=CheckBoxes(
+                labels=["&Bold", "&Italic", "&Underline"],
+                row=2,
+                column=20,
+                checked=[0],
+                name="style",
+            )
+        )
         ...
         dialog.values  # {"size": 1, "style": (0,)}
 
@@ -64,8 +78,14 @@ class Cluster(Widget):  # pylint: disable=too-many-instance-attributes
 
     ::
 
-        CheckBoxes(["&Windows", "M&enus", "Mo&use", "&Dialogs", "&Themes", "&Plugins"],
-                   2, 22, columns=2, disabled=[5])
+        CheckBoxes(
+            labels=["&Windows", "M&enus", "Mo&use", "&Dialogs", "&Themes", "&Plugins"],
+            row=2,
+            column=22,
+            columns=2,
+            checked=[3],
+            disabled=[5],
+        )
         #  [ ] Windows  [X] Dialogs
         #  [ ] Menus    [ ] Themes
         #  [ ] Mouse    [ ] Plugins   (greyed out)
@@ -89,7 +109,9 @@ class Cluster(Widget):  # pylint: disable=too-many-instance-attributes
     - **Radio buttons.** ``value`` and ``selected`` are the index of the selected
       option, and ``selected_label`` is its label without the ``&``.
 
-    ``on_change(group)`` is called whenever the marks change. Both kinds share
+    ``on_change(group)`` is called whenever an option is pressed, by the user
+    or by code calling ``press``; changing ``checked`` or ``selected``
+    directly notifies no one. Both kinds share
     the base class ``Cluster``, whose ``marks`` (``("[ ]", "[X]")``) a subclass
     can change.
 
@@ -98,9 +120,11 @@ class Cluster(Widget):  # pylint: disable=too-many-instance-attributes
 
     focusable = True
     style: Style = Style(foreground=BLACK, background=CYAN)
+    """The style of the options."""
     selected_style: Style = Style(foreground=BRIGHT_WHITE, background=CYAN, bold=True)
     """The style of the current option, while the group has the focus."""
     mnemonic_style: Style = Style(foreground=BRIGHT_YELLOW, background=CYAN)
+    """The style of each option's mnemonic letter."""
     disabled_style: Style = Style(foreground=BRIGHT_BLACK, background=CYAN)
     """The style of options that cannot be chosen."""
     marks: tuple[str, str] = ("[ ]", "[X]")

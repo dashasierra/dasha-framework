@@ -20,7 +20,9 @@ from pathlib import Path
 
 LOG_FOLDER = Path.home() / ".dasha" / "logs"
 """The folder that each application's standard error is written to, with
-a new file each time it starts: ``~/.dasha/logs``.
+a new file each time it starts: ``~/.dasha/logs``. The desktop keeps the
+log of anything that goes wrong in its own code here too
+(``dasha.recovery``).
 
 :meta hide-value:
 """
@@ -57,8 +59,8 @@ def app_log_folder(name: str) -> Path:
 
 
 def log_name(name: str, *, keep_case: bool = False) -> str:
-    """A name made safe to name a file or folder with: only letters, digits
-    and single hyphens, in lower case unless ``keep_case`` (``"Notepad and
+    """A name made safe to name a file or folder with: only ASCII letters,
+    digits and single hyphens, in lower case unless ``keep_case`` (``"Notepad and
     Demo"`` becomes ``"notepad-and-demo"``, or ``"Notepad-and-Demo"``), and
     ``"app"`` if nothing is left."""
     safe = re.sub(r"[^A-Za-z0-9]+", "-", name).strip("-") or "app"

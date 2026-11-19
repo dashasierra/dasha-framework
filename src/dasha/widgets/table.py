@@ -67,14 +67,20 @@ class Table(ListBox):  # pylint: disable=too-many-instance-attributes
 
     ::
 
-        files = window.add(Table(
-            [
-                Column("Name", 14),
-                Column("Type", 9),
-                Column("Size K", 7, align="right", key=int),
-            ],
-            0, 0, 43, 12, rows=[["config.sys", "System", "12"], ...],
-        ))
+        files = window.add(
+            widget=Table(
+                columns=[
+                    Column(title="Name", width=14),
+                    Column(title="Type", width=9),
+                    Column(title="Size K", width=7, align="right", key=int),
+                ],
+                row=0,
+                column=0,
+                width=43,
+                height=12,
+                rows=[["config.sys", "System", "12"], ...],
+            )
+        )
 
     - **Columns.** Each ``Column`` has a heading, a width, an alignment
       (``"left"``, ``"right"`` or ``"centre"``) and optionally a ``key``, which
@@ -102,8 +108,11 @@ class Table(ListBox):  # pylint: disable=too-many-instance-attributes
     """
 
     style: Style = Style(foreground=BLACK, background=CYAN)
+    """The style of the rows."""
     focused_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
+    """The style of the highlighted row, while the table has the focus."""
     selected_style: Style = Style(foreground=BRIGHT_YELLOW, background=CYAN, bold=True)
+    """The style of the selected rows, with ``multiple=True``."""
     header_style: Style = Style(foreground=BLACK, background=WHITE)
     """The style of the headings."""
     column_step: int = 4
@@ -131,6 +140,7 @@ class Table(ListBox):  # pylint: disable=too-many-instance-attributes
         self.table_columns: list[Column] = list(columns)
         """The columns, left to right."""
         self.data: list[list[str]] = []
+        """The rows' fields, in the order the rows were given."""
         self.order: list[int] = []
         """The rows' indexes in ``data``, in the order shown."""
         self.sorted_by: int | None = None

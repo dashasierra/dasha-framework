@@ -296,28 +296,38 @@ DESCRIPTIONS: dict[str, str] = {
     "scroll_right": "Scroll the active window's contents right",
     "scroll_page_up": "Scroll the active window's contents up a page",
     "scroll_page_down": "Scroll the active window's contents down a page",
-    "text_left": "Move the cursor in a text box left",
-    "text_right": "Move the cursor in a text box right",
-    "text_home": "Move the cursor to the start of a text box",
-    "text_end": "Move the cursor to the end of a text box",
+    "text_left": "Move the cursor left in a text box or text area",
+    "text_right": "Move the cursor right in a text box or text area",
+    "text_home": "Move the cursor to the start of a text box, or of the line in a "
+    "text area",
+    "text_end": "Move the cursor to the end of a text box, or of the line in a "
+    "text area",
     "text_word_left": "Move the cursor a word left in a text box or text area",
     "text_word_right": "Move the cursor a word right in a text box or text area",
-    "text_select_left": "Select the character to the left in a text box",
-    "text_select_right": "Select the character to the right in a text box",
-    "text_select_home": "Select to the start of a text box",
-    "text_select_end": "Select to the end of a text box",
+    "text_select_left": "Select the character to the left in a text box or text "
+    "area",
+    "text_select_right": "Select the character to the right in a text box or text "
+    "area",
+    "text_select_home": "Select to the start of a text box, or of the line in a "
+    "text area",
+    "text_select_end": "Select to the end of a text box, or of the line in a text "
+    "area",
     "text_select_word_left": "Select a word left in a text box or text area",
     "text_select_word_right": "Select a word right in a text box or text area",
-    "text_select_all": "Select all the text in a text box",
-    "text_cut": "Cut the selected text in a text box to the clipboard",
-    "text_copy": "Copy the selected text in a text box to the clipboard",
-    "text_paste": "Paste text from the clipboard into a text box",
+    "text_select_all": "Select all the text in a text box or text area",
+    "text_cut": "Cut the selected text in a text box or text area to the clipboard",
+    "text_copy": "Copy the selected text in a text box or text area to the "
+    "clipboard",
+    "text_paste": "Paste text from the clipboard into a text box or text area",
     "text_undo": "Undo the last change in a text box or text area",
     "text_redo": "Redo the last change undone in a text box or text area",
-    "text_backspace": "Delete the character before the cursor in a text box",
-    "text_delete": "Delete the character at the cursor in a text box",
+    "text_backspace": "Delete the selection, or the character before the cursor, "
+    "in a text box or text area",
+    "text_delete": "Delete the selection, or the character at the cursor, in a "
+    "text box or text area",
     "text_clear": "Empty a text box",
-    "open_menu": "Open the system menu; close an open menu",
+    "open_menu": "Open the menu bar's first menu (the system menu, on the "
+    "desktop); close an open menu",
     "menu_close": "Close an open menu",
     "menu_left": "Open the menu to the left",
     "menu_right": "Open the menu to the right",

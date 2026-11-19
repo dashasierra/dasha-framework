@@ -1,6 +1,6 @@
-"""Settings...' Applications page: the installed applications, to install
-more and uninstall them, as ``dasha install-app``, ``uninstall-app``
-and ``list-apps`` do.
+"""The Applications page of Settings...: the installed applications, with
+ways to install more and uninstall them, as ``dasha install-app``,
+``uninstall-app`` and ``list-apps`` do.
 
 Installing and uninstalling happen at once, whether the other settings are
 kept or not, and the Applications menu changes to match. Making a virtual

@@ -165,7 +165,8 @@ class PresentationManager:
 
     The menu bar takes up the top row. On the desktop it starts with the
     system menu (``system_menu``, shown as a burger icon), followed by the
-    active window's own menus. The status bar takes up the bottom row and
+    active application's menus and its Window menu (see ``bar_menus``). The
+    status bar takes up the bottom row and
     shows help for whatever has the focus (see ``status``). Windows live in
     the work area between the two bars, and pass underneath both of them.
 
@@ -1936,7 +1937,7 @@ class PresentationManager:
 
             def start(self) -> None:
                 ...
-                self.manager.call_when_running(self.warn_about_settings)
+                self.manager.call_when_running(callback=self.warn_about_settings)
 
         Callbacks are called in the order they were given. Any that are
         still waiting when the desktop stops before it has started running

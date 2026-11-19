@@ -295,7 +295,8 @@ DESCRIPTIONS: dict[str, str] = {
     "textbox.arrows": "The arrows showing a text box has more text that way",
     "tree": "Tree views",
     "tree.focused": "The highlighted item of the tree view with the focus",
-    "tree.selected": "The highlighted item of tree views without the focus",
+    "tree.selected": "The highlighted item of tree views without the focus, and "
+    "selected items",
     "tree.lines": "The lines joining the items of tree views",
 }
 

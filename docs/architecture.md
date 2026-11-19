@@ -348,7 +348,7 @@ Window(
 ```
 
 - **The grip.** The last two cells of a resizable window's bottom edge are
-  its grip, `─┘`, drawn in bright yellow while the window is active, where
+  its grip, `─┘`, drawn in bright green while the window is active, where
   the double `═╝` of the active frame makes it stand out. The grip uses
   plain single-line box characters (196 and 217), which every code page
   437 font has, and it is two cells wide so that it is easy to see and to
@@ -511,7 +511,7 @@ with its window, limited to `MAX_FOOTER_PARTS` parts of at most
 | Input | Scrolls |
 | --- | --- |
 | Click an arrow | One line (`Window.scroll_step`); held down, it repeats |
-| Click the track | A page |
+| Click the track | A page, less one line, so that a line stays in view |
 | Drag the thumb | To where it is dragged |
 | Mouse wheel over a window | Three lines (sideways with Shift, or a sideways wheel), unless a widget under the pointer (a list box) scrolls instead |
 | Up / Down / Left / Right, PgUp / PgDn | The active window, if no widget uses the key (`scroll_up`, ... in the shortcuts file) |
@@ -543,10 +543,11 @@ still.
 
 ### Moving and resizing from the keyboard
 
-Alt+F7 (`move_window`, or Ctrl+F5) starts moving the
-active window, and Alt+F8 (`resize_window`) starts resizing it. The Window menu has Move and Size items for the
-same thing, and code can call `manager.start_moving(window)` or
-`manager.start_resizing(window)`.
+Alt+F7 (`move_window`, or Ctrl+F5) starts moving the active window, and
+Alt+F8 (`resize_window`) starts resizing it. The Window menu has Move and
+Size items for the same thing, and code can call
+`manager.start_moving(window=window)` or
+`manager.start_resizing(window=window)`.
 
 While it lasts, the window's frame shows in the `window.frame.adjusting`
 colours, the status bar lists the keys, and every key goes to it:
@@ -1154,15 +1155,16 @@ does the same for any text.
 Dialogs can open further dialogs, because calls to `execute` can be nested.
 `execute` reads the terminal itself, so it only works while `run` is
 going. Code that runs before then, such as an application's `start`, can
-pass a dialog to `call_when_running(callback)`, which calls it straight
-away if the desktop is already running, and otherwise as soon as `run`
-starts.
+pass a function that shows the dialog to `call_when_running(callback)`,
+which calls it straight away if the desktop is already running, and
+otherwise as soon as `run` starts.
 
 **Exit confirmation.** Choosing Shutdown from the system menu (so named to
 distinguish it from an application's own File > Exit), double-clicking the
 system menu's `≡` on the menu bar, and pressing the `exit` key (Ctrl+Q) all
-call `request_exit()`. This shows the warning "Shutting down Dasha Desktop will
-close all open applications." (`exit_message`) in a `confirm` dialog whose
+call `request_exit()`. This shows the warning "Warning: Shutting down Dasha
+Desktop will close all open applications." (`exit_message`) in a `confirm`
+dialog whose
 OK button is labelled Shutdown, and quits only if that button is pressed,
 just as any other code would use a dialog. Set `confirm_exit = False` to
 quit without asking.
@@ -1192,11 +1194,11 @@ if manager.execute(dialog=dialog) == "ok":
 ║  notes.txt                                OK    ▄  ║
 ║ Files                                  ▀▀▀▀▀▀▀▀▀▀  ║
 ║ ..\              │ notes.txt                       ║
-║ docs\            │ readme.txt          Cancel  ▄  ║
-║ src\             │                    ▀▀▀▀▀▀▀▀▀▀  ║
+║ docs\            │ readme.txt           Cancel  ▄  ║
+║ src\             │                     ▀▀▀▀▀▀▀▀▀▀  ║
 ║                  │                                 ║
 ║ Type   Text files (*.txt)      ▼  Drive  C:    ▼   ║
-║ C:\GitHub\dasha                                     ║
+║ C:\GitHub\dasha                                    ║
 ║ notes.txt  1,204 bytes  17 Oct 2026 10:30          ║
 ╚════════════════════════════════════════════════════╝
 ```
@@ -1279,9 +1281,11 @@ desktop reads when it starts:
   unchanged to `settings.toml` by name, as the Themes menu does;
 - the shortcuts to the shortcuts file (`shortcuts_path`), keeping only the
   actions that differ from the defaults (`Shortcuts.overrides`);
-- animations and the applications to start with the desktop to
-  `settings.toml` (`registry.save_animations_setting` and
-  `registry.save_autostart_setting`).
+- animations, how colours are drawn, showing the mouse, how long Escape
+  waits, and the applications to start with the desktop to `settings.toml`
+  (`registry.save_animations_setting`, `save_colour_depth_setting`,
+  `save_show_mouse_setting`, `save_escape_timeout_setting` and
+  `save_autostart_setting`).
 
 Both paths are those the command line chose (`--colours` and
 `--shortcuts`), or the default files. Every settings file (and Notepad's
@@ -1293,9 +1297,9 @@ empty, which for the shortcuts or colours file would stop Dasha Framework
 starting. The file keeps its permissions, and a symbolic link is written
 through. On Windows a file held open by another program cannot be
 replaced, and is then written in place, once the text has been written
-safely beside it. Cancel puts back the colours,
-shortcuts and animations that were in use when the dialog opened, or when
-Apply was last pressed. Installing and uninstalling happen at once, and
+safely beside it. Cancel puts back the colours, shortcuts, animations,
+colour depth, showing of the mouse and Escape wait that were in use when
+the dialog opened, or when Apply was last pressed. Installing and uninstalling happen at once, and
 are not undone by Cancel.
 
 ## Applications (`dasha.application`)
@@ -1393,16 +1397,17 @@ called each time the menu is shown or the item is chosen.)
   That desktop belongs to the application alone, so it has no system menu
   (`≡`), which exists for Dasha Framework to manage applications
   (`manager.show_system_menu` is false). The menu bar holds just the
-  application's menus and its Window menu, and Exit (Ctrl+Q) asks, for
-  example, "Close Notepad?" rather than warning about shutting Dasha Framework
+  application's menus and its Window menu, and the exit key (Ctrl+Q) asks,
+  for example, "Close Notepad?" rather than warning about shutting Dasha Framework
   down (`exit_title`, `exit_message`, `exit_button`, `exit_status`). While
   `dasha notepad` waits for Notepad's process to load, there is nothing
   yet to put on the bar, so its row shows the desktop's pattern (see
   "Loading" below).
-- **On the desktop.** `manager.start(Hello)` starts an application as the
-  desktop does, in its own process (see below), while `manager.launch(Hello)`
-  (given a class or an instance) starts it in the current process and
-  returns it. `manager.register(Hello)` (or a dict mapping names to classes)
+- **On the desktop.** `manager.start(application=Hello)` starts an
+  application as the desktop does, in its own process (see below), while
+  `manager.launch(application=Hello)` (given a class or an instance) starts
+  it in the current process and returns it.
+  `manager.register(applications=Hello)` (or a dict mapping names to classes)
   lists it in the system menu's Applications submenu, which appears once
   something has been registered. `manager.applications` lists the running
   applications, and `manager.application_of(window)` (or
@@ -1450,7 +1455,7 @@ on its own (`python apps/notepad.py`) or installed on the desktop
 | --- | --- | --- |
 | `apps/notepad.py` | `Notepad` | A plain text editor with a window for each file. It reads and writes UTF-8 files, and has File, Edit, Insert and Format menus, with word wrap, line numbers, the cursor position and an unsaved-changes marker. |
 | `apps/terminal.py` | `Terminal` | The user's shell (or another command) in a window for each: a `TerminalView` in a window, with menus to send the keys the desktop keeps, copy and paste. |
-| `apps/demo.py` | `Demo` | Widgets, More widgets and Files windows: labels, text boxes, buttons, a switch, and a dialog of radio buttons and check boxes; progress and column bars, sliders, a spin box and an autocomplete box; a list box in columns, the file dialogs, and choosing several files at once; a tree of the computer's folders to choose one from; and an Explorer window of folders and files. |
+| `apps/demo.py` | `Demo` | Widgets, More widgets and Files windows: labels, text boxes, buttons, a switch, and a dialog of radio buttons and check boxes; a collapsible area, progress and column bars, sliders, a spin box and an autocomplete box; a list box in columns, the file dialogs, and choosing several files at once; a tree of the computer's folders to choose one from; an Explorer window of folders and files; a Settings dialog of tabs, group boxes, a paragraph and a password box; and help from pages of Markdown. |
 
 ### Applications in processes of their own
 
@@ -1519,8 +1524,9 @@ AppServer, an AppHost per application  <->  ClientManager
   pickles, so the two ends do not need to run the same version of Python.
   The application sends each window's frame settings (its title, position
   and buttons, any colours of its own, and whether it is a dialog, is
-  waiting, or is a drop-down list), its menus as data, its status text and key hints, its footer, and
-  the rows of its interior that have changed, as runs of text in one style.
+  waiting, or is a drop-down list), its menus as data, its status text and
+  key hints, its footer, and the rows of its interior that have changed, as
+  runs of text in one style.
   The desktop sends keys, mouse events, pastes, menu choices, moves and
   resizes, scrolling from the frame's scroll bars, which window is active,
   requests to close, and the screen size.
@@ -1708,7 +1714,7 @@ build, a copy of the program named `dasha-desktop`). No application can have
 the id `desktop`: `install-app` and Settings... refuse it
 (`registry.DESKTOP_ID`).
 
-`dasha ID ...` runs only the applications named, by id, just as an
+`dasha ID ...` runs only the applications named, by id or name, just as an
 application's script runs it on its own (`Application.run`): there is no
 system menu and no `autostart`, the exit key asks to close them
 (`Close Notepad?`), and Dasha Framework ends when they do
@@ -1778,9 +1784,9 @@ outlives its desktop.
   (with its `[■]` button, Alt+F4 or the Window menu) cannot ask the
   application, so the desktop asks the user instead: **End now** ends the
   application (and anything it started), and **Wait** gives it more time.
-- **Shutting down** sends `may_close` to every application that has finished
-  loading and waits for
-  their answers, however long the user takes over them. If one is not
+- **Shutting down** sends `may_close` to every application that has
+  finished loading, and waits for their answers, however long the user
+  takes over them. If one is not
   responding, the desktop asks whether to **End now**, **Wait** (asking
   again after another `hang_timeout`), or **Cancel** the shutdown.
 - **Process trees.** Each application is started as a `ProcessTree`. On
@@ -1957,7 +1963,7 @@ moves it.
 | `compose(canvas)` | Paint the desktop and all the windows |
 | `handle_key` / `handle_mouse` | React to one key or mouse event; override to add behaviour |
 | `handle_resize(columns, lines)` | React to a new screen size (see below) |
-| `bar_menus()` | The menus on the bar: `system_menu`, then the active window's `menus` |
+| `bar_menus()` | The menus on the bar: `system_menu`, then the active application's `menus` and its Window menu |
 | `status()` | The status bar text for whatever has focus (see below) |
 | `run(terminal)` | The main loop: compose, render the changes, read input, repeat |
 
@@ -1980,7 +1986,7 @@ These are the default keys, and users can remap every one of them in
 | Esc | Close an open menu, or cancel a dialog |
 | Alt+F4, Alt+F3 | Close the active window |
 | Alt+F7 / Alt+F8 | Move / resize the active window with the arrow keys |
-| Tab, Shift+Tab | Move between a window's buttons (with two or more) |
+| Tab, Shift+Tab | Move the focus between a window's widgets (with two or more) |
 | Enter, Space | Press the focused or default button |
 
 ### Failing softly (`dasha.recovery`)
@@ -2039,14 +2045,16 @@ on a bug.
 The **menu bar** runs along the top row. On the desktop, it starts with the
 **system menu**, shown as a burger icon (`≡`, `\N{IDENTICAL TO}`); an
 application running on its own (`Application.run`, or `dasha APP`) has
-no system menu. The active window's own menus come next, so the bar changes
-as the user moves between windows.
+no system menu. The active application's menus and its Window menu come
+next, so the bar changes as the user moves between applications' windows.
 
 The system menu holds the running applications to switch between, then
 About, Applications (to start one), Run... (to run a script once),
 Settings... (see [Settings](#settings-dashasettings)), Themes, Animations
-(see [Animations](#animations)) and, after a separator, Shutdown. Minimised windows that belong to no application are listed above
-all of these. A menu's `on_open` is called just before the menu opens, to
+(see [Animations](#animations)), Command prompt and, after a separator,
+Shutdown; on the desktop, Help comes just before Settings.... Minimised
+windows that belong
+to no application are listed above all of these. A menu's `on_open` is called just before the menu opens, to
 bring its items up to date; Themes uses it to list the theme files present
 at that moment. The system menu is an ordinary `Menu`, stored in
 `PresentationManager.system_menu`, so more items can be added to it:
@@ -2055,7 +2063,8 @@ at that moment. The system menu is an ordinary `Menu`, stored in
 manager.system_menu.items.insert(0, MenuItem(label="&Help", action=show_help))
 ```
 
-A window's menus are a plain list, `Window.menus`:
+An application's menus are a plain list, `Application.menus`, and so are
+those of a window that belongs to no application, `Window.menus`:
 
 ```python
 from dasha.menu import Menu, MenuItem, separator
@@ -2097,7 +2106,7 @@ editor.menus = [
 
 | Input | Menu closed | Menu open |
 | --- | --- | --- |
-| F10 | Open the system menu | Close every open menu |
+| F10 | Open the first menu (the system menu, on the desktop) | Close every open menu |
 | Alt+letter | Open the menu with that mnemonic | Switch to that menu |
 | Click a title | Open that menu | Close it, or switch menus |
 | Right | | Open the highlighted item's submenu; otherwise the next menu |
@@ -2114,8 +2123,8 @@ editor.menus = [
 | A click outside every open menu | | Close them all |
 
 **Submenus.** An item can open a menu of its own instead of running an
-action: `MenuItem(label="&Recent", submenu=Menu(title="Recent", items=[...]))`. Such an item
-is drawn with `►` (code page 437 glyph 16) on its right, and submenus can
+action: `MenuItem(label="&Recent", submenu=Menu(title="Recent", items=[...]))`.
+Such an item is drawn with `►` (code page 437 glyph 16) on its right, and submenus can
 have submenus of their own. A submenu opens beside its item, with its first
 item level with it. It opens to the right of its parent menu if there is
 room, otherwise to the left, and if there is room on neither side, as close
@@ -2152,7 +2161,8 @@ whatever has the focus:
 - **While a menu is open:** the highlighted item's `status`. Moving the
   mouse over an item highlights it, so hovering over Open can show "Opens
   a file".
-- **Otherwise:** the active window's `status`.
+- **Otherwise:** the `status` of the active window's focused widget, or, if
+  it has none, the active window's own.
 - **With no windows:** nothing.
 
 At its left, the bar always shows the active application's name followed by
@@ -2379,7 +2389,8 @@ Before the first frame, and before each frame at a new size,
 be reached:
 
 - **Partly visible:** a window that is still at least partly on screen is
-  left where it is.
+  left where it is, unless its title bar is hidden under the menu bar, in
+  which case it is moved down to just below it.
 - **Completely off screen:** a window that the resize has pushed entirely
   off the screen is pulled back to the nearest edge. Its title bar ends up
   on screen, between the menu bar and the status bar, with `rescue_margin`

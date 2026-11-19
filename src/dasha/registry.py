@@ -74,8 +74,8 @@ _KEYS = ("name", "module", "class", "script", "venv", "group", "single_instance"
 
 
 class ManifestError(ValueError):
-    """A manifest (or settings file) that cannot be used. The message lists
-    every problem with it."""
+    """A manifest (or settings file) that cannot be used. The message says
+    why: for a manifest, it lists every problem with it, one to a line."""
 
 
 @dataclass(frozen=True)
@@ -94,6 +94,8 @@ class AppEntry:  # pylint: disable=too-many-instance-attributes
     """A virtual environment whose Python runs the application, if it does
     not use Dasha Framework's own Python."""
     single_instance: bool = False
+    """Whether only one copy of the application can run at a time. If so,
+    starting it again switches to the copy that is running."""
     group: str = ""
     """The Applications submenu the application is listed in (``""`` for
     none)."""
@@ -394,7 +396,7 @@ def read_colour_depth_setting(path: Path = SETTINGS_PATH) -> str:
 
 def save_colour_depth_setting(depth: str, path: Path = SETTINGS_PATH) -> None:
     """Remember how to draw colours, in ``settings.toml``. ``"auto"`` is
-    the default, so takes the setting out; only that line is changed, as
+    the default, so saving it takes the setting out; only that line is changed, as
     with ``save_theme_setting``."""
     _save_setting(
         "colour_depth", None if depth == "auto" else _toml_string(depth), path
@@ -446,11 +448,12 @@ def venv_has_dasha(venv: str | Path) -> bool:
 
 
 def lend_folder(base: Path = LEND_FOLDER) -> Path:
-    """A folder holding a copy of this Dasha Framework and nothing else, to put on
-    a virtual environment's path without lending it anything more. It is
-    made once for each version of the code, and named after the contents of
-    the files rather than when they were written, because a one-file build
-    of dasha unpacks fresh copies of them every time it starts."""
+    """A folder holding a copy of this version of Dasha Framework and
+    nothing else, to put on a virtual environment's path without lending it
+    anything more. It is made once for each version of the code, and named
+    after the contents of the files rather than when they were written,
+    because a one-file build of dasha unpacks fresh copies of them every
+    time it starts."""
     package = Path(dasha.__file__).resolve().parent
     files = sorted(
         path

@@ -1,9 +1,9 @@
 """Failing softly: what the desktop does when its own code goes wrong.
 
-No program is free of bugs, and before this an unexpected exception in the
+No program is free of bugs. Unguarded, an unexpected exception in the
 desktop's own code (a menu action, a dialog, Settings..., a widget, a
-timer) ended the desktop, and with it every application and their unsaved
-work. With ``PresentationManager.survive_errors`` on, as it is when
+timer) would end the desktop, and with it every application and their
+unsaved work. With ``PresentationManager.survive_errors`` on, as it is when
 Dasha Framework is started from the command line or an application runs on its
 own, each step of the desktop's loop (handling one event, running the
 timers, taking in applications' messages, drawing a frame) is guarded

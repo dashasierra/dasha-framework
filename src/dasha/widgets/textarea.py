@@ -39,8 +39,8 @@ class TextArea(Widget):
 
     ::
 
-        editor = Window("Editor", rect, resizable=True, maximisable=True)
-        area = editor.add(TextArea(0, 0, text=notes))
+        editor = Window(title="Editor", rect=rect, resizable=True, maximisable=True)
+        area = editor.add(widget=TextArea(row=0, column=0, text=notes))
 
     **Size and scrolling.** A text area is always at least as big as the rest of its
     window's interior (``width`` and ``height``, both 1 by default, are the least it
@@ -146,6 +146,7 @@ class TextArea(Widget):
 
     focusable = True
     style: Style = Style(foreground=BRIGHT_YELLOW, background=BLUE)
+    """The style of the text."""
     selected_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
     """The style of selected text, while the text area has the focus."""
     number_style: Style = Style(foreground=CYAN, background=BLUE)
@@ -640,14 +641,16 @@ class TextArea(Widget):
     # The clipboard
 
     def copy(self) -> bool:
-        """Copy the selection to the clipboard; ``False`` if nothing is."""
+        """Copy the selection to the clipboard; ``False`` if nothing is
+        selected."""
         if self.selection is None:
             return False
         self.clipboard.copy_text(self.selected_text)
         return True
 
     def cut(self) -> bool:
-        """Copy the selection to the clipboard and delete it."""
+        """Copy the selection to the clipboard and delete it; ``False`` if
+        nothing is selected."""
         if not self.copy():
             return False
         return self.insert("")

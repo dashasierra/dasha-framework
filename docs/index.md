@@ -4,7 +4,8 @@ Dasha Framework is a text-mode desktop and application framework for local and
 SSH terminals. It provides overlapping windows, menus, dialog boxes and a
 full set of widgets, all drawn with code page 437 characters. It is written
 in pure Python with **no third-party dependencies**: everything is built on
-the standard library, using `ctypes` to talk to the terminal directly.
+the standard library, using `termios` (on Linux and macOS) and `ctypes` (on
+Windows) to talk to the terminal directly.
 
 Applications can run on the Dasha Desktop, each in its own process, or
 on their own in a terminal.

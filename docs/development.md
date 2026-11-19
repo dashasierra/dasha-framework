@@ -13,8 +13,8 @@ with the development tools:
 python -m pip install -e ".[dev]"
 ```
 
-The `dev` extra (autopep8, black, coverage, mypy and pylint) is for
-development only. A plain `pip install dasha-framework` installs nothing beyond
+The `dev` extra (autopep8, black, build, coverage, mypy, pylint and twine)
+is for development only. A plain `pip install dasha-framework` installs nothing beyond
 the standard library.
 
 ## Running tests
@@ -87,16 +87,16 @@ To format the code, run autopep8 first and black last, because black has
 the final say on layout:
 
 ```bash
-python -m autopep8 --in-place -r src tests frozen
+python -m autopep8 --in-place -r src tests frozen apps docs
 ```
 
 ```bash
-python -m black src tests frozen
+python -m black src tests frozen apps docs
 ```
 
 To lint, run pylint from the project's root. It finds its settings in
-`.pylintrc` by itself, and those settings also say what to check (`src` and
-`tests`), so no arguments are needed; any files you name on the command
+`.pylintrc` by itself, and those settings also say what to check (`src`,
+`tests` and `frozen`), so no arguments are needed; any files you name on the command
 line are checked instead. pylint exits with a non-zero status for any
 message at all, even one too minor to lower the score below 10.00/10, so
 check the exit status rather than the score:
@@ -104,6 +104,9 @@ check the exit status rather than the score:
 ```bash
 python -m pylint
 ```
+
+The example applications are linted and type-checked from `apps/` (see
+`apps/README.md`).
 
 To type-check, in strict mode, with the paths taken from `pyproject.toml`:
 
@@ -157,8 +160,9 @@ Dasha Framework is published by creating a release on GitHub. Two workflows in
 
 Both call `build.yml`, which checks that the release's tag is `v` followed
 by `__version__` and that `CHANGELOG.md` has a dated section for that
-version, then builds the package and checks it as the Package check does. The built files are also attached to the GitHub release.
-Saving a draft release runs nothing. Publishing the draft does.
+version, then builds the package and checks it as the Package check does.
+The built files are also attached to the GitHub release. Saving a draft
+release runs nothing; publishing the draft does.
 
 Before the first release, create two repository secrets (Settings >
 Secrets and variables > Actions):
@@ -167,7 +171,7 @@ Secrets and variables > Actions):
 - `PYPI_API_TOKEN`: an API token from pypi.org.
 
 No username is needed with a token. Once the first upload has created the
-`dasha` project on each index, you can replace each token with one
+`dasha-framework` project on each index, you can replace each token with one
 limited to that project. GitHub creates the `testpypi` and `pypi`
 environments the first time the workflows run. In the repository's
 settings you can give them protection rules, such as a required reviewer.
@@ -233,12 +237,12 @@ a = Analysis(
 anything else as the dasha command line. It also accepts `-P`, which
 the desktop gives first so that a real Python does not import modules from
 the folder it runs in; a build never does that anyway, so the option is
-passed over. A copy of the built program named `dasha-desktop` (`dasha-desktop.exe`)
-is the `dasha-desktop` command, `dasha desktop`. `tests/test_frozen.py` checks the entry point against the very
-command the desktop builds (`AppHost.start`), so the two cannot drift apart
-again unnoticed. Nothing in the package changes
-for the build, and the script is kept out of `src/`, so installing
-Dasha Framework does not install it. In a build, an application without a virtual
+passed over. A copy of the built program named `dasha-desktop`
+(`dasha-desktop.exe`) is the `dasha-desktop` command, `dasha desktop`.
+`tests/test_frozen.py` checks the entry point against the very command the
+desktop builds (`AppHost.start`), so the two cannot drift apart unnoticed.
+Nothing in the package changes for the build, and the script is kept out of
+`src/`, so installing Dasha Framework does not install it. In a build, an application without a virtual
 environment runs on the built program itself, so a script started with
 Run... can import only what the build contains: the standard library
 modules that Dasha Framework uses, and Dasha Framework. For anything more, give the
@@ -264,7 +268,8 @@ from `dasha.theme` and `dasha.shortcuts`
 So document a class, function or constant in its docstring rather than in
 the guides. Docstrings are written in reST (``` ``literal`` ```, and `::`
 before an example), and a constant's docstring is a string placed just
-after it. The example applications in `apps/` are not documented.
+after it. The example applications in `apps/` are not part of the API
+reference.
 
 The `docs` extra contains what the build needs (Sphinx, MyST and the Furo
 theme):
@@ -340,9 +345,9 @@ docstring that is not valid reST is caught. Open
 - **Code page 437 glyphs** for anything drawn on screen (frames, arrows,
   shading), so that every terminal font can show them. The source writes
   them as escapes (`"\N{FULL BLOCK}"`), not as the characters themselves.
-- **British spelling**, such as "colour", "centre" and "grey", everywhere.
-  Text shown on screen uses "-ise" (Maximise, "not recognised"), while names
-  in the code and the documentation use "-ize" (`maximise`,
+- **British spelling**, such as "colour", "centre" and "grey", everywhere,
+  with "-ise" rather than "-ize": in text shown on screen (Maximise, "not
+  recognised"), in the documentation, and in names in the code (`maximise`,
   `normalise_key`).
 - Files are UTF-8 with LF line endings (see `.editorconfig` and
   `.gitattributes`).

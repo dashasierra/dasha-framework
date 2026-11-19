@@ -10,9 +10,9 @@ close button. The dialog itself can still be read afterwards, so the caller
 can look at every widget in it (``dialog.widget(name)``, ``dialog.values``)
 to decide what to do::
 
-    dialog = confirm("Delete", "Delete notes.txt?")
-    if manager.execute(dialog) == "ok":
-        delete("notes.txt")
+    dialog = confirm(title="Delete", message="Delete notes.txt?")
+    if manager.execute(dialog=dialog) == "ok":
+        delete(path="notes.txt")
 """
 
 from collections.abc import Sequence

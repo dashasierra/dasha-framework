@@ -178,10 +178,10 @@ class DesktopPage:
         self.empty.text = "" if entries else "(None installed)"
 
     def save(self) -> bool:
-        """Keep the animations, colour depth, show the mouse and escape
-        wait settings, and the applications to start with, in
-        ``settings.toml``, if they have changed. Returns whether all went
-        well."""
+        """Keep the settings for animations, the colour depth, showing the
+        mouse and how long Escape waits, and the applications to start with
+        the desktop, in ``settings.toml``, if they have changed. Returns
+        whether all went well."""
         path = self.manager.settings_path
         try:
             if self.animations.on != self._saved_animations:

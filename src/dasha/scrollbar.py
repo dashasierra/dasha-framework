@@ -154,14 +154,18 @@ class AutoRepeat:
     """
 
     delay = 0.4
+    """How many seconds a click is held before it first repeats."""
     interval = 0.05
+    """How many seconds apart the repeats come after that."""
 
     part: str | None = None
     """The part being held down, or ``None`` when nothing is."""
     row: int = 0
+    """The row the pointer is on now, in the coordinates of whatever owns
+    this object."""
     column: int = 0
-    """Where the pointer is now, in the coordinates of whatever owns this
-        object."""
+    """The column the pointer is on now, in the same coordinates as
+    ``row``."""
     next_time: float = field(default=0.0, repr=False)
 
     def start(self, part: str | None, row: int, column: int, now: float) -> None:

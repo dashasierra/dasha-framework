@@ -59,17 +59,22 @@ class TextBox(Widget):
 
     ::
 
-        TextBox(2, 7, 16, max_length=40)                  # any text
-        TextBox(3, 7, 5, pattern=r"[0-9]*", max_length=3)  # up to three digits
-        TextBox(4, 7, 10, pattern=r"-?[0-9]*")             # whole numbers
-        TextBox(5, 7, 10, pattern=r"[0-9]*([.][0-9]*)?")   # decimals
+        # Any text:
+        TextBox(row=2, column=7, width=16, max_length=40)
+        # Up to three digits:
+        TextBox(row=3, column=7, width=5, pattern=r"[0-9]*", max_length=3)
+        # Whole numbers:
+        TextBox(row=4, column=7, width=10, pattern=r"-?[0-9]*")
+        # Decimals:
+        TextBox(row=5, column=7, width=10, pattern=r"[0-9]*([.][0-9]*)?")
 
     A pattern such as ``[0-9]{3}``, which matches only finished text, would
     refuse the first digit. Setting ``text`` from code checks the same limits,
     and raises ``ValueError`` if they are broken. ``accepts(text)`` checks text
     without changing anything. ``on_change(box)`` is called after each change
-    made by typing, and ``cursor`` is where typing goes (from 0 to
-    ``len(text)``).
+    made by the user (typing, deleting, cutting, pasting, undoing or redoing)
+    or by ``insert``, but not when code sets ``text``. ``cursor`` is where
+    typing goes (from 0 to ``len(text)``).
 
     **Selecting.** Text is selected with Shift and the cursor keys, with Ctrl+A
     for all of it, or by dragging with the mouse. While the box has the focus,
@@ -82,7 +87,7 @@ class TextBox(Widget):
 
     Dragging onto ``◄`` or ``►`` (or beyond the box in that direction) keeps
     selecting in that direction: one character straight away, and then one more
-    every ``TextBox.scroll_delay`` seconds (0.1 by default) while the mouse is
+    every ``TextBox.scroll_delay`` seconds (0.01 by default) while the mouse is
     held there, until the end of the text. Set ``TextBox.scroll_delay = 0.2``
     once to change this for a whole project, or set it on a single box.
 
@@ -113,6 +118,7 @@ class TextBox(Widget):
     - A click: put the cursor there; on ``◄`` or ``►``, move one character
       further in that direction
     - Shift and a click: select from the cursor to there
+    - A double-click: select all the text
     - A drag: select; held over ``◄`` or ``►``, keep selecting in that direction
 
     Keys bound to ``next_widget``, ``previous_widget`` and ``dialog_cancel`` always
@@ -130,7 +136,9 @@ class TextBox(Widget):
 
     focusable = True
     style: Style = Style(foreground=BLUE, background=CYAN)
+    """The style of the box and its text."""
     focused_style: Style = Style(foreground=BRIGHT_WHITE, background=CYAN, bold=True)
+    """The style of the box and its text while it has the focus."""
     selected_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
     """The style of selected text, while the box has the focus."""
     arrow_style: Style = Style(foreground=CYAN, background=BLUE, bold=True)
@@ -348,7 +356,7 @@ class TextBox(Widget):
 
     copies_out: bool = True
     """Whether the box's text can be copied or cut out (a password box's
-        cannot)."""
+    cannot)."""
 
     def popup_menu(self, shortcuts: Shortcuts) -> Menu | None:
         """The box's ``context_menu``, or otherwise a menu of Undo, Cut, Copy,

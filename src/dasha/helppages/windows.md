@@ -27,7 +27,7 @@ A window shows the buttons it allows on its title bar while it is active:
 | `[↓]` | Minimises it | none by default |
 | `[■]` | Closes it | Alt+F4 or Alt+F3 |
 
-Double-clicking the title bar also maximises or restores the window. A minimised window leaves the screen, and is listed in the [system menu](menus.md#the-system-menu), from which it can be restored.
+Double-clicking the title bar also maximises or restores the window. A minimised window leaves the screen, and is listed in its application's **Window** menu (or, for one of the desktop's own windows, in the [system menu](menus.md#the-system-menu)), from which it can be restored.
 
 ## Scrolling
 

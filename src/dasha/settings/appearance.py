@@ -1,5 +1,5 @@
-"""Settings...' Appearance page: the theme, and the colours of each part of
-the screen.
+"""The Appearance page of Settings...: the theme, and the colours of each
+part of the screen.
 
 Choosing a theme, or changing a colour, shows on the screen at once.
 Colours changed here are saved to the colours file when the settings are

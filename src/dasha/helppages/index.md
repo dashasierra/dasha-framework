@@ -1,6 +1,6 @@
 # Dasha Desktop Help
 
-Dasha Desktop is a desktop of overlapping windows in a terminal. Each application runs on its own, and they share the desktop.
+Dasha Desktop is a desktop of overlapping windows in a terminal. Each application runs in its own process, and they share the desktop.
 
 Press **Tab** to move to a link below, and **Enter** to follow it.
 

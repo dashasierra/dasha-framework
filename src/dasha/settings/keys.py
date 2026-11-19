@@ -1,4 +1,4 @@
-"""Settings...' Shortcuts page: the keys of every action.
+"""The Shortcuts page of Settings...: the keys of every action.
 
 A key is added by pressing it (in ``KeyDialog``), and every change is
 checked as a shortcuts file is, so the keyboard can always leave a menu, a

@@ -12,7 +12,9 @@ class CheckBoxes(Cluster):
     """A group of options that can each be on or off, with any number on at
     once::
 
-        CheckBoxes(["&Bold", "&Italic", "&Underline"], 1, 2, checked=[0])
+        CheckBoxes(
+            labels=["&Bold", "&Italic", "&Underline"], row=1, column=2, checked=[0]
+        )
 
     Space (or a click, or the option's letter) checks or unchecks an
     option. The group's ``value`` is a tuple of the indexes of the checked

@@ -214,11 +214,18 @@ class MenuBar:  # pylint: disable=too-many-public-methods
     """
 
     bar_style: Style = Style(foreground=BLACK, background=WHITE)
+    """The style of the bar, and of the drop-downs and their items."""
     mnemonic_style: Style = Style(foreground=RED, background=WHITE)
+    """The style of mnemonic letters in titles and items."""
     selected_style: Style = Style(foreground=BLACK, background=GREEN)
+    """The style of the open menu's title, and of the highlighted item."""
     selected_mnemonic_style: Style = Style(foreground=RED, background=GREEN)
+    """The style of the mnemonic letter in the open title or highlighted
+    item."""
     disabled_style: Style = Style(foreground=BRIGHT_BLACK, background=WHITE)
+    """The style of items that cannot be chosen."""
     border: Border = SINGLE
+    """The frame drawn around each drop-down and submenu."""
     frame_padding: int = 1
     """How many blank columns there are outside each side of the
     drop-down's frame (``" │ Open │ "``)."""

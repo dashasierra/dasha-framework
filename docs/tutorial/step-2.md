@@ -29,8 +29,9 @@ Run it, and the window opens on the desktop:
 - **The flags** give the window its buttons. `closable` puts `[■]` at the
   left of the title bar, `minimisable` and `maximisable` put `[↓]` and
   `[↑]` at its right, and `resizable` gives it a grip in its bottom right
-  corner. Without these flags, a window keeps the position and size it was
-  opened with.
+  corner. Any window can be moved, by its title bar or from the keyboard,
+  but without these flags the user cannot resize, minimise, maximise or
+  close it.
 - **`self.open(window=window)`** is a method of `Application`. It shows
   the window and records that it belongs to Notepad.
 - **The active window** has a double frame, and other windows have a

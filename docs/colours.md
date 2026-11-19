@@ -39,7 +39,8 @@ changed, so anything else in the file stays as you wrote it. Choosing
 When Dasha Framework starts, it picks its colours from the first of these that
 applies:
 
-1. the `--monochrome` option;
+1. the `--monochrome` option, or a terminal with no colours (see
+   [Monochrome mode](#monochrome-mode));
 2. a colours file named with `--colours FILE`;
 3. the theme you chose last;
 4. the colours file, `~/.dasha/colours.json`;
@@ -86,9 +87,9 @@ true:
 
 - it is run with `--monochrome`;
 - the colours file says `"base": "monochrome"`;
-- the `NO_COLOR` environment variable is set to any value
-  ([no-color.org](https://no-color.org)), and the colours file does not
-  name a base theme of its own;
+- the `NO_COLOR` environment variable is set to anything but an empty
+  string ([no-color.org](https://no-color.org)), and the colours file does
+  not name a base theme of its own;
 - the terminal has no colours (`TERM` is `dumb`, or a VT terminal such as
   `vt100`, and `COLORTERM` is not set).
 

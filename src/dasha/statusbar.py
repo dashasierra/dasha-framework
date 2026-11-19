@@ -28,6 +28,7 @@ class StatusBar:  # pylint: disable=too-few-public-methods
     """
 
     style: Style = Style(foreground=BLACK, background=WHITE)
+    """The style of the bar, its text and the hints' descriptions."""
     key_style: Style = Style(foreground=RED, background=WHITE)
     """The style of the key names in the hints on the right."""
 

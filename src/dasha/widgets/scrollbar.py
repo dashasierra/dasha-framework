@@ -23,8 +23,9 @@ class ScrollBar(Widget):  # pylint: disable=too-many-instance-attributes
     ``value`` runs from 0 to ``maximum``. ``page`` is how much of whatever the
     bar scrolls is shown at once, and ``line`` is how far an arrow moves it.
     Clicks on the arrows move it by a ``line``, and clicks on the track by a
-    page; the thumb can be dragged, and the mouse wheel over the bar moves it
-    too. Holding the button down on an arrow or the track repeats the click
+    page less one line (so that a line stays in view); the thumb can be
+    dragged, and the mouse wheel over the bar moves it too. Holding the
+    button down on an arrow or the track repeats the click
     (``dasha.scrollbar.AutoRepeat`` sets how fast). Whenever the user
     moves the bar, ``on_change(bar)`` is called; setting ``value`` from code
     does not call it, and ``set_range(maximum, page)`` changes the range. A
@@ -37,6 +38,7 @@ class ScrollBar(Widget):  # pylint: disable=too-many-instance-attributes
     """
 
     style: Style = Style(foreground=BLUE, background=CYAN)
+    """The style of the arrows, the track and the thumb."""
 
     def __init__(  # pylint: disable=too-many-arguments
         self,

@@ -8,9 +8,17 @@ set its ``menus`` and open its first windows::
         name = "Hello"
 
         def start(self) -> None:
-            self.menus = [Menu("&File", [MenuItem("E&xit", self.exit)])]
-            self.open(Window("Hello", Rect(2, 2, 6, 30), ["Hello, world"],
-                             closable=True))
+            self.menus = [
+                Menu(title="&File", items=[MenuItem(label="E&xit", action=self.exit)])
+            ]
+            self.open(
+                window=Window(
+                    title="Hello",
+                    rect=Rect(row=2, column=2, height=6, width=30),
+                    lines=["Hello, world"],
+                    closable=True,
+                )
+            )
 
     if __name__ == "__main__":
         raise SystemExit(Hello().run())
@@ -23,7 +31,7 @@ windows open, its menu bar stays, with the items that need a window
 
 ``Hello().run()`` runs the application on its own, on a desktop of its own
 that closes when the application ends. On a Dasha Desktop, the same
-class is started with ``manager.launch(Hello)``, or from the Applications
+class is started with ``manager.launch(application=Hello)``, or from the Applications
 menu once it has been registered (``manager.register``).
 """
 
@@ -126,7 +134,12 @@ class Application:
         topic, that is the topic of whatever has the focus, or else the
         index. A menu item can be given this as it is::
 
-            MenuItem("&Help", self.show_help, hint("help"), enabled=self.has_help)
+            MenuItem(
+                label="&Help",
+                action=self.show_help,
+                shortcut=hint(action="help"),
+                enabled=self.has_help,
+            )
 
         See ``dasha.help``."""
         manager = self.manager
@@ -225,8 +238,9 @@ class Application:
         ``DASHA_ADDRESS``), the application runs on that desktop.
         Otherwise, it runs on its own on a desktop of its own that closes
         when the application ends, in the real terminal unless another
-        terminal is given. That desktop has no system menu (``≡``), and Exit
-        asks whether to close the application. It has the terminal's size
+        terminal is given. That desktop has no system menu (``≡``), and the
+        desktop's exit key (``exit``, Ctrl+Q) asks whether to close the
+        application. It has the terminal's size
         before ``start`` is called, so ``start`` can fit windows to the
         screen (``manager.workspace``), and the Monochrome theme if
         ``NO_COLOR`` is set (https://no-color.org). In the real terminal, it
