@@ -131,9 +131,9 @@ class PseudoTerminal(ABC):
 
     @abstractmethod
     def close(self) -> None:
-        """End the program, if it is still running: ask it to, then make it
-        to after ``KILL_DELAY`` seconds. Its ending is reported as
-        usual."""
+        """End the program, if it is still running: ask it to end, and force
+        it to if it has not ended after ``KILL_DELAY`` seconds. Its ending
+        is reported as usual."""
 
     def foreground_busy(self) -> bool:
         """Whether the program has started another that is running in the
