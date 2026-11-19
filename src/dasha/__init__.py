@@ -3,6 +3,7 @@
 A text-mode desktop and application framework for local and SSH terminals,
 built entirely on the Python standard library.
 """
+
 from pkgutil import extend_path
 
 # Enable packages to use the dasha namespace
