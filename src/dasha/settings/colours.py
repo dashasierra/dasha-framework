@@ -1,5 +1,5 @@
-"""Settings...' Custom... colour: an RGB colour, typed as ``#rrggbb`` or
-set by its red, green and blue."""
+"""The Custom colour dialog in Settings...: an RGB colour, typed as
+``#rrggbb`` or set by its red, green and blue."""
 
 from dasha.dialog import Dialog
 from dasha.style import Rgb, Style
