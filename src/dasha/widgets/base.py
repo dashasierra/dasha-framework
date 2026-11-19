@@ -117,7 +117,10 @@ class Widget:
         self.rect = Rect(row, column, height, width)
         """Position and size, relative to the window's interior."""
         self.name = name
+        """The widget's name, by which code can find it again
+        (``Window.widget``, ``Dialog.values``); ``None`` for none."""
         self.status = status
+        """Help shown on the status bar while the widget has the focus."""
         self.window: "Window | None" = None
         """The window this widget is in; set by ``Window.add``."""
         # For ``grow``: the rect as laid out, the interior size it was laid
