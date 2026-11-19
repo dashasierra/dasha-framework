@@ -13,7 +13,7 @@ from dasha.widgets.base import Widget, run_shortcut
 from dasha.widgets.scrollbar import ScrollBar
 
 ALIGNMENTS = ("left", "centre", "right", "justify")
-"""The ways a dialog's message can be aligned."""
+"""The ways a paragraph, or a dialog's message, can be aligned."""
 
 
 def align_lines(lines: list[str], width: int, align: str) -> list[tuple[int, str]]:
@@ -77,13 +77,16 @@ class Paragraph(Widget):  # pylint: disable=too-many-instance-attributes
 
     ::
 
-        dialog.add(Paragraph(text, 1, 2, 42, align="justify"))
+        dialog.add(
+            widget=Paragraph(text=text, row=1, column=2, width=42, align="justify")
+        )
 
     - **Lines.** Each line break in the text is kept, so a blank line
       separates paragraphs; ``lines`` gives the lines as shown.
     - **Alignment.** ``align`` is ``"left"`` (the default), ``"centre"``,
       ``"right"`` or ``"justify"``. Justifying spreads each wrapped line's words
-      out to the full width, except for the last line of each line of the text.
+      out to the full width, except on the last line that each line of the
+      text wraps to, and on a line with a single word.
       This uses the same ``align_lines`` as dialog messages (defined in
       ``dasha.widgets.paragraph``, and also importable from
       ``dasha.dialog``).

@@ -28,8 +28,10 @@ look like part of the button)."""
 
 class Button(Widget):
     """A push button: a green face with a ``▄``/``▀`` shadow (code page
-    437 glyphs 220 and 223). It is at least 10 columns wide, and ``label``
-    can mark a mnemonic letter with ``&``.
+    437 glyphs 220 and 223). Unless it is given a ``width``, its face is
+    four columns wider than its label, and at least 10 columns wide; the
+    shadow takes a column more. ``label`` can mark a mnemonic letter with
+    ``&``.
 
     - **Enter or Space** (``press_button``) presses the focused button, or
       the ``default`` button if the focus is not on a button.
@@ -53,11 +55,15 @@ class Button(Widget):
 
     focusable = True
     face_style: Style = Style(foreground=BLACK, background=GREEN)
+    """The style of the face and its label."""
     focused_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
+    """The style of the face and its label while the button has the focus."""
     mnemonic_style: Style = Style(foreground=BRIGHT_YELLOW, background=GREEN)
+    """The style of the label's mnemonic letter."""
     focused_mnemonic_style: Style = Style(
         foreground=BRIGHT_YELLOW, background=GREEN, bold=True
     )
+    """The style of the mnemonic letter while the button has the focus."""
     shadow_style: Style = Style(foreground=BLACK)
     """The shadow's colours. Its background is always the window's, so
     that the shadow sits on the window."""

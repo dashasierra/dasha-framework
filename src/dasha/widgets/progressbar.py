@@ -59,7 +59,7 @@ class ProgressBar(Widget):
     ::
 
         bar = window.add(
-            ProgressBar(
+            widget=ProgressBar(
                 row=2, column=1, length=30, maximum=12, text="{value} of {maximum}"
             )
         )

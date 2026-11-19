@@ -59,11 +59,18 @@ class Splitter(Widget):  # pylint: disable=too-many-instance-attributes
     ::
 
         splitter = window.add(
-            Splitter(0, 0, 58, 12, position=16, minimum=8), grow=Grow.ALL
+            widget=Splitter(
+                row=0, column=0, width=58, height=12, position=16, minimum=8
+            ),
+            grow=Grow.ALL,
         )
-        folders = splitter.first.add(ListBox(names, 0, 0, 16, 12))
+        folders = splitter.first.add(
+            widget=ListBox(items=names, row=0, column=0, width=16, height=12)
+        )
         folders.grow = Grow.ALL
-        files = splitter.second.add(ListBox(items, 0, 0, 41, 12))
+        files = splitter.second.add(
+            widget=ListBox(items=items, row=0, column=0, width=41, height=12)
+        )
         files.grow = Grow.ALL
 
     - **The panes.** ``first`` and ``second`` are containers (``SplitPane``),

@@ -11,7 +11,9 @@ from dasha.widgets.cluster import Cluster, ClusterOptions
 class RadioButtons(Cluster):
     """A group of options of which exactly one is selected::
 
-        RadioButtons(["&Small", "&Medium", "&Large"], 1, 2, selected=1)
+        RadioButtons(
+            labels=["&Small", "&Medium", "&Large"], row=1, column=2, selected=1
+        )
 
     Moving with Up and Down selects each option in turn, and so does a
     click or an option's letter. The group's ``value`` is the index of the

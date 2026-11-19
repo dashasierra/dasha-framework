@@ -47,7 +47,9 @@ class ComboBox(Widget):  # pylint: disable=too-many-instance-attributes
 
     focusable = True
     style: Style = Style(foreground=BLUE, background=CYAN)
+    """The style of the field."""
     focused_style: Style = Style(foreground=BRIGHT_WHITE, background=CYAN, bold=True)
+    """The style of the field while it has the focus."""
     button_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
     """The style of the ``▼`` on the right."""
     min_width: int = 3

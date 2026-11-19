@@ -59,7 +59,9 @@ class Switch(Widget):  # pylint: disable=too-many-instance-attributes
 
     focusable = True
     off_style: Style = Style(foreground=BRIGHT_WHITE, background=WHITE)
+    """The style of the track while the switch is off."""
     on_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
+    """The style of the track while the switch is on."""
     disabled_style: Style = Style(foreground=BRIGHT_BLACK, background=WHITE)
     """The style of the track and label of a switch that cannot be
     changed."""

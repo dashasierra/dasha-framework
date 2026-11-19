@@ -29,11 +29,14 @@ class Collapsible(Container, Widget):
 
     ::
 
-        advanced = dialog.add(Collapsible("&Advanced", 4, 2))
-        advanced.add(CheckBoxes(["&Verbose"], 0, 2, name="verbose"))
-        advanced.add(Label("Retries:", 1, 2))
-        advanced.add(TextBox(1, 11, 6, name="retries"))
-        dialog.add(Label("Name:", 5, 2))  # just under the header, as though collapsed
+        advanced = dialog.add(widget=Collapsible(label="&Advanced", row=4, column=2))
+        advanced.add(
+            widget=CheckBoxes(labels=["&Verbose"], row=0, column=2, name="verbose")
+        )
+        advanced.add(widget=Label(text="Retries:", row=1, column=2))
+        advanced.add(widget=TextBox(row=1, column=11, width=6, name="retries"))
+        # Just under the header, as though the area were collapsed:
+        dialog.add(widget=Label(text="Name:", row=5, column=2))
 
     - **Placing widgets in it.** ``area.add(widget)`` places a widget relative
       to the area: row 0 is the first row below the header, and column 0 is the

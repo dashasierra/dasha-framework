@@ -22,9 +22,11 @@ class GroupBox(Container, Widget):
 
     ::
 
-        account = dialog.add(GroupBox("&Account", 5, 2, 42, 6))
-        account.add(Label("Name:", 0, 1))
-        account.add(TextBox(0, 11, 26, name="name"))
+        account = dialog.add(
+            widget=GroupBox(title="&Account", row=5, column=2, width=42, height=6)
+        )
+        account.add(widget=Label(text="Name:", row=0, column=1))
+        account.add(widget=TextBox(row=0, column=11, width=26, name="name"))
 
     Its widgets are positioned relative to the inside of the frame. The title
     can mark a mnemonic letter with ``&``, which moves the focus to the first

@@ -12,8 +12,10 @@ from dasha.widgets.base import Widget
 def on_window(own: Style, body: Style) -> Style:
     """A widget's own style, with anything it leaves out taken from its
     window's colours (``body``). A colour it leaves as ``None`` takes the
-    window's colour, and bold and reverse video are combined with the
-    window's."""
+    window's colour. The result is bold if either is bold, and underlined
+    only if the widget's own style is; reverse video in the widget's own
+    style reverses the window's, so a widget on a reversed window is shown
+    the right way round."""
     return Style(
         foreground=own.foreground if own.foreground is not None else body.foreground,
         background=own.background if own.background is not None else body.background,
