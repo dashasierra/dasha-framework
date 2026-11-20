@@ -7,6 +7,7 @@ clipboard or another's name, and it cannot hold the desktop up."""
 # pylint: disable=protected-access
 
 import io
+import json
 import os
 import tempfile
 import threading
@@ -17,7 +18,7 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
-from dasha import hosting, protocol
+from dasha import hosting, protocol, theme
 from dasha.canvas import UNSHOWABLE, Canvas, shown
 from dasha.clipboard import CLIPBOARD
 from dasha.hosting import AppHost, AppServer
@@ -243,6 +244,45 @@ class VersionTests(Desktop):
             self.assertEqual(agree_version({"versions": [2, 9]}), 3)
             self.assertIsNone(agree_version({"versions": [4, 9]}))
             self.assertIsNone(agree_version({"versions": [2, 1]}))
+
+    def test_a_first_release_application_can_take_the_theme(self) -> None:
+        """An application of version 1 (the first release), which refuses a
+        role it does not know, is sent the theme without the roles added
+        since, at first and when the theme changes; one of this version is
+        sent them all."""
+        old_end = self.connect({"versions": [1, 1]})
+        new_end = self.connect({"versions": [MINIMUM_VERSION, PROTOCOL_VERSION]})
+        sent_old = [drain(old_end)[0]]
+        sent_new = [drain(new_end)[0]]
+        self.server.share_theme()
+        sent_old += of_type(drain(old_end), "theme")
+        sent_new += of_type(drain(new_end), "theme")
+        self.assertEqual([m["type"] for m in sent_old], ["welcome", "theme"])
+        self.assertEqual([m["type"] for m in sent_new], ["welcome", "theme"])
+        roles_then = {
+            role: where
+            for role, where in theme.ROLES.items()
+            if role not in theme.NEWER_ROLES
+        }
+        for old, new in zip(sent_old, sent_new):
+            with mock.patch.object(theme, "ROLES", roles_then):  # as in version 1
+                theme.build_theme(json.loads(old["theme"]))
+                with self.assertRaisesRegex(theme.ThemeError, "unknown role"):
+                    theme.build_theme(json.loads(new["theme"]))
+            self.assertEqual(
+                theme.build_theme(json.loads(new["theme"]))["tabs.disabled"],
+                theme.current_theme()["tabs.disabled"],
+            )
+
+    def connect(self, hello: Message) -> Connection:
+        """A starting application's end of the pipe, once it has sent its
+        ``hello``."""
+        host = AppHost(self.server, "x:Y", "Versioned", guessed_name=False)
+        self.server.hosts.append(host)
+        self.server._by_token[host.token] = host
+        app_end, desktop_end = pipe()
+        self.server._greet(desktop_end, {"type": "hello", "token": host.token, **hello})
+        return app_end
 
 
 class FocusTests(Desktop):
