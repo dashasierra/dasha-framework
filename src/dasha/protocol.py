@@ -28,9 +28,14 @@ from dasha.canvas import Rect
 from dasha.events import MouseEvent
 from dasha.style import Colour, Rgb, Style
 
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 """The version of the protocol, which is increased whenever a message
-changes in a way that the other end would notice."""
+changes in a way that the other end would notice.
+
+1. The first release.
+2. A theme (in ``welcome`` and ``theme``) may have the roles added since
+   (``theme.NEWER_ROLES``): ``tabs.disabled``. An application of version 1
+   refuses a theme with a role it does not know, so it is sent none."""
 
 MINIMUM_VERSION = 1
 """The oldest version of the protocol still understood, which is raised
