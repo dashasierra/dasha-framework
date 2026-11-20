@@ -1810,8 +1810,10 @@ outlives its desktop.
 - **Starting.** An application that has not connected within
   `start_timeout` (30 seconds) is ended and reported. One that has connected
   but shows nothing is asked about instead (see "Loading" above).
-- **Protocol version.** `PROTOCOL_VERSION` is 1, the version of the first
-  release. It is increased whenever a message changes in a way the other end
+- **Protocol version.** `PROTOCOL_VERSION` is 2. Version 1 was the first
+  release; version 2 sends the colour roles added since (`theme.NEWER_ROLES`,
+  such as `tabs.disabled`) in a theme, which version 1 would refuse. It is
+  increased whenever a message changes in a way the other end
   would notice. `MINIMUM_VERSION` is the oldest version still understood,
   and is raised only when support for an old version is dropped. An
   application's `hello` gives the range it speaks (`"versions": [oldest,

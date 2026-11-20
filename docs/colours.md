@@ -133,6 +133,13 @@ with every colour written out, ready to edit, run:
 dasha --init-colours
 ```
 
+A role added since the first release, such as `tabs.disabled`, is written to
+the file (by `--init-colours`, `--init-theme` or Settings...) only once it
+differs from the base theme, so that an earlier release of Dasha Framework,
+such as one an application has in its own virtual environment, can still
+read the file. Add it yourself to change it: every role is listed under
+[Roles](#roles).
+
 The file chooses a base theme (`"default"`, `"dark"` or `"monochrome"`) and
 changes whichever roles you want:
 

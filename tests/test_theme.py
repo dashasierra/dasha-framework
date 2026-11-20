@@ -257,6 +257,25 @@ class ThemeTests(ThemeIsolation):
         mono = json.loads(theme.theme_to_json(theme.MONOCHROME_THEME, "monochrome"))
         self.assertEqual(theme.build_theme(mono), theme.MONOCHROME_THEME)
 
+    def test_newer_roles_written_only_where_needed(self) -> None:
+        """A colours file leaves out a role added since the first release
+        while it is as the base theme has it, so an older release can read
+        the file; changed, it is written. For an application, the protocol
+        version decides."""
+        for base, colours in theme.BASES.items():
+            written = json.loads(theme.theme_to_json(colours, base))
+            self.assertNotIn("tabs.disabled", written["colours"])
+            self.assertEqual(theme.build_theme(written), colours)
+        changed = theme.DEFAULT_THEME | {"tabs.disabled": Style(foreground=RED)}
+        written = json.loads(theme.theme_to_json(changed))
+        self.assertEqual(written["colours"]["tabs.disabled"]["foreground"], "red")
+        self.assertEqual(theme.build_theme(written), changed)
+        for version, sent in ((1, False), (2, True)):
+            colours = json.loads(theme.theme_to_json(changed, version=version))
+            self.assertEqual("tabs.disabled" in colours["colours"], sent)
+        default = json.loads(theme.theme_to_json(theme.DEFAULT_THEME, version=2))
+        self.assertIn("tabs.disabled", default["colours"])
+
     def test_monochrome_choice(self) -> None:
         """--monochrome always wins; NO_COLOR applies unless the file has a base."""
         with tempfile.TemporaryDirectory() as directory:
@@ -485,12 +504,15 @@ class CommandLineTests(ThemeIsolation):
         return code, out.getvalue(), err.getvalue()
 
     def test_init_colours(self) -> None:
-        """--init-colours writes every role once, and never overwrites."""
+        """--init-colours writes every role once, but those added since the
+        first release (which it would only refuse), and never overwrites."""
         code, out, _ = self.run_main("--init-colours", "--colours", str(self.path))
         self.assertEqual(code, 0)
         self.assertIn(str(self.path), out)
         data = json.loads(self.path.read_text(encoding="utf-8"))
-        self.assertEqual(set(data["colours"]), set(theme.ROLES))
+        self.assertEqual(
+            set(data["colours"]), set(theme.ROLES) - set(theme.NEWER_ROLES)
+        )
         code, _, err = self.run_main("--init-colours", "--colours", str(self.path))
         self.assertEqual(code, 1)
         self.assertIn("already exists", err)
