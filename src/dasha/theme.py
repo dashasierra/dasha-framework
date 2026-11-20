@@ -210,6 +210,13 @@ holds each one, and its allowed values."""
 NULLABLE_ROLES = frozenset({"window.shadow", "menu.shadow"})
 """The roles that may be ``None`` (meaning no shadow at all)."""
 
+NEWER_ROLES: dict[str, int] = {"tabs.disabled": 2}
+"""The roles added since the first release, each with the protocol version
+(``dasha.protocol.PROTOCOL_VERSION``) that first sends it to an
+application. An older release of Dasha Framework refuses a theme with a
+role it does not know, so ``theme_to_json`` leaves these out wherever an
+older release could be reading."""
+
 DESCRIPTIONS: dict[str, str] = {
     "desktop": "The desktop pattern behind the windows",
     "window.frame": "The active window's frame and title",
@@ -742,12 +749,27 @@ def load_named_theme(
 
 
 def theme_to_json(
-    theme: Mapping[str, Style | str | None], base: str = "default"
+    theme: Mapping[str, Style | str | None],
+    base: str = "default",
+    *,
+    version: int | None = None,
 ) -> str:
     """A theme written out as a colours file, with every role included,
-    ready to edit."""
+    ready to edit.
+
+    A role added since the first release (``NEWER_ROLES``) is left out where
+    it is just as the ``base`` theme has it, so that an older release can
+    still read the file. With ``version``, the protocol version agreed with
+    an application, the theme is for sending to it instead: it has every
+    role that version knows, and none that it does not."""
     colours: dict[str, object] = {}
+    base_theme = BASES.get(base, DEFAULT_THEME)
     for role in ROLES:
+        since = NEWER_ROLES.get(role)
+        if since is not None and (
+            since > version if version is not None else theme[role] == base_theme[role]
+        ):
+            continue
         style = theme[role]
         if not isinstance(style, Style):
             colours[role] = None
