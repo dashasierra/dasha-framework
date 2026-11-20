@@ -245,7 +245,8 @@ dasha --key-test
 ```
 
 For a terminal without colour, run `dasha desktop --monochrome`, or set
-`NO_COLOR`. To change the colours while Dasha Framework is running, choose a
+`NO_COLOR` to keep colour out altogether (the themes cannot be changed until
+it is removed). To change the colours while Dasha Framework is running, choose a
 theme from the system menu's Themes: Default, Dark, Monochrome, or one of
 your own in `~/.dasha/themes/` (see [docs/colours.md](https://github.com/dashasierra/dasha-framework/blob/HEAD/docs/colours.md)).
 Menus drop down, and windows zoom as they are minimised, maximised and

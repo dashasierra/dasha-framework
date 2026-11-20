@@ -10,6 +10,8 @@
 
 Chooses the theme, and the colour of each part of the screen. Each kind of thing on the screen has its own colour, and help windows have theirs too. A theme can be saved to use again.
 
+While the `NO_COLOR` environment variable is set, this page is greyed out, as there are no colours to change. Settings... then opens on Shortcuts.
+
 ## Shortcuts
 
 Lists every action and its keys. Choose an action to add a key to it, by pressing the key, or to take one away. Dasha Desktop checks each change, so that the keyboard can always leave a menu, a dialog and Dasha Desktop itself.

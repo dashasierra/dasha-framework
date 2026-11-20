@@ -50,6 +50,7 @@ solid blocks would look like part of the button).
 
 import dataclasses
 import json
+import os
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -185,6 +186,7 @@ ROLES: dict[str, tuple[type, str]] = {
     "tabs": (Tabs, "style"),
     "tabs.selected": (Tabs, "selected_style"),
     "tabs.focused": (Tabs, "focused_style"),
+    "tabs.disabled": (Tabs, "disabled_style"),
     "textarea": (TextArea, "style"),
     "textarea.selected": (TextArea, "selected_style"),
     "textarea.numbers": (TextArea, "number_style"),
@@ -286,6 +288,7 @@ DESCRIPTIONS: dict[str, str] = {
     "tabs": "Tabs not chosen, and their lines (no colour: the window's)",
     "tabs.selected": "The tab chosen",
     "tabs.focused": "The tab chosen, while the tabs have the keyboard focus",
+    "tabs.disabled": "Tabs that cannot be chosen",
     "textarea": "Text areas (many lines of text to edit)",
     "textarea.selected": "Selected text in the focused text area",
     "textarea.numbers": "A text area's line numbers, and the bar beside them",
@@ -412,6 +415,7 @@ MONOCHROME_THEME: Theme = {
     "tabs": _PLAIN,
     "tabs.selected": _BOLD,
     "tabs.focused": Style(bold=True, reverse=True),
+    "tabs.disabled": _PLAIN,
     "textarea": _PLAIN,
     "textarea.selected": _REVERSE,
     "textarea.numbers": _PLAIN,
@@ -482,6 +486,8 @@ def _dark() -> Theme:
         "table": on(WHITE, field_),
         "table.header": on(BRIGHT_WHITE, panel),
         "table.selected": on(BRIGHT_YELLOW, field_, bold=True),
+        # Dark grey would not read on the dark grey of dialogs.
+        "tabs.disabled": Style(foreground=BLACK),
         "textarea": on(WHITE, window),
         "textarea.numbers": on(CYAN, window),
         "textbox": on(WHITE, field_),
@@ -540,6 +546,14 @@ def current_theme() -> Theme:
         name: getattr(cls, attribute) for name, (cls, attribute, _) in SETTINGS.items()
     }
     return styles | settings
+
+
+def no_colour_set() -> bool:
+    """Whether the ``NO_COLOR`` environment variable is set to anything but
+    an empty string (https://no-color.org). While it is, Dasha Framework
+    uses the Monochrome theme and nothing else: no other theme can be
+    chosen, by the user or by an application."""
+    return bool(os.environ.get("NO_COLOR"))
 
 
 def has_colours() -> bool:

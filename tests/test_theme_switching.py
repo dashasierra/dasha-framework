@@ -3,6 +3,7 @@ those in the themes folder, the system menu's Themes, applications asking
 for one, remembering the choice, and starting with it."""
 
 import json
+import os
 import tempfile
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
@@ -19,6 +20,7 @@ from dasha.manager import PresentationManager
 from dasha.menu import Menu, MenuItem
 from dasha.registry import read_theme_setting, save_theme_setting
 from dasha.remote import RemoteWindow
+from dasha.settings import SettingsDialog
 from dasha.window import Window
 from tests.hosted_apps import Hello
 from tests.support import hosted, pipe
@@ -260,6 +262,87 @@ class ApplicationsTests(Folder):
         self.assertEqual(self.manager.theme_name, str(self.folder / "ocean.json"))
 
 
+class NoColourTests(Folder):
+    """With NO_COLOR set, the theme is held at Monochrome until it is not."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        patch = mock.patch.dict(os.environ, {"NO_COLOR": "1"})
+        patch.start()
+        self.addCleanup(patch.stop)
+        self.manager = self.desktop()
+        self.manager.remember_theme = True
+        save_theme_setting("ocean", self.settings)
+        self.manager.use_starting_theme()
+
+    def themes_item(self) -> MenuItem:
+        """The system menu's Themes."""
+        return next(i for i in self.manager.system_menu.items if i.label == "&Themes")
+
+    def test_it_starts_and_stays_monochrome(self) -> None:
+        """No other theme can be set, by name or by path, and none is
+        remembered; the theme chosen before stays in the settings."""
+        manager = self.manager
+        self.assertTrue(manager.colours_locked)
+        self.assertEqual(manager.theme_name, "monochrome")
+        self.assertFalse(manager.set_theme("dark"))
+        self.assertFalse(manager.set_theme(self.folder / "ocean.json"))
+        self.assertEqual(theme.current_theme(), theme.MONOCHROME_THEME)
+        self.assertFalse(theme.has_colours())
+        self.assertTrue(manager.set_theme("monochrome"))
+        self.assertEqual(read_theme_setting(self.settings), "ocean")
+
+    def test_nor_any_colours_put_on_the_screen(self) -> None:
+        """``use_theme``, as Settings... and the colours file use, gives the
+        Monochrome theme whatever it is given."""
+        self.manager.use_theme(theme.DARK_THEME, "dark")
+        self.assertEqual(theme.current_theme(), theme.MONOCHROME_THEME)
+        self.assertEqual(self.manager.theme_name, "monochrome")
+
+    def test_the_themes_menu_is_greyed_out(self) -> None:
+        """Themes cannot be opened while NO_COLOR is set, and can after."""
+        self.assertFalse(self.themes_item().is_available)
+        with mock.patch.dict(os.environ, {"NO_COLOR": ""}):
+            self.assertTrue(self.themes_item().is_available)
+
+    def test_an_application_cannot_change_it(self) -> None:
+        """Not one running on the desktop, in a process of its own, either."""
+        app = self.manager.launch(Hello)
+        self.assertFalse(app.set_theme("dark"))
+        server = AppServer(self.manager)
+        self.addCleanup(server.stop_all, 0)
+        self.manager.server = server
+        host, _ = hosted(server, "Front")
+        host.handle({"type": "theme", "name": "dark"})
+        self.assertEqual(self.manager.theme_name, "monochrome")
+        self.assertFalse(theme.has_colours())
+        with mock.patch.dict(os.environ, {"NO_COLOR": ""}):
+            host.handle({"type": "theme", "name": "dark"})  # as it would
+        self.assertEqual(self.manager.theme_name, "dark")
+
+    def test_settings_appearance_page_cannot_be_chosen(self) -> None:
+        """Settings... opens on Shortcuts, with Appearance greyed out."""
+        dialog = SettingsDialog(self.manager)
+        tabs = dialog.tabs
+        self.assertFalse(tabs.is_enabled(0))
+        self.assertEqual(tabs.selected, 1)
+        tabs.select(0)
+        tabs.activate_mnemonic("a")
+        self.assertEqual(tabs.selected, 1)
+        with mock.patch.dict(os.environ, {"NO_COLOR": ""}):
+            self.assertTrue(SettingsDialog(self.manager).tabs.is_enabled(0))
+
+    def test_monochrome_alone_holds_nothing(self) -> None:
+        """Without NO_COLOR, choosing Monochrome (as --monochrome does)
+        leaves the other themes there to choose."""
+        with mock.patch.dict(os.environ, {"NO_COLOR": ""}):
+            self.assertTrue(self.manager.set_theme("monochrome"))
+            self.assertFalse(self.manager.colours_locked)
+            self.assertTrue(self.themes_item().is_available)
+            self.assertTrue(self.manager.set_theme("dark"))
+            self.assertEqual(theme.current_theme(), theme.DARK_THEME)
+
+
 class ClientTests(ThemeIsolation):
     """The application's side."""
 
@@ -337,6 +420,27 @@ class StartingTests(Folder):
         self.assertEqual(theme.current_theme(), theme.DEFAULT_THEME)
         self.run_main("--monochrome", "--key-test")
         self.assertEqual(theme.current_theme(), theme.MONOCHROME_THEME)
+
+    def test_no_colour_comes_before_the_remembered_theme(self) -> None:
+        """With NO_COLOR set, the Monochrome theme, not the one chosen last,
+        which stays in the settings for later."""
+        save_theme_setting("ocean", self.settings)
+        with mock.patch.dict(os.environ, {"NO_COLOR": "1"}):
+            self.run_main("--key-test")
+        self.assertEqual(theme.current_theme(), theme.MONOCHROME_THEME)
+        self.assertEqual(read_theme_setting(self.settings), "ocean")
+
+    def test_no_colour_comes_before_any_colours_file(self) -> None:
+        """With NO_COLOR set, a colours file naming a base, given with
+        --colours or not, still gives the Monochrome theme."""
+        mine = self.root / "mine.json"
+        mine.write_text('{"base": "dark"}', encoding="utf-8")
+        (self.root / "colours.json").write_text('{"base": "dark"}', encoding="utf-8")
+        with mock.patch.dict(os.environ, {"NO_COLOR": "1"}):
+            self.run_main("--colours", str(mine), "--key-test")
+            self.assertEqual(theme.current_theme(), theme.MONOCHROME_THEME)
+            self.run_main("--key-test")
+            self.assertEqual(theme.current_theme(), theme.MONOCHROME_THEME)
 
     def test_a_remembered_theme_gone(self) -> None:
         """Said before the screen is taken, with what to do about it."""

@@ -3,7 +3,6 @@ and a stack of windows."""
 
 # pylint: disable=too-many-lines
 
-import os
 import signal
 import threading
 import time
@@ -337,6 +336,7 @@ class PresentationManager:
                     "&Themes",
                     submenu=Menu("Themes", on_open=self._list_themes),
                     status="Changes the colours of everything on the screen",
+                    enabled=lambda: not self.colours_locked,
                 ),
                 self._animations_item,
                 self._prompt_item,
@@ -413,6 +413,17 @@ class PresentationManager:
     settings_path: Path = registry.SETTINGS_PATH
     """The desktop settings file that remembered choices are written to."""
 
+    @property
+    def colours_locked(self) -> bool:
+        """Whether the theme is held at Monochrome, because ``NO_COLOR`` is
+        set (``theme.no_colour_set``). While it is, the system menu's Themes is
+        greyed out, Settings...' Appearance page cannot be chosen,
+        ``set_theme`` changes to no other theme, and no choice of theme is
+        remembered, so the one chosen before is there again once
+        ``NO_COLOR`` is no longer set. ``--monochrome``, or choosing
+        Monochrome, holds nothing: another theme can be chosen after."""
+        return theme.no_colour_set()
+
     def set_theme(self, name: str | Path, *, remember: bool | None = None) -> bool:
         """Change every colour on the screen to a theme's, at once, with
         nothing to restart. The theme can be a built-in one (``"default"``,
@@ -425,7 +436,10 @@ class PresentationManager:
         the settings, to start with next time. Returns whether the theme was
         changed. For a theme that does not exist or cannot be used, a dialog
         explains why (while the desktop is running), and the colours are
-        left as they were."""
+        left as they were. While ``colours_locked``, only the Monochrome
+        theme can be set, and any other is refused without a word."""
+        if self.colours_locked and name != "monochrome":
+            return False
         try:
             colours = theme.load_named_theme(name, self.themes_folder)
         except theme.ThemeError as error:
@@ -438,13 +452,13 @@ class PresentationManager:
 
     def use_starting_theme(self, *, saved: bool = True) -> None:
         """Choose the theme that an application running on its own starts
-        with, in the order the desktop does: Monochrome on a terminal with no
-        colours; then, if ``saved``, the theme remembered in the settings
-        (``settings_path``), then the colours file (``colours_path``); then
-        Monochrome if ``NO_COLOR`` is set. Whatever cannot be used is passed
-        over: the desktop says what is wrong with it, when it starts."""
-        no_colour = bool(os.environ.get("NO_COLOR"))
-        if not style.terminal_has_colours():
+        with, in the order the desktop does: Monochrome if ``NO_COLOR`` is
+        set (``colours_locked``) or the terminal has no colours; then, if
+        ``saved``, the theme remembered in the settings (``settings_path``),
+        then the colours file (``colours_path``). Whatever cannot be used is
+        passed over: the desktop says what is wrong with it, when it
+        starts."""
+        if self.colours_locked or not style.terminal_has_colours():
             self.set_theme("monochrome", remember=False)
             return
         if saved:
@@ -456,19 +470,21 @@ class PresentationManager:
                     self.use_theme(colours, name)
                     return
                 if path is not None and path.is_file():
-                    self.use_theme(theme.load_theme(path, no_colour=no_colour), None)
+                    self.use_theme(theme.load_theme(path), None)
                     return
             except (registry.ManifestError, theme.ThemeError):
                 pass
-        if no_colour:
-            self.set_theme("monochrome", remember=False)
 
     def use_theme(self, colours: theme.Theme, name: str | None) -> None:
         """Put a theme (from ``theme.build_theme``, for example) on the
         screen, as ``set_theme`` does, recording its name as ``name``
         (``None`` for a theme without a name). Each window is told about it
         (``Window.theme_changed``), the screen is redrawn, and applications
-        running in their own processes are sent the theme too."""
+        running in their own processes are sent the theme too. While
+        ``colours_locked``, the Monochrome theme is used instead, whatever
+        is given."""
+        if self.colours_locked:
+            colours, name = dict(theme.MONOCHROME_THEME), "monochrome"
         theme.apply_theme(colours)
         self.theme_name = name
         for window in (*self._windows, *self._minimised):
@@ -492,6 +508,8 @@ class PresentationManager:
             self._remember(None)
 
     def _remember(self, name: str | None) -> None:
+        if self.colours_locked:
+            return  # the theme chosen before is kept for after NO_COLOR
         try:
             registry.save_theme_setting(name, self.settings_path)
         except OSError as error:

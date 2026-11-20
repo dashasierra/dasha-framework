@@ -371,12 +371,20 @@ class StartingThemeTests(ThemeIsolation):
         self.assertEqual(self.started("1"), "monochrome")
 
     def test_the_saved_theme(self) -> None:
-        """The theme chosen last is used, and comes before NO_COLOR."""
+        """The theme chosen last is used, unless NO_COLOR is set."""
         self.manager.settings_path.write_text('theme = "monochrome"\n', "utf-8")
         self.assertEqual(self.started(), "monochrome")
         self.assertFalse(theme.has_colours())
         self.manager.settings_path.write_text('theme = "dark"\n', "utf-8")
-        self.assertEqual(self.started("1"), "dark")
+        self.assertEqual(self.started(), "dark")
+        self.assertEqual(self.started("1"), "monochrome")
+
+    def test_no_colour_comes_before_the_colours_file(self) -> None:
+        """With NO_COLOR, Monochrome, even if the colours file names a base
+        of its own."""
+        self.colours.write_text('{"base": "dark"}', "utf-8")
+        self.assertEqual(self.started("1"), "monochrome")
+        self.assertFalse(theme.has_colours())
 
     def test_the_colours_file(self) -> None:
         """The colours file counts, as it does on the desktop."""

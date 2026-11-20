@@ -118,6 +118,54 @@ class TabsTests(unittest.TestCase):
         """Every page's named widgets count, chosen or not."""
         self.assertEqual(set(self.window.values), {"name", "level"})
 
+    def test_a_disabled_page(self) -> None:
+        """Greyed out, without its letter: it cannot be chosen by key,
+        letter, click or code, and moving passes over it."""
+        third = self.tabs.add_page("&Third")
+        self.tabs.disable(1)
+        self.assertFalse(self.tabs.is_enabled(1))
+        self.assertEqual(self.tabs.mnemonics(), {"g", "t"})
+        canvas = self.drawn()
+        self.assertEqual(canvas.cell(1, 12)[0], "A")
+        grey = canvas.cell(1, 12)[1]  # its letter, not underlined
+        self.assertEqual(grey.foreground, Tabs.disabled_style.foreground)
+        self.assertFalse(grey.underline)
+        self.tabs.enable(1)
+        self.assertTrue(self.drawn().cell(1, 12)[1].underline)
+        self.tabs.disable(1)
+        self.tabs.select(1)
+        self.tabs.activate_mnemonic("a")
+        interior = self.window.interior
+        self.window.handle_mouse(
+            MouseEvent("press", "left", interior.row, interior.column + 13)
+        )
+        self.assertEqual(self.tabs.selected, 0)
+        self.window.focus(self.tabs)
+        self.keys("right")
+        self.assertIs(self.tabs.selected_page, third)
+        self.keys("left")
+        self.assertEqual(self.tabs.selected, 0)
+        self.keys("ctrl+pageup", "ctrl+pageup")
+        self.assertEqual(self.changes, [2, 0, 2, 0])
+        self.tabs.enable(1)
+        self.keys("right")
+        self.assertEqual(self.tabs.selected, 1)
+
+    def test_disabling_the_page_shown(self) -> None:
+        """The next page that is not disabled shows instead, with the focus
+        on the tabs; with every page disabled, the tabs cannot be focused."""
+        self.window.focus(self.name)
+        self.tabs.disable(0)
+        self.assertEqual(self.tabs.selected, 1)
+        self.assertIs(self.window.focused, self.tabs)
+        self.assertEqual(self.changes, [])  # the user did not change it
+        self.assertTrue(self.tabs.can_focus())
+        self.tabs.disable(1)
+        self.assertEqual(self.tabs.selected, 1)  # nowhere else to go
+        self.assertFalse(self.tabs.can_focus())
+        self.tabs.step(1)
+        self.assertEqual(self.tabs.selected, 1)
+
     def test_no_pages(self) -> None:
         """Tabs with no pages yet: nothing to choose, nothing breaks."""
         tabs = Tabs(0, 0, 10, 3)

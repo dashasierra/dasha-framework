@@ -7,7 +7,7 @@ from dasha.canvas import Canvas, Rect
 from dasha.events import MouseEvent
 from dasha.menu import mnemonic_key, split_mnemonic
 from dasha.shortcuts import Shortcuts
-from dasha.style import Style
+from dasha.style import BRIGHT_BLACK, Style
 from dasha.widgets.base import Widget, run_shortcut
 from dasha.widgets.container import Container
 from dasha.widgets.label import on_window, paint_mnemonic_label
@@ -85,9 +85,19 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
     page's number, and ``selected_page`` is the page itself. ``select(index)`` and
     ``step(step)`` (``step(step=1)`` for the next page, ``step(step=-1)`` for
     the previous one) choose a page as the user does, and ``on_change(tabs)`` is
-    called for every change the user makes. The colours are ``tabs`` (the tabs
-    not selected, and the lines), ``tabs.selected`` and ``tabs.focused``;
-    colours left as ``default`` are the window's.
+    called for every change the user makes.
+
+    **Disabled pages.** ``disable(*indexes)`` greys out those pages' tabs
+    (``tabs.disabled``). They cannot be chosen by key, click or letter, their
+    letters are free for other widgets to use, and moving from tab to tab
+    skips over them. ``enable(*indexes)`` undoes this, and ``is_enabled(index)``
+    and the ``disabled`` set say which pages are which. If the selected page
+    is disabled, the next one that is not is shown instead. Tabs whose pages
+    are all disabled cannot take the focus.
+
+    The colours are ``tabs`` (the tabs not selected, and the lines),
+    ``tabs.selected``, ``tabs.focused`` and ``tabs.disabled``; colours left
+    as ``default`` are the window's.
     """
 
     focusable = True
@@ -97,6 +107,8 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
     """The style of the selected tab."""
     focused_style: Style = Style(bold=True, reverse=True)
     """The style of the selected tab, while the tabs have the focus."""
+    disabled_style: Style = Style(foreground=BRIGHT_BLACK)
+    """The style of the tabs that cannot be chosen."""
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
@@ -114,6 +126,8 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
         super().__init__(row, column, width, height, name=name, status=status)
         self.pages: list[TabPage] = []
         """The pages, in the order of their tabs."""
+        self.disabled: set[int] = set()
+        """The numbers of the pages that cannot be chosen (see ``disable``)."""
         self.on_change = on_change
         self._index = 0
 
@@ -149,26 +163,83 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
     def select(self, index: int) -> None:
         """Choose a page as the user does, calling ``on_change`` if the page
         changed. If the focus was on the previous page, it moves to the
-        tabs."""
+        tabs. A disabled page cannot be chosen."""
         if not self.pages:
             return
         index = max(0, min(index, len(self.pages) - 1))
-        if index == self._index:
+        if index == self._index or not self.is_enabled(index):
             return
+        self._show(index)
+        if self.on_change is not None:
+            self.on_change(self)
+
+    def _show(self, index: int) -> None:
+        """Show a page, moving the focus to the tabs if it was on the page
+        shown before."""
         self._index = index
         window = self.window
         if window is not None:
             focused = window.focused
             if focused is not None and not focused.is_shown:
                 window.focus(self)
-        if self.on_change is not None:
-            self.on_change(self)
 
     def step(self, step: int) -> None:
         """Choose the page ``step`` places on, wrapping round from the last to
-        the first."""
-        if self.pages:
-            self.select((self._index + step) % len(self.pages))
+        the first, and passing over disabled pages."""
+        number = self._next_enabled(step)
+        if number is not None:
+            self.select(number)
+
+    def _next_enabled(self, step: int) -> int | None:
+        """The first page that is not disabled, going ``step`` places at a
+        time from the selected one and wrapping round; ``None`` if there is
+        none but the selected page."""
+        count = len(self.pages)
+        if not count or not step % count:
+            return None
+        number = self._index
+        for _ in range(count - 1):
+            number = (number + step) % count
+            if self.is_enabled(number):
+                return number
+        return None
+
+    def _beside(self, step: int) -> None:
+        """Choose the nearest page that is not disabled on one side (``step``
+        of -1 or 1) of the selected one, if there is one, without wrapping
+        round."""
+        number = self._index + step
+        while 0 <= number < len(self.pages) and not self.is_enabled(number):
+            number += step
+        if 0 <= number < len(self.pages):
+            self.select(number)
+
+    # Disabled pages
+
+    def is_enabled(self, index: int) -> bool:
+        """Whether the page numbered ``index`` can be chosen."""
+        return index not in self.disabled
+
+    def disable(self, *indexes: int) -> None:
+        """Grey out these pages' tabs, so that they cannot be chosen. If the
+        selected page is one of them, the next page that is not disabled is
+        shown instead (``on_change`` is not called, as the user did not
+        change it)."""
+        self.disabled.update(indexes)
+        if self.pages and not self.is_enabled(self._index):
+            number = self._next_enabled(1)
+            if number is not None:
+                self._show(number)
+
+    def enable(self, *indexes: int) -> None:
+        """Let these pages be chosen again."""
+        self.disabled.difference_update(indexes)
+
+    def can_focus(self) -> bool:
+        """Not while every page is disabled."""
+        return self.focusable and (
+            not self.pages or any(map(self.is_enabled, range(len(self.pages))))
+        )
 
     # Where each tab is
 
@@ -203,10 +274,14 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
         width = self.rect.width
         canvas.write(at[0], at[1], " " * width, plain, clip=origin)
         line = [LINE] * width
+        disabled = on_window(self.disabled_style, body)
         for number, span in enumerate(self._spans()):
             if span[0] >= width:
                 break
-            style = chosen if number == self._index else plain
+            if not self.is_enabled(number):
+                style = disabled
+            else:
+                style = chosen if number == self._index else plain
             self._paint_tab(
                 canvas, origin, at=at, number=number, span=span, styles=(style, plain)
             )
@@ -244,6 +319,7 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
             self.pages[number].label,
             style,
             width=min(length - 2, width - first - 1),
+            underline=self.is_enabled(number),
         )
         if first + length - 1 < width:
             canvas.write(row, left + first + length - 1, " ", style, clip=origin)
@@ -253,21 +329,22 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
     def mnemonics(self) -> set[str]:
         return {
             letter
-            for page in self.pages
-            if (letter := mnemonic_key(page.label)) is not None
+            for number, page in enumerate(self.pages)
+            if self.is_enabled(number)
+            and (letter := mnemonic_key(page.label)) is not None
         }
 
     def activate_mnemonic(self, letter: str) -> None:
         for number, page in enumerate(self.pages):
-            if mnemonic_key(page.label) == letter:
+            if self.is_enabled(number) and mnemonic_key(page.label) == letter:
                 self.select(number)
                 return
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """Left and Right choose the neighbouring tab."""
+        """Left and Right choose the neighbouring tab that is not disabled."""
         actions: dict[str, Callable[[], object]] = {
-            "tabs_left": lambda: self.select(self._index - 1),
-            "tabs_right": lambda: self.select(self._index + 1),
+            "tabs_left": lambda: self._beside(-1),
+            "tabs_right": lambda: self._beside(1),
         }
         return run_shortcut(shortcuts, key, actions)
 
