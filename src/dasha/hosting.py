@@ -898,7 +898,7 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
             "welcome",
             version=agreed,
             size=[columns, lines],
-            theme=theme.theme_to_json(theme.current_theme()),
+            theme=theme.theme_to_json(theme.current_theme(), version=agreed),
             theme_name=self.manager.theme_name,
             shortcuts=json.loads(self.manager.shortcuts.to_json()),
             key_releases=Widget.key_releases,
@@ -953,10 +953,18 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
 
     def share_theme(self) -> None:
         """Send the desktop's new theme to every application, which takes it
-        on at once and redraws its windows."""
-        colours = theme.theme_to_json(theme.current_theme())
+        on at once and redraws its windows. Each is sent the roles that its
+        protocol version knows (``theme.NEWER_ROLES``)."""
+        current = theme.current_theme()
+        written: dict[int, str] = {}
         for host in self.hosts:
-            host.send("theme", theme=colours, name=self.manager.theme_name)
+            if host.version not in written:
+                written[host.version] = theme.theme_to_json(
+                    current, version=host.version
+                )
+            host.send(
+                "theme", theme=written[host.version], name=self.manager.theme_name
+            )
 
     def share_clipboard(self, source: AppHost, text: str) -> None:
         """Handle text cut or copied in an application. The desktop's
