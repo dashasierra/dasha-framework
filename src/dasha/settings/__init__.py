@@ -236,6 +236,9 @@ class SettingsDialog(Dialog):  # pylint: disable=too-many-instance-attributes
             self.tabs.pages, ("appearance", "shortcuts", "desktop", "applications")
         ):
             page.help = f"settings#{slug}"
+        if manager.colours_locked:
+            # NO_COLOR: no colours to change. Shortcuts shows instead.
+            self.tabs.disable(0)
         buttons = [
             Button("&OK", 18, 0, result="ok", default=True, name="ok"),
             Button("&Cancel", 18, 0, result="cancel", name="cancel"),

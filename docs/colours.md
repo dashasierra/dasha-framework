@@ -39,13 +39,12 @@ changed, so anything else in the file stays as you wrote it. Choosing
 When Dasha Framework starts, it picks its colours from the first of these that
 applies:
 
-1. the `--monochrome` option, or a terminal with no colours (see
-   [Monochrome mode](#monochrome-mode));
+1. the `--monochrome` option, the `NO_COLOR` environment variable, or a
+   terminal with no colours (see [Monochrome mode](#monochrome-mode));
 2. a colours file named with `--colours FILE`;
 3. the theme you chose last;
 4. the colours file, `~/.dasha/colours.json`;
-5. the Monochrome theme, if `NO_COLOR` is set, or otherwise the Default
-   theme.
+5. the Default theme.
 
 An application can also change the theme, by name or by the path of a theme
 file, with `self.set_theme(name="dark")`, just as the menu does. This is useful
@@ -88,15 +87,28 @@ true:
 - it is run with `--monochrome`;
 - the colours file says `"base": "monochrome"`;
 - the `NO_COLOR` environment variable is set to anything but an empty
-  string ([no-color.org](https://no-color.org)), and the colours file does
-  not name a base theme of its own;
+  string ([no-color.org](https://no-color.org));
 - the terminal has no colours (`TERM` is `dumb`, or a VT terminal such as
   `vt100`, and `COLORTERM` is not set).
 
-`--monochrome` always takes priority, and gives the Monochrome theme
-exactly as the Themes menu does: the colours file's changes are left out,
-since they may add colours. A base theme named in the colours file takes
-priority over `NO_COLOR`, as that convention requires.
+`--monochrome` and `NO_COLOR` always take priority, and give the Monochrome
+theme exactly as the Themes menu does: the colours file's changes are left
+out, since they may add colours.
+
+`--monochrome`, like choosing Monochrome from the Themes menu, only chooses
+where to start: another theme can still be chosen while Dasha Framework runs.
+**`NO_COLOR` keeps out colour altogether.** While it is set:
+
+- the system menu's **Themes** is greyed out;
+- the **Appearance** page of Settings... is greyed out, and Settings...
+  opens on Shortcuts;
+- an application asking for another theme (`set_theme`) is refused, and
+  `set_theme` returns `False`;
+- no theme is remembered, so the theme you chose before is still in
+  `~/.dasha/settings.toml`.
+
+To have colours again, remove `NO_COLOR` from the environment and start
+Dasha Framework again. It starts with the theme you chose before.
 
 An application running on its own, without the desktop, chooses its theme in
 the same way, from the same settings, so choosing Monochrome from the Themes

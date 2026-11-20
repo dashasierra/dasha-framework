@@ -561,9 +561,14 @@ class StandaloneTests(unittest.TestCase):
         self.assertEqual(self.frame_style_with(""), before)
 
     def test_an_application_can_choose_its_own_theme(self) -> None:
-        """A theme it chooses as it starts comes after ``NO_COLOR``."""
+        """A theme it chooses as it starts is used, but not with
+        ``NO_COLOR`` set, which keeps it in the Monochrome theme."""
         self.assertEqual(
-            self.frame_style_with("1", starts_dark=True), BASES["dark"]["window.frame"]
+            self.frame_style_with("", starts_dark=True), BASES["dark"]["window.frame"]
+        )
+        self.assertEqual(
+            self.frame_style_with("1", starts_dark=True),
+            BASES["monochrome"]["window.frame"],
         )
 
     def test_no_system_menu_and_its_own_exit(self) -> None:

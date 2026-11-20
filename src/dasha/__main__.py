@@ -330,18 +330,18 @@ def _load_colours(  # pylint: disable=too-many-return-statements
     """The colours to start with, and the theme's name (``None`` for the
     colours file's), or ``None`` after reporting why they cannot be used.
 
-    ``--monochrome``, or a terminal with no colours, comes first, and is the
-    Monochrome theme exactly, as the Themes menu gives it: a colours file's
-    changes are left out, as they may well add colours. Then come the file
-    given with ``--colours``, the theme last chosen from the system menu
-    (``theme`` in the settings), the colours file, and finally the default
-    theme (or, with ``NO_COLOR``, the Monochrome theme)."""
+    ``--monochrome``, ``NO_COLOR``, or a terminal with no colours, comes
+    first, and is the Monochrome theme exactly, as the Themes menu gives it:
+    a colours file's changes are left out, as they may well add colours.
+    Then come the file given with ``--colours``, the theme last chosen from
+    the system menu (``theme`` in the settings), the colours file, and
+    finally the default theme. The theme chosen last stays in the settings,
+    for when ``NO_COLOR`` is no longer set."""
     if explicit and not path.exists():
         say(f"dasha: colours file {path} does not exist", file=sys.stderr)
         return None
-    if monochrome or not style.terminal_has_colours():
+    if monochrome or theme.no_colour_set() or not style.terminal_has_colours():
         return theme.load_named_theme("monochrome"), "monochrome"
-    no_colour = bool(os.environ.get("NO_COLOR"))
     try:
         saved = None if explicit else _saved_theme()
     except _Reported:
@@ -349,13 +349,13 @@ def _load_colours(  # pylint: disable=too-many-return-statements
     if saved is not None:
         return saved  # the colours file is not needed, nor read
     try:
-        colours = theme.load_theme(path, no_colour=no_colour)
+        colours = theme.load_theme(path)
     except theme.ThemeError as error:
         _report_problems("colours", path, error)
         return None
     if path.exists():
         return colours, None
-    return colours, "monochrome" if no_colour else "default"
+    return colours, "default"
 
 
 def _load_shortcuts(path: Path, explicit: bool) -> Shortcuts | None:

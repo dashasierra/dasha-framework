@@ -22,7 +22,7 @@ The system menu is the one at the far left, which is there whichever application
 | Run... | [Runs a program](running.md) that is not installed |
 | Help | Opens this help |
 | Settings... | Changes [the settings](settings.md) |
-| Themes | Changes the colours of everything on the screen |
+| Themes | Changes the colours of everything on the screen (greyed out while `NO_COLOR` is set) |
 | Animations | Turns the animations of windows and menus on or off |
 | Command prompt | Leaves for a command prompt: type `exit` to come back |
 | Shutdown | Shuts Dasha Desktop down, closing every application |
