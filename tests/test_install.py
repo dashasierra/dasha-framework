@@ -272,6 +272,100 @@ class BasePythonTests(unittest.TestCase):
         """One that is not there says to give another."""
         self.assertIn("--python", install.base_python("no-such-python-here"))
 
+    def test_in_a_build_the_py_launcher(self) -> None:
+        """A build with only the py launcher on PATH asks it for Python 3."""
+        with (
+            mock.patch.object(sys, "frozen", True, create=True),
+            mock.patch(
+                "shutil.which", side_effect=lambda name: "py" if name == "py" else None
+            ),
+            mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)),
+        ):
+            self.assertEqual(install.base_python(), ["py", "-3"])
+
+
+class VenvAndPipTests(Home):
+    """Making virtual environments and installing into them, when it fails."""
+
+    def test_making_a_venv_that_fails(self) -> None:
+        """A Python that cannot run, or that fails, is said."""
+        target = self.root / "venv"
+        with redirect_stdout(StringIO()):
+            with mock.patch("subprocess.run", side_effect=OSError("gone")):
+                problem = install._make_venv(  # pylint: disable=protected-access
+                    target, with_pip=False, python=["python"]
+                )
+            self.assertIn("gone", str(problem))
+            with mock.patch("subprocess.run", return_value=mock.Mock(returncode=1)):
+                problem = install._make_venv(  # pylint: disable=protected-access
+                    target, with_pip=True, python=["python"]
+                )
+        self.assertEqual(problem, f"cannot make a virtual environment in {target}")
+
+    def test_install_app_says_the_venv_failed(self) -> None:
+        """install-app says why it made no venv, and installs nothing."""
+        with mock.patch.object(install, "_make_venv", return_value="no room"):
+            code, _, err = self.command(
+                "install-app", str(self.script), "--create-venv"
+            )
+        self.assertEqual((code, "no room" in err), (1, True))
+        self.assertFalse((self.root / "apps").exists())
+
+    def test_pip_with_requirements(self) -> None:
+        """Packages and a requirements file go to pip; its failure is said."""
+        requirements = self.write("requirements.txt", "nltk\n")
+        with redirect_stdout(StringIO()):
+            with mock.patch(
+                "subprocess.run", return_value=mock.Mock(returncode=1)
+            ) as run_pip:
+                problem = install._pip(  # pylint: disable=protected-access
+                    Path(sys.executable),
+                    mock.Mock(pip=["nltk"], requirements=str(requirements)),
+                )
+        self.assertEqual(problem, "pip could not install everything")
+        self.assertEqual(
+            run_pip.call_args.args[0][-3:], ["nltk", "-r", str(requirements)]
+        )
+
+    def test_install_app_says_pip_failed(self) -> None:
+        """install-app says pip failed, and installs nothing."""
+        own = self.root / "own"
+        own.mkdir()
+        with (
+            mock.patch.object(
+                install, "venv_python", return_value=Path(sys.executable)
+            ),
+            mock.patch.object(install, "_pip", return_value="pip broke"),
+        ):
+            code, _, err = self.command(
+                "install-app", str(self.script), "--venv", str(own), "--pip", "nltk"
+            )
+        self.assertEqual((code, "pip broke" in err), (1, True))
+        self.assertFalse((self.root / "apps").exists())
+
+    def test_module_found(self) -> None:
+        """A module, here or in another Python; names that are none."""
+        python = Path(sys.executable)
+        self.assertTrue(install.module_found("json", python))
+        self.assertFalse(install.module_found("no_such_module_xyz", python))
+        self.assertFalse(install.module_found("", None))
+        self.assertFalse(install.module_found("no_such_package_xyz.inner", None))
+
+    def test_uninstall_a_broken_manifest(self) -> None:
+        """A manifest that cannot be read is still uninstalled."""
+        manifest = self.write("apps/broken.toml", "nonsense")
+        code, out, _ = self.command("uninstall-app", "broken", "--remove-venv")
+        self.assertEqual(code, 0)
+        self.assertIn("Uninstalled broken", out)
+        self.assertFalse(manifest.exists())
+
+    def test_list_shows_a_venv(self) -> None:
+        """An application's virtual environment is listed."""
+        self.write("apps/tool.toml", 'name = "Tool"\nscript = "t.py"\nvenv = "/v"\n')
+        code, out, _ = self.command("list-apps")
+        self.assertEqual(code, 0)
+        self.assertIn(f"(venv {Path('/v')})", out)
+
 
 class StartupTests(Home):
     """What the desktop starts with."""

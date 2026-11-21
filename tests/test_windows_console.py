@@ -175,6 +175,157 @@ if sys.platform == "win32":
             refit.assert_called_once_with()
             self.assertFalse(self.console.has_outgrown_window)
 
+    class ConsoleModeTests(unittest.TestCase):
+        """Setting the console's modes, and putting them back."""
+
+        def setUp(self) -> None:
+            self.console = WindowsConsole()
+            # pylint: disable-next=protected-access
+            self.hider = self.console._scroll_bars
+            self.set_modes: list[tuple[int, int]] = []
+            for name, value in (
+                ("_get_mode", {"side_effect": [0x0003, 0x01F7]}),
+                ("_set_mode", {"side_effect": self.record_mode}),
+            ):
+                patcher = patch.object(_windows, name, **value)
+                patcher.start()
+                self.addCleanup(patcher.stop)
+
+        def record_mode(self, handle: int, mode: int) -> None:
+            """Note a mode set.
+
+            :param handle: The console handle.
+            :param mode: The mode.
+            """
+            self.set_modes.append((handle, mode))
+
+        def test_enable_then_restore(self) -> None:
+            """Enable turns on VT output and raw input; restore puts both
+            back once."""
+            with patch.object(self.hider, "hide") as hide:
+                self.console.enable()
+            hide.assert_called_once_with()
+            output_mode = self.set_modes[0][1]
+            input_mode = self.set_modes[1][1]
+            self.assertEqual(len(self.set_modes), 2)
+            self.assertTrue(output_mode & _windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+            self.assertTrue(input_mode & _windows.ENABLE_VIRTUAL_TERMINAL_INPUT)
+            self.assertFalse(input_mode & _windows.ENABLE_LINE_INPUT)
+            self.assertFalse(input_mode & _windows.ENABLE_QUICK_EDIT_MODE)
+            self.set_modes.clear()
+            with patch.object(self.hider, "restore") as restore:
+                self.console.restore()
+                self.console.restore()
+            self.assertEqual([mode for _, mode in self.set_modes], [0x01F7, 0x0003])
+            self.assertEqual(restore.call_count, 2)
+
+        def test_scroll_bar_errors_are_ignored(self) -> None:
+            """Scroll bars that cannot be hidden or restored stop nothing."""
+            with patch.object(self.hider, "hide", side_effect=OSError):
+                self.console.enable()
+            with patch.object(self.hider, "restore", side_effect=OSError):
+                self.console.restore()
+            self.assertEqual(len(self.set_modes), 4)
+
+        def test_console_without_vt_output(self) -> None:
+            """A console that cannot take VT output says so, and changes no
+            input mode."""
+            with patch.object(_windows, "_set_mode", side_effect=OSError):
+                with self.assertRaisesRegex(OSError, "ANSI escape sequences"):
+                    self.console.enable()
+            self.console.restore()
+            self.assertEqual(self.set_modes, [])
+
+    class ConsoleCallTests(unittest.TestCase):
+        """Failing console calls, waiting and reading."""
+
+        def test_failures_raise(self) -> None:
+            """Failed handle and mode calls raise ``OSError``."""
+            # pylint: disable=protected-access
+            with patch.object(
+                _windows, "_GetStdHandle", return_value=_windows.INVALID_HANDLE_VALUE
+            ):
+                with self.assertRaises(OSError):
+                    _windows._std_handle(_windows.STD_INPUT_HANDLE)
+            with patch.object(_windows, "_GetConsoleMode", return_value=0):
+                with self.assertRaises(OSError):
+                    _windows._get_mode(0)
+            with patch.object(_windows, "_SetConsoleMode", return_value=0):
+                with self.assertRaises(OSError):
+                    _windows._set_mode(0, 0)
+
+        def test_wait_results(self) -> None:
+            """Input, a timeout, a wake and a failure."""
+            console = WindowsConsole()
+            results = [
+                _windows.WAIT_OBJECT_0,
+                _windows.WAIT_TIMEOUT,
+                _windows.WAIT_OBJECT_0 + 1,
+                0xFFFFFFFF,
+            ]
+            with patch.object(
+                _windows, "_WaitForMultipleObjects", side_effect=results
+            ) as wait:
+                # pylint: disable=protected-access
+                self.assertTrue(console._wait(None))
+                self.assertFalse(console._wait(0))
+                self.assertFalse(console.is_woken)
+                self.assertFalse(console._wait(0))
+                self.assertTrue(console.is_woken)
+                with self.assertRaises(OSError):
+                    console._wait(0)
+            self.assertEqual(wait.call_args_list[0].args[3], _windows.INFINITE)
+            self.assertEqual(wait.call_args_list[1].args[3], 0)
+
+        def test_wake_sets_the_event(self) -> None:
+            """Wake signals the event a read waits on; failing to make one
+            raises ``OSError``."""
+            # pylint: disable=protected-access
+            console = WindowsConsole()
+            console.wake()
+            handles = (ctypes.wintypes.HANDLE * 1)(console._wake_event)
+            waited = _windows._WaitForMultipleObjects(1, handles, False, 0)
+            self.assertEqual(waited, _windows.WAIT_OBJECT_0)
+            with patch.object(_windows, "_CreateEventW", return_value=None):
+                with self.assertRaises(OSError):
+                    WindowsConsole()
+
+        def test_other_records_are_skipped(self) -> None:
+            """Focus and menu records give no text."""
+            records = make_records((0x0010, "\0", False), (KEY_EVENT, "a", True))
+            array = (INPUT_RECORD * 2)(*records)
+            self.assertEqual(records_to_text(array, 2), ("a", False))
+
+        def test_failed_read_raises(self) -> None:
+            """A failed read raises ``OSError``."""
+            console = WindowsConsole()
+            with (
+                patch.object(console, "_wait", return_value=True),
+                patch.object(_windows, "_ReadConsoleInputW", return_value=0),
+            ):
+                with self.assertRaises(OSError):
+                    console.read(0)
+
+        def test_releases_alone_keep_waiting(self) -> None:
+            """Records with no text and no resize are read past."""
+
+            def one_release(
+                _handle: int, records: "ctypes.Array[INPUT_RECORD]", *args: Any
+            ) -> int:
+                records[0] = make_records((KEY_EVENT, "a", False))[0]
+                # pylint: disable-next=protected-access
+                args[-1]._obj.value = 1  # the count, passed by reference
+                return 1
+
+            console = WindowsConsole()
+            with (
+                patch.object(console, "_wait", side_effect=[True, False]) as wait,
+                patch.object(_windows, "_ReadConsoleInputW", one_release),
+            ):
+                self.assertEqual(console.read(0), "")
+            self.assertEqual(wait.call_count, 2)
+            self.assertFalse(console.is_woken)
+
 
 if __name__ == "__main__":
     unittest.main()

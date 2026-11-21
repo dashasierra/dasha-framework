@@ -6,7 +6,7 @@ import unittest
 from collections.abc import Callable, Mapping, Sequence
 from unittest import mock
 
-from dasha.canvas import Rect
+from dasha.canvas import UNSHOWABLE, Rect
 from dasha.clipboard import CLIPBOARD
 from dasha.events import MouseEvent
 from dasha.manager import PresentationManager
@@ -15,6 +15,7 @@ from dasha.shell import shell_command
 from dasha.shortcuts import Shortcuts
 from dasha.style import BLACK, DEFAULT, RED, WHITE, Style
 from dasha.widgets import Grow, TerminalView
+from dasha.widgets.terminalview import FEED_LIMIT, shown_text
 from dasha.window import Window
 
 PATIENCE = 20.0
@@ -454,6 +455,97 @@ class ScrollAndCopyTests(_View):
         assert isinstance(menu, Menu)
         self.assertEqual([item.label for item in menu.items], ["&Copy", "&Paste"])
         self.assertFalse(menu.items[0].is_available)
+
+
+class EdgeTests(_View):
+    """Large output, the end, and selections and clicks at the edges."""
+
+    def test_cells_drawn(self) -> None:
+        """An empty cell is a blank; a cell of several characters that
+        cannot be drawn is shown as such."""
+        self.assertEqual(shown_text(""), " ")
+        self.assertEqual(shown_text("a"), "a")
+        self.assertEqual(shown_text("ab"), UNSHOWABLE)
+
+    def test_output_outside_a_desktop_waits(self) -> None:
+        """Output to a view in no window is kept, not shown."""
+        view = TerminalView(row=0, column=0, width=10, height=2)
+        view._arrived(b"held")  # pylint: disable=protected-access
+        self.assertEqual(view.screen.text(view.screen.rows), "")
+
+    def test_large_output_is_shown_in_pieces(self) -> None:
+        """Output larger than a piece is shown over more than one turn."""
+        self.pty.output("x" * (FEED_LIMIT + 10))
+        pump(self.manager, lambda: self.outputs == 2)
+        self.assertEqual(self.outputs, 2)
+
+    def test_an_end_with_no_code_and_no_listener(self) -> None:
+        """An unknown exit code is -1; a view resized after its program
+        ended resizes no terminal."""
+        self.view.on_exit = None
+        self.pty.on_exit()
+        pump(self.manager, lambda: self.view.exit_code is not None)
+        self.assertEqual(self.view.exit_code, -1)
+        self.window.resize(width=42, height=12)
+        self.assertEqual(self.pty.sizes, [(80, 24)])
+
+    def test_keys_with_nothing_to_send(self) -> None:
+        """A key with no bytes is declined."""
+        self.assertFalse(self.view.handle_key("hyper+a", self.manager.shortcuts))
+
+    def test_copy_and_paste_with_nothing(self) -> None:
+        """Nothing selected copies nothing; an empty clipboard pastes
+        nothing."""
+        CLIPBOARD.copy_text("before")
+        self.view.copy()
+        item = CLIPBOARD.item
+        assert item is not None
+        self.assertEqual(item.data, "before")
+        self.assertEqual(self.view.selected_text(), "")
+        CLIPBOARD.clear()
+        self.view.paste()
+        self.assertEqual(bytes(self.pty.sent), b"")
+
+    def test_a_selection_made_backwards(self) -> None:
+        """Dragging up and left selects the same text as down and right."""
+        self.output("hello world\r\nsecond line")
+        self.view.selection = (1, 5, 0, 6)
+        self.assertEqual(self.view.selected_text(), "world\nsecond")
+
+    def test_selecting_into_the_scrollback(self) -> None:
+        """Select All takes the scrollback; lines no longer kept are
+        skipped."""
+        self.output("\r\n".join(f"line {n}" for n in range(30)))
+        self.view.select_all()
+        self.assertTrue(self.view.selected_text().startswith("line 0\nline 1\n"))
+        self.view.screen.clear_scrollback()
+        self.view.select_all()
+        assert self.view.selection is not None
+        _, _, last, last_column = self.view.selection
+        self.view.selection = (0, 0, last, last_column)
+        self.assertTrue(self.view.selected_text().startswith("line 6\n"))
+
+    def test_mouse_not_for_the_view(self) -> None:
+        """A sideways wheel and the right button are not used; a click
+        without a drag selects nothing; a drag never pressed does nothing."""
+        mouse = self.window.handle_mouse
+        view = self.view
+        self.assertFalse(view.handle_mouse(MouseEvent("scroll", "left", 0, 0), 0, 0))
+        self.assertFalse(view.handle_mouse(MouseEvent("press", "right", 0, 0), 0, 0))
+        mouse(MouseEvent("drag", "left", *self.at(1, 1)))
+        self.assertIsNone(view.selection)
+        mouse(MouseEvent("press", "left", *self.at(1, 1)))
+        mouse(MouseEvent("release", "left", *self.at(1, 1)))
+        self.assertIsNone(view.selection)
+
+    def test_movement_the_program_did_not_ask_for(self) -> None:
+        """A program tracking clicks is not told of plain movement."""
+        move = MouseEvent("move", "none", 0, 0)
+        self.assertTrue(self.view.handle_mouse(move, 1, 1))
+        self.assertIsNone(self.view.selection)
+        self.output("\x1b[?1000h")
+        self.assertTrue(self.view.handle_mouse(move, 1, 1))
+        self.assertEqual(bytes(self.pty.sent), b"")
 
 
 class RealProgramTests(unittest.TestCase):
