@@ -1,47 +1,4 @@
-"""Failing softly: what the desktop does when its own code goes wrong.
-
-No program is free of bugs. Unguarded, an unexpected exception in the
-desktop's own code (a menu action, a dialog, Settings..., a widget, a
-timer) would end the desktop, and with it every application and their
-unsaved work. With ``PresentationManager.survive_errors`` on, as it is when
-Dasha Framework is started from the command line or an application runs on its
-own, each step of the desktop's loop (handling one event, running the
-timers, taking in applications' messages, drawing a frame) is guarded
-instead. When a step fails:
-
-1. The traceback is written to a log (``Recovery.record``), in
-   ``~/.dasha/logs/`` beside the applications' logs.
-2. Whatever was under way is put aside: an open menu is closed, and a drag,
-   a move or resize from the keyboard and an animation are ended, and the
-   whole screen is drawn afresh.
-3. The user is told, in a dialog, that something went wrong but that their
-   applications are still running, and where the log is: every time for a
-   failure the user caused (handling a key, a click or a paste), and at most
-   once every ``Recovery.quiet`` seconds (a minute) for one that happened
-   by itself (drawing, the timers, applications' messages), so that a bug
-   that comes and goes cannot bury the screen in dialogs. Every failure is
-   logged all the same.
-4. The desktop carries on.
-
-A step that fails every time, with no success in between (drawing, say, so
-that every frame fails), would make that go on for ever, so ``Recovery``
-counts each kind of step's failures in a row: once one kind has failed
-``Recovery.limit`` times running, the desktop gives up and shuts down as it
-would for Exit, without asking, and the command line says where the log
-is. A step that fails only now and then never makes it give up, nor does a
-failure the user caused, as the user is told of each before going on (a
-widget whose keys fail does not shut the desktop down after a few
-keystrokes); the error dialog failing in turn does count.
-
-What is never caught: ``KeyboardInterrupt`` and ``SystemExit`` (ending the
-desktop on purpose, as SIGTERM does), and ``TerminalFailed``, a failure to
-read or write the terminal itself, after which there is no screen to
-recover on. Those end the desktop as before.
-
-A failed step may have left something half done, which is why the message
-suggests saving work and restarting if anything looks wrong, rather than
-claiming all is well.
-"""
+"""Surviving errors in the desktop's own code."""
 
 import time
 import traceback
@@ -56,15 +13,14 @@ from dasha import logs
 
 
 class TerminalFailed(OSError):
-    """Reading or writing the terminal failed (an SSH connection dropping,
-    say). Raised in place of the original ``OSError``, with the same
-    details, so that guarded steps let it through."""
+    """Reading or writing the terminal failed."""
 
 
 class GuardedTerminal:
-    """A terminal whose failures are ``TerminalFailed``, so that they are
-    told apart from failures in the desktop's own code. Everything else is
-    the terminal's own."""
+    """A terminal that raises ``TerminalFailed``.
+
+    :param terminal: The terminal.
+    """
 
     def __init__(self, terminal: Any) -> None:
         self._terminal = terminal
@@ -77,14 +33,20 @@ class GuardedTerminal:
             raise TerminalFailed(*error.args) from error
 
     def read(self, timeout: float | None = None) -> str:
-        """Read input, as the terminal does."""
+        """Read input.
+
+        :param timeout: Seconds to wait, or ``None`` for ever.
+        """
         try:
             return self._terminal.read(timeout)  # type: ignore[no-any-return]
         except OSError as error:
             raise TerminalFailed(*error.args) from error
 
     def write(self, text: str) -> None:
-        """Write output, as the terminal does."""
+        """Write output.
+
+        :param text: The output.
+        """
         try:
             self._terminal.write(text)
         except OSError as error:
@@ -99,10 +61,10 @@ class GuardedTerminal:
 
     @contextmanager
     def _suspended(self, suspended: Callable[[], Any]) -> Iterator[None]:
-        """Give the terminal back for a while, as its ``suspended`` does.
-        Failing to give it back or take it again is ``TerminalFailed``; a
-        failure while it is given back is not the terminal's, and stays as
-        it is."""
+        """Give the terminal back for a while.
+
+        :param suspended: Called while given back.
+        """
         # Entered and left by hand, so that only those count as the
         # terminal failing, not what goes on in between.
         held = suspended()
@@ -137,15 +99,17 @@ def _as_terminal_failure() -> Iterator[None]:
 
 
 class Recovery:
-    """Records the desktop's failures in a log, and counts them, to give up
-    when a step fails every time (see the module's description)."""
+    """Logs and counts the desktop's failures.
+
+    :param folder: Log folder.
+    :param name: The program's name.
+    :param log_name: Start of the log's file name.
+    """
 
     limit: int = 5
-    """How many failures in a row of one kind of step, with no success in
-    between, make the desktop give up."""
+    """Failures in a row before giving up."""
     quiet: float = 60.0
-    """The fewest seconds between telling the user of failures that happened
-    by themselves (not handling their input)."""
+    """Least seconds between unprompted error dialogs."""
 
     def __init__(
         self,
@@ -157,11 +121,9 @@ class Recovery:
         self.folder = folder
         """The folder the log is written in."""
         self.log_name = log_name
-        """The start of the log's file name, before the time it was made
-        (``desktop-20261114-162427.log``)."""
+        """Start of the log's file name."""
         self.name = name
-        """What the user knows the program as, which the message names
-        (``PresentationManager.program_name``)."""
+        """The program's name."""
         self.log_path: Path | None = None
         """The log, once a failure has been written to it."""
         self.count = 0
@@ -170,12 +132,11 @@ class Recovery:
         self._told: float | None = None
 
     def record(self, error: BaseException, kind: str | None = None) -> Path | None:
-        """Write a failure's traceback to the log (made on the first
-        failure, one for each time the desktop runs), and count it. ``kind``
-        is the kind of step that failed by itself (``"drawing"``, say), whose
-        failures in a row count towards giving up (``has_too_many_failures``); ``None``
-        for one handling the user's input. Returns the log, or ``None`` if it
-        could not be written."""
+        """Log a failure; return the log, or ``None``.
+
+        :param error: The exception.
+        :param kind: Step kind, or ``None`` for input handling.
+        """
         self.count += 1
         if kind is not None:
             self._running[kind] = self._running.get(kind, 0) + 1
@@ -194,20 +155,22 @@ class Recovery:
         return self.log_path
 
     def succeeded(self, kind: str) -> None:
-        """A step of this kind went well: its failures are no longer in a
-        row."""
+        """Reset a step kind's failure run.
+
+        :param kind: Step kind.
+        """
         self._running.pop(kind, None)
 
     @property
     def has_too_many_failures(self) -> bool:
-        """Whether one kind of step has failed ``limit`` times in a row, so
-        that carrying on is no use."""
+        """Whether a step kind failed ``limit`` times running."""
         return any(count >= self.limit for count in self._running.values())
 
     def should_tell(self, by_user: bool) -> bool:
-        """Whether to tell the user of the failure just recorded: always for
-        one they caused (``by_user``), otherwise only if they have not been
-        told of one in the last ``quiet`` seconds."""
+        """Whether to tell the user of the latest failure.
+
+        :param by_user: Whether the user's input caused it.
+        """
         now = time.monotonic()
         if not by_user and self._told is not None and now - self._told < self.quiet:
             return False
@@ -215,9 +178,10 @@ class Recovery:
         return True
 
     def summary(self, gave_up: bool) -> str:
-        """What is said once the screen has been given back: how often
-        something went wrong (or that the desktop gave up), and where the log
-        is."""
+        """The closing summary of failures.
+
+        :param gave_up: Whether the desktop gave up.
+        """
         where = f"see {self.log_path}" if self.log_path else "it could not be logged"
         if gave_up:
             return f"stopped, as something kept going wrong ({where})"

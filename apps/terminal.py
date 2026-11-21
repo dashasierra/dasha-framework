@@ -1,23 +1,4 @@
-"""Terminal: the user's shell, or another command-line program, in a window.
-
-Run it on its own with ``python apps/terminal.py [COMMAND ...]``, or
-install it on the desktop with ``dasha install-app apps/terminal.py``.
-Each window holds a ``TerminalView`` (``dasha.widgets``), running a
-shell of its own (``COMSPEC`` on Windows, ``SHELL`` elsewhere), or COMMAND
-if one is given.
-
-Every key goes to the shell, except those the desktop keeps for itself
-(Ctrl+Q, F5, F6, F10, Alt+F4 and the other window keys). Terminal > Send
-key sends those. Alt+T and Alt+E open the menus, as F10 does, so those two
-do not reach the shell; Alt and any other letter does.
-
-A program that asks to be told of the mouse (an editor, say) gets clicks,
-drags and the wheel; Terminal > Mouse to programs turns that off, so that
-the mouse selects text instead, in every window.
-
-Like the other example applications, it passes arguments by name, so it
-reads as a guide to the framework.
-"""
+"""Terminal: a shell or command-line program in a window."""
 
 import os
 import shutil
@@ -37,16 +18,18 @@ from dasha.widgets.terminalview import RESERVED_ACTIONS
 from dasha.window import Window
 
 SCROLLED_BACK = "\N{UPWARDS ARROW}"
-"""In the footer, before the number of lines scrolled back: ``↑``, code
-page 437 glyph 24."""
+"""Footer mark for scrollback."""
 
 MOUSE_TO_PROGRAM = "Mouse"
-"""In the footer while the mouse goes to the program, not to selecting
-text."""
+"""Footer mark while the mouse goes to the program."""
 
 
 def marked(label: str, on: bool) -> str:
-    """A menu item's label, marked ``√`` while what it turns on is on."""
+    """A label marked while on.
+
+    :param label: The label.
+    :param on: Whether it is on.
+    """
     mark = "\N{SQUARE ROOT}" if on else " "
     return f"{mark} {label}"
 
@@ -57,7 +40,10 @@ def powershell() -> str | None:
 
 
 def program_name(argv: Sequence[str]) -> str:
-    """A command's name, for a title: ``bash`` for ``/bin/bash -l``."""
+    """A command's name, for a title.
+
+    :param argv: The command.
+    """
     return os.path.basename(argv[0]) if argv else "Terminal"
 
 
@@ -68,8 +54,12 @@ class ViewAction(Protocol):  # pylint: disable=too-few-public-methods
 
 
 class TerminalWindow(Window):
-    """A window holding nothing but a terminal, whose title is the one its
-    program asks for, black whatever the theme."""
+    """A window holding a terminal.
+
+    :param app: The application.
+    :param rect: Position and size.
+    :param command: Command to run, or ``None`` for the shell.
+    """
 
     frame_style = Style(foreground=BRIGHT_WHITE, background=BLACK, bold=True)
     inactive_frame_style = Style(foreground=WHITE, background=BLACK)
@@ -94,9 +84,7 @@ class TerminalWindow(Window):
         )
         self.app = app
         self.keep_open = bool(command)
-        """Whether the window stays open once its program ends (showing how
-        it ended), which it does for a command it was given; one running
-        the shell closes."""
+        """Whether it stays open after the program ends."""
         interior = self.interior
         self.view = self.add(
             widget=TerminalView(
@@ -120,8 +108,10 @@ class TerminalWindow(Window):
         self._show_title()
 
     def _ended(self, view: TerminalView) -> None:
-        """The program has ended: close, or (for a command given) say how it
-        ended."""
+        """Close, or report how the program ended.
+
+        :param view: The terminal view.
+        """
         if not self.keep_open:
             self.app.close(window=self)
             return
@@ -134,9 +124,7 @@ class TerminalWindow(Window):
         self.title = f"{title} (ended)" if view.exit_code is not None else title
 
     def footer_parts(self) -> list[str]:
-        """At the foot of the frame: the terminal's size, as COLSxLINES;
-        while scrolled back, ``↑`` and how far; and ``Mouse`` while the
-        mouse goes to the program."""
+        """Size, scrollback and mouse marks."""
         screen = self.view.screen
         parts = [f"{screen.columns}x{screen.lines}"]
         if self.view.back:
@@ -146,8 +134,7 @@ class TerminalWindow(Window):
         return parts
 
     def request_close(self) -> bool:
-        """Close, ending the program; but first ask, where it can be told,
-        if the shell is running a command."""
+        """Close, asking first if a command is running."""
         if self.view.is_running and self.view.pty.foreground_busy():
             manager = self.manager
             if manager is not None and manager.is_running:
@@ -164,8 +151,10 @@ class TerminalWindow(Window):
 
 
 class Terminal(Application):
-    """Command-line programs (the user's shell, by default), each in a
-    window of its own."""
+    """Command-line programs, each in its own window.
+
+    :param command: Command to run, if not the shell.
+    """
 
     name = "Terminal"
 
@@ -174,12 +163,9 @@ class Terminal(Application):
         self.command = list(command)
         """The command the first window runs; the user's shell if empty."""
         self.send_keys = Menu(title="Send key", items=[], on_open=self._fill_send_keys)
-        """Terminal > Send key: the keys the desktop keeps, to send to the
-        program in the front window."""
+        """The Send key submenu."""
         self.send_mouse = True
-        """Whether the mouse goes to a program that asks to be told of it,
-        in every window (Terminal > Mouse to programs), rather than
-        selecting text."""
+        """Whether the mouse goes to programs that ask."""
         self._telling = 0  # messages waiting to be seen, before ending
 
     def start(self) -> None:
@@ -187,13 +173,11 @@ class Terminal(Application):
         self.new_window(command=self.command or None)
 
     def shortcuts_changed(self) -> None:
-        """The shortcuts have changed: the menus' key hints, and the keys
-        Send key offers, follow them."""
+        """Follow the new shortcuts."""
         self.menus = self._menus()
 
     def _place(self) -> Rect:
-        """Where the next window goes: as big as fits, up to 80 by 25
-        inside, each a little down and right of the one before."""
+        """Where the next window goes."""
         assert self.manager is not None
         workspace = self.manager.workspace
         step = len(self.windows) % 6
@@ -204,8 +188,10 @@ class Terminal(Application):
         )
 
     def new_window(self, command: Sequence[str] | None = None) -> TerminalWindow | None:
-        """Open a window running ``command`` (the user's shell, if
-        ``None``). If it cannot be started, say why."""
+        """Open a window running a command.
+
+        :param command: The command, or ``None`` for the shell.
+        """
         window = TerminalWindow(app=self, rect=self._place(), command=command)
         self.open(window=window)
         try:
@@ -217,9 +203,11 @@ class Terminal(Application):
         return window
 
     def _cannot_start(self, name: str, error: OSError) -> None:
-        """Say why a program could not be started: once the desktop is
-        running, which it may not be yet, as Terminal starts. Terminal
-        carries on until the message has been seen, even with no window."""
+        """Report a program that could not start.
+
+        :param name: Program name.
+        :param error: What went wrong.
+        """
         manager = self.manager
         if manager is None:
             return
@@ -241,7 +229,10 @@ class Terminal(Application):
         return window if isinstance(window, TerminalWindow) else None
 
     def _on_front(self, act: ViewAction) -> Callable[[], None]:
-        """A menu action on the front window's terminal, if there is one."""
+        """Run an action on the front terminal.
+
+        :param act: The action.
+        """
 
         def action() -> None:
             window = self._front()
@@ -253,16 +244,17 @@ class Terminal(Application):
     # Ending
 
     def window_closed(self, window: Window) -> None:
-        """A window has closed: its program ends; and with the last of them,
-        so does Terminal."""
+        """End the program; end Terminal with the last window.
+
+        :param window: The window.
+        """
         super().window_closed(window=window)
         if isinstance(window, TerminalWindow):
             window.view.close()
         self._end_if_empty()
 
     def _end_if_empty(self) -> None:
-        """End once the last window has closed (and any message saying why
-        a program could not start has been seen)."""
+        """End once no windows or messages remain."""
         if not self.windows and not self._telling and self.is_running:
             self.quit()
 
@@ -349,8 +341,7 @@ class Terminal(Application):
         return items
 
     def toggle_mouse(self) -> None:
-        """Have the mouse go to programs that ask for it, in every window,
-        or select text instead (Terminal > Mouse to programs)."""
+        """Toggle whether the mouse goes to programs."""
         self.send_mouse = not self.send_mouse
         for window in self.windows:
             if isinstance(window, TerminalWindow):
@@ -396,8 +387,7 @@ class Terminal(Application):
         ]
 
     def reserved_keys(self) -> list[str]:
-        """The keys the desktop keeps, as the shortcuts in use say, each
-        once: the ones Send key offers."""
+        """The desktop's keys, once each."""
         assert self.manager is not None
         shortcuts = self.manager.shortcuts
         keys: list[str] = []
@@ -420,7 +410,10 @@ class Terminal(Application):
 
     @staticmethod
     def _sender(key: str) -> ViewAction:
-        """What sends ``key`` to a terminal's program."""
+        """What sends a key to the program.
+
+        :param key: The key.
+        """
 
         def send(*, view: TerminalView) -> None:
             data = encode_key(key=key, app_cursor_keys=view.screen.app_cursor_keys)

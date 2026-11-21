@@ -1,52 +1,4 @@
-"""Colour themes: every colour that Dasha Framework uses, by role, and the user's
-overrides.
-
-Each part of the screen has a named role (``"window.frame"``,
-``"menu.selected"``, ``"button.face"`` and so on), and a theme maps every
-role to a ``Style``. ``apply_theme`` installs a theme by setting the class
-attributes that the widgets read when they draw (``Window.frame_style`` and
-so on), so a subclass that restyles a widget still keeps its own colours.
-
-There are three built-in themes (``BASES``):
-
-- ``"default"``: Dasha Framework's own colours, with blue windows and grey
-  dialogs.
-- ``"dark"``: light text on black windows and dark grey dialogs, menus and
-  status bar (``DARK_THEME``).
-- ``"monochrome"``: no colours at all, only bold, underline and reverse
-  video, which every VT100-compatible terminal supports. It is used with
-  ``--monochrome``, or when the ``NO_COLOR`` environment variable is set
-  (https://no-color.org).
-
-Each file in ``~/.dasha/themes/`` (``THEMES_FOLDER``) adds another
-theme, named after the file; ``theme_names`` lists all the themes, and
-``load_named_theme`` loads one. The theme can be changed while Dasha Framework is
-running (with ``PresentationManager.set_theme``, or the system menu's
-Themes).
-
-A user's ``~/.dasha/colours.json``, like a theme file, chooses a base
-theme and overrides any roles it wants to::
-
-    {
-        "base": "default",
-        "colours": {
-            "desktop": {"foreground": "yellow"},
-            "window.body": {"foreground": "bright white", "background": "black"},
-            "window.shadow": null
-        }
-    }
-
-Each override changes only the parts it names, and the rest come from the
-base theme. Colours can be names (``"blue"``, ``"bright white"``), ANSI
-numbers from 0 to 255, RGB colours (``"#ff8800"``, or ``"#f80"`` for short),
-or ``"default"`` for the terminal's own colour.
-``null`` turns a shadow off.
-
-As well as colours, a theme has a few drawing settings, such as
-``"button_shadow"``, which is either ``"solid"`` (half blocks, the default)
-or ``"outline"`` (single box lines, used by the monochrome theme, where
-solid blocks would look like part of the button).
-"""
+"""Colour themes by role, and user overrides."""
 
 import dataclasses
 import json
@@ -99,8 +51,7 @@ from dasha.widgets import (
 from dasha.window import Window
 
 DEFAULT_PATH = Path.home() / ".dasha" / "colours.json"
-"""Where Dasha Framework looks for the user's colours file:
-``~/.dasha/colours.json``.
+"""The user's colours file.
 
 :meta hide-value:
 """
@@ -204,18 +155,13 @@ ROLES: dict[str, tuple[type, str]] = {
 SETTINGS: dict[str, tuple[type, str, tuple[str, ...]]] = {
     "button_shadow": (Button, "shadow_shape", SHADOW_SHAPES),
 }
-"""The drawing settings that are not colours: the class attribute that
-holds each one, and its allowed values."""
+"""Non-colour drawing settings and their values."""
 
 NULLABLE_ROLES = frozenset({"window.shadow", "menu.shadow"})
 """The roles that may be ``None`` (meaning no shadow at all)."""
 
 NEWER_ROLES: dict[str, int] = {"tabs.disabled": 2}
-"""The roles added since the first release, each with the protocol version
-(``dasha.protocol.PROTOCOL_VERSION``) that first sends it to an
-application. An older release of Dasha Framework refuses a theme with a
-role it does not know, so ``theme_to_json`` leaves these out wherever an
-older release could be reading."""
+"""Roles added since the first release, with their protocol version."""
 
 DESCRIPTIONS: dict[str, str] = {
     "desktop": "The desktop pattern behind the windows",
@@ -328,17 +274,14 @@ COLOUR_NAMES: dict[str, int] = {
     "bright cyan": 14,
     "bright white": 15,
 }
-"""The colour names accepted in a colours file. ``"grey"`` also means
-bright black, as that colour is usually called."""
+"""Colour names accepted in a colours file."""
 
 _ALIASES = {"grey": 8}
 
 DEFAULT_THEME: Theme = {
     role: getattr(cls, attribute) for role, (cls, attribute) in ROLES.items()
 } | {name: getattr(cls, attribute) for name, (cls, attribute, _) in SETTINGS.items()}
-"""The colours Dasha Framework comes with, read from the classes before any theme
-is applied, so that the classes remain the only place where they are
-written down."""
+"""Dasha Framework's own colours."""
 
 _PLAIN = Style()
 _BOLD = Style(bold=True)
@@ -436,8 +379,7 @@ MONOCHROME_THEME: Theme = {
     "tree.lines": _PLAIN,
     "button_shadow": "outline",
 }
-"""No colours: only bold, underline and reverse video. The selection in the
-reversed menu bar is shown in normal video, as on monochrome PCs."""
+"""The theme without colours."""
 
 
 def _dark() -> Theme:
@@ -508,37 +450,31 @@ def _dark() -> Theme:
 
 
 DARK_THEME: Theme = _dark()
-"""Light text on black windows, with dark grey dialogs, menus and status
-bar, and blue fields to fill in; buttons and highlights stay green."""
+"""The dark theme."""
 
 BASES: dict[str, Theme] = {
     "default": DEFAULT_THEME,
     "dark": DARK_THEME,
     "monochrome": MONOCHROME_THEME,
 }
-"""The names of the built-in themes, ``"default"``, ``"dark"`` and
-``"monochrome"``, which a colours file or theme file can start from
-(``"base"``), and which are always offered."""
+"""Built-in theme names."""
 
 THEMES_FOLDER = Path.home() / ".dasha" / "themes"
-"""The folder where theme files are kept, each holding one theme:
-``~/.dasha/themes``. A theme file has the same format as the colours
-file (see ``DEFAULT_PATH``), and is named after its theme, so ``ocean.json``
-is the theme ``ocean``.
+"""Folder of theme files.
 
 :meta hide-value:
 """
 
 
 class ThemeError(ValueError):
-    """A colours file could not be used; the message lists every
-    problem."""
+    """An unusable colours file."""
 
 
 def apply_theme(theme: Mapping[str, Style | str | None]) -> None:
-    """Install a theme, by setting the class attribute of every role and
-    setting. If it leaves no colours in use, or the terminal has none, none
-    are drawn, even from a style written with them (``style.show_colours``)."""
+    """Install a theme.
+
+    :param theme: Styles and settings by role.
+    """
     for name, value in theme.items():
         cls, attribute = ROLES[name] if name in ROLES else SETTINGS[name][:2]
         setattr(cls, attribute, value)
@@ -546,8 +482,7 @@ def apply_theme(theme: Mapping[str, Style | str | None]) -> None:
 
 
 def current_theme() -> Theme:
-    """The styles and settings currently in use (to restore them later, for
-    example)."""
+    """The styles and settings in use."""
     styles = {role: getattr(cls, attribute) for role, (cls, attribute) in ROLES.items()}
     settings = {
         name: getattr(cls, attribute) for name, (cls, attribute, _) in SETTINGS.items()
@@ -556,17 +491,12 @@ def current_theme() -> Theme:
 
 
 def no_colour_set() -> bool:
-    """Whether the ``NO_COLOR`` environment variable is set to anything but
-    an empty string (https://no-color.org). While it is, Dasha Framework
-    uses the Monochrome theme and nothing else: no other theme can be
-    chosen, by the user or by an application."""
+    """Whether ``NO_COLOR`` is set."""
     return bool(os.environ.get("NO_COLOR"))
 
 
 def has_colours() -> bool:
-    """Whether the theme in use has any colours: not the Monochrome theme,
-    unless the user has added some to it. A widget with colours of its own
-    can look at this, to choose how it looks without them."""
+    """Whether the theme in use has colours."""
     return any(
         isinstance(style, Style)
         and (style.foreground is not None or style.background is not None)
@@ -575,10 +505,9 @@ def has_colours() -> bool:
 
 
 def parse_colour(value: object) -> Colour | None:
-    """A colour from the colours file: a name, a number from 0 to 255, an
-    RGB colour such as "#ff8800", or "default".
+    """Parse a colours file colour.
 
-    Raises ``ValueError`` for anything else.
+    :param value: The colour value.
     """
     if isinstance(value, bool):
         raise ValueError(f"{value!r} is not a colour")
@@ -613,7 +542,13 @@ def _colour_name(colour: Colour | None) -> str | int:
 def _override(
     role: str, base: Style | None, data: object, problems: list[str]
 ) -> Style | None:
-    """Apply one role's override from the colours file to its base style."""
+    """Apply one role's override.
+
+    :param role: The role.
+    :param base: Its base style.
+    :param data: The override.
+    :param problems: Problems found; updated.
+    """
     if data is None:
         if role in NULLABLE_ROLES:
             return None
@@ -645,13 +580,10 @@ def _override(
 def build_theme(
     settings: Mapping[str, object] | None, *, monochrome: bool = False
 ) -> Theme:
-    """A theme built from the contents of a colours file (``None`` when
-    there is no file).
+    """Build a theme from colours file contents.
 
-    The base theme is ``"monochrome"`` when ``monochrome`` is true (because
-    of the ``--monochrome`` option, or ``NO_COLOR`` when the file names no
-    base), otherwise the file's ``"base"``, and otherwise ``"default"``.
-    Raises ``ThemeError``, listing every problem.
+    :param settings: The file's contents, or ``None``.
+    :param monochrome: Whether to force the monochrome base.
     """
     settings = settings or {}
     problems: list[str] = []
@@ -695,13 +627,11 @@ def build_theme(
 def load_theme(
     path: Path, *, monochrome: bool = False, no_colour: bool = False
 ) -> Theme:
-    """Read the colours file at ``path`` (which need not exist) and build a
-    theme from it.
+    """Load a colours file as a theme.
 
-    ``monochrome`` forces the monochrome base theme (``--monochrome``), and
-    ``no_colour`` (the ``NO_COLOR`` environment variable) chooses it unless
-    the file names a base itself. Raises ``ThemeError`` if the file cannot be
-    used.
+    :param path: The colours file.
+    :param monochrome: Whether to force the monochrome base.
+    :param no_colour: Whether ``NO_COLOR`` is set.
     """
     try:
         settings = read_json_object(path)
@@ -712,10 +642,10 @@ def load_theme(
 
 
 def theme_names(folder: Path | None = None) -> list[str]:
-    """The themes available to choose from: the built-in ones (``BASES``),
-    then each theme file in ``folder`` (``THEMES_FOLDER`` by default), by
-    name, in alphabetical order. A file with the same name as a built-in
-    theme is left out, because that name always means the built-in theme."""
+    """Themes available to choose from.
+
+    :param folder: Theme folder, or ``None`` for the default.
+    """
     folder = THEMES_FOLDER if folder is None else folder
     names = list(BASES)
     try:
@@ -729,12 +659,12 @@ def theme_names(folder: Path | None = None) -> list[str]:
 def load_named_theme(
     name: str | Path, folder: Path | None = None, *, monochrome: bool = False
 ) -> Theme:
-    """The theme called ``name``: a built-in one (``"dark"``), one in
-    ``folder`` (``THEMES_FOLDER`` by default, where ``"ocean"`` is
-    ``ocean.json``), or the theme file at a path (a ``Path``, or a name that
-    includes a folder or ``.json``). ``monochrome`` uses the monochrome base
-    instead of the file's. Raises ``ThemeError`` if there is no such theme,
-    or it cannot be used."""
+    """Load a theme by name or path.
+
+    :param name: Theme name or path.
+    :param folder: Theme folder, or ``None`` for the default.
+    :param monochrome: Whether to force the monochrome base.
+    """
     folder = THEMES_FOLDER if folder is None else folder
     text = str(name)
     if isinstance(name, str) and name in BASES:
@@ -754,14 +684,12 @@ def theme_to_json(
     *,
     version: int | None = None,
 ) -> str:
-    """A theme written out as a colours file, with every role included,
-    ready to edit.
+    """A theme as colours file data.
 
-    A role added since the first release (``NEWER_ROLES``) is left out where
-    it is just as the ``base`` theme has it, so that an older release can
-    still read the file. With ``version``, the protocol version agreed with
-    an application, the theme is for sending to it instead: it has every
-    role that version knows, and none that it does not."""
+    :param theme: Styles and settings by role.
+    :param base: The base theme.
+    :param version: Protocol version to send to, if any.
+    """
     colours: dict[str, object] = {}
     base_theme = BASES.get(base, DEFAULT_THEME)
     for role in ROLES:

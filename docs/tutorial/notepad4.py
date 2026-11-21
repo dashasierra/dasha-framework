@@ -11,7 +11,11 @@ from dasha.window import Window
 
 
 class NotepadWindow(Window):
-    """One file being edited: a window holding nothing but a text area."""
+    """One file being edited.
+
+    :param notepad: The application.
+    :param rect: Position and size.
+    """
 
     def __init__(
         self,
@@ -43,7 +47,7 @@ class WindowAction(Protocol):  # pylint: disable=too-few-public-methods
 
 
 class Notepad(Application):
-    """Edit plain text files (UTF-8), each in a window of its own."""
+    """Edit plain text files, each in its own window."""
 
     name = "Notepad"
 
@@ -52,8 +56,7 @@ class Notepad(Application):
         self.new()
 
     def _place(self) -> Rect:
-        """Where the next window goes: each a little down and right of the
-        one before."""
+        """Where the next window goes."""
         step = len(self.windows) % 6
         return Rect(row=2 + step, column=4 + 2 * step, height=15, width=60)
 
@@ -64,14 +67,15 @@ class Notepad(Application):
         return window
 
     def _front(self) -> NotepadWindow | None:
-        """Its window nearest the front of the desktop: the file its menus
-        act on."""
+        """The front window."""
         window = self.active_window
         return window if isinstance(window, NotepadWindow) else None
 
     def _on_front(self, act: WindowAction) -> Callable[[], None]:
-        """A menu action: ``act(window=...)`` on the front window, if there
-        is one by the time the item is chosen."""
+        """Run an action on the front window.
+
+        :param act: The action.
+        """
 
         def action() -> None:
             window = self._front()
@@ -83,8 +87,7 @@ class Notepad(Application):
     # Menus
 
     def _menus(self) -> list[Menu]:
-        """Notepad's menu bar. Items that need a file are greyed out while
-        no window is open."""
+        """Notepad's menu bar."""
         return [
             Menu(title="&File", items=self._file_items()),
         ]

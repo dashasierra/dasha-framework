@@ -1,5 +1,4 @@
-"""Small applications for the tests that start real application processes
-(``python -m dasha.host tests.hosted_apps:Hello``)."""
+"""Small applications for process tests."""
 
 import time
 from pathlib import Path
@@ -24,7 +23,7 @@ class Hello(Application):
 
 
 class Helpful(Application):
-    """One window, whose text box has a help topic, and help to go with it."""
+    """One window with a help topic."""
 
     name = "Helpful"
     help_folder = Path(__file__).parent / "hosted_help"

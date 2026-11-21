@@ -23,8 +23,7 @@ class MatchTests(unittest.TestCase):
     """Which suggestions are like the text."""
 
     def test_starting_first(self) -> None:
-        """Those starting with the text, then those with it elsewhere,
-        ignoring case."""
+        """Prefix matches come first."""
         self.assertEqual(
             match_suggestions("EXA", SITES),
             ["example.com", "example.org", "sexagesimal.net"],
@@ -44,8 +43,11 @@ class SuggestingTests(unittest.TestCase):
         self.terminal = FakeTerminal([])
 
     def run_with(self, inputs: list[str], row: int = 2) -> AutoCompleteBox:
-        """A window with an autocomplete box at ``row`` and an OK button,
-        run on scripted input followed by Ctrl+Q and Shutdown."""
+        """Run a window with an autocomplete box.
+
+        :param inputs: Input to read.
+        :param row: The box's row.
+        """
         window = Window("W", Rect(1, 0, 18, 40))
         box = window.add(AutoCompleteBox(row, 2, 20, suggestions=SITES))
         self.pressed.clear()
@@ -61,8 +63,7 @@ class SuggestingTests(unittest.TestCase):
         return box
 
     def test_free_text(self) -> None:
-        """The text need not be a suggestion; Enter with none highlighted
-        closes the popup and presses the default button."""
+        """Free text is allowed."""
         box = self.run_with(["e", "x", "z", "\r"])
         self.assertEqual(box.text, "exz")  # matching nothing closed the popup
         self.assertEqual(self.pressed, ["ok"])
@@ -100,8 +101,7 @@ class SuggestingTests(unittest.TestCase):
         self.assertEqual(box.text, "python.org")
 
     def test_click_a_suggestion(self) -> None:
-        """The box is on screen row 4, so the first suggestion is on row 5,
-        inside the popup, which covers the box."""
+        """Clicking a suggestion takes it."""
         box = self.run_with(["e", "\x1b[<0;5;6M", "\x1b[<0;5;6m"])
         self.assertEqual(box.text, "example.com")
 
@@ -110,7 +110,10 @@ class PlacementTests(unittest.TestCase):
     """Where the suggestions drop down."""
 
     def placed(self, row: int) -> SuggestionPopup:
-        """The popup for a box at screen ``row``."""
+        """The popup for a box.
+
+        :param row: The box's screen row.
+        """
         seen: list[SuggestionPopup] = []
 
         class Recording(PresentationManager):
@@ -137,8 +140,7 @@ class PlacementTests(unittest.TestCase):
         self.assertEqual((popup.view.rect.row, popup.list.rect.row), (0, 1))
 
     def test_above_near_the_bottom(self) -> None:
-        """Near the bottom, the suggestions go above, and the box's row is
-        the popup's last."""
+        """Near the bottom, suggestions go above."""
         popup = self.placed(row=17)
         self.assertEqual(popup.rect, Rect(13, 4, 6, 22))
         self.assertEqual((popup.list.rect.row, popup.view.rect.row), (0, 3))

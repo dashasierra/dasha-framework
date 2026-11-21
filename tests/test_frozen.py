@@ -30,8 +30,7 @@ class EntryTests(unittest.TestCase):
         self.entry = load_entry()
 
     def test_host(self) -> None:
-        """``-m dasha.host TARGET`` runs the application, as Python would,
-        with or without ``-P`` before it."""
+        """``-m dasha.host`` runs the application."""
         for args in (
             ["-m", "dasha.host", "a.b:C"],
             ["-P", "-m", "dasha.host", "a.b:C"],
@@ -42,11 +41,7 @@ class EntryTests(unittest.TestCase):
                 host.assert_called_once_with(["a.b:C"])
 
     def test_what_the_desktop_sends(self) -> None:
-        """The very command a desktop starts an application with, when the
-        application has no virtual environment (so a built dasha runs it
-        itself), runs the application. They are written in two places, and
-        once drifted apart: then every such application failed with
-        "unrecognised arguments: -P -m"."""
+        """The desktop's own launch command works."""
         server = AppServer(PresentationManager())
         self.addCleanup(server.stop_all, 0)
         with tempfile.TemporaryDirectory() as folder:
@@ -61,8 +56,7 @@ class EntryTests(unittest.TestCase):
         run.assert_called_once_with(["notepad.py"])
 
     def test_p_alone_is_not_the_host(self) -> None:
-        """``-P`` before anything but ``-m dasha.host`` is left for the
-        dasha command line, which refuses it."""
+        """``-P`` alone is not the host."""
         with mock.patch("dasha.__main__.main", return_value=2) as dasha:
             self.assertEqual(self.entry.main(["-P", "notepad"]), 2)
         dasha.assert_called_once_with(["-P", "notepad"], desktop=False)
@@ -74,8 +68,7 @@ class EntryTests(unittest.TestCase):
         dasha.assert_called_once_with(["notepad", "--monochrome"], desktop=False)
 
     def test_dasha_desktop_by_name(self) -> None:
-        """A copy of the program called dasha-desktop, in any case and with or
-        without an extension, is dasha-desktop; any other name is dasha."""
+        """A copy named dasha-desktop is dasha-desktop."""
         for program, desktop in (
             ("C:/Programs/Dasha-Desktop.exe", True),
             ("/usr/local/bin/dasha-desktop", True),
@@ -90,8 +83,7 @@ class EntryTests(unittest.TestCase):
                 dasha.assert_called_once_with(["notepad"], desktop=desktop)
 
     def test_other_modules_are_not_run(self) -> None:
-        """Only dasha.host: ``-m`` anything else goes to dasha, which
-        refuses it."""
+        """Other modules are not run."""
         with mock.patch("dasha.__main__.main", return_value=2) as dasha:
             self.assertEqual(self.entry.main(["-m", "venv", "x"]), 2)
         dasha.assert_called_once_with(["-m", "venv", "x"], desktop=False)

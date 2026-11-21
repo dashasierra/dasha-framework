@@ -1,19 +1,4 @@
-"""A terminal in a widget: a command-line program (the user's shell, by
-default) running in a pseudo-terminal (``dasha.pseudoterminal``), shown
-as a VT emulator (``dasha.vt``) sees it.
-
-Keys go to the program as a terminal sends them, except those the desktop
-keeps for itself (``RESERVED_ACTIONS``), and text pasted goes to it as typed
-(marked as a paste, for a program that asks). The mouse wheel scrolls back
-through the lines that went off the top, and dragging selects text to copy;
-but for a program that asks to be told of the mouse (an editor, or another
-full-screen program), clicks, drags and the wheel go to it instead, unless
-``send_mouse`` is turned off, or Shift is held down.
-
-The program's output is read on a thread of its own, and handed to the
-desktop's thread with ``call_from_thread``, so it appears as soon as it is
-written, however busy or idle the desktop is.
-"""
+"""A terminal running a program in a widget."""
 
 import threading
 from collections.abc import Callable, Mapping, Sequence
@@ -33,49 +18,50 @@ from dasha.vt import SCROLLBACK, Line, Screen, encode_key, encode_mouse
 from dasha.widgets.base import Widget
 
 RESERVED_ACTIONS = DESKTOP_KEYS + ("open_menu", "command_prompt", "show_mouse")
-"""The shortcut actions whose keys the desktop keeps, so that they never
-reach a terminal's program. ``TerminalView.send`` with ``encode_key`` sends
-one anyway (a Send key menu, say)."""
+"""Actions whose keys the desktop keeps."""
 
 FEED_LIMIT = 65536
-"""The most output (in bytes) shown at once, before the desktop has a
-chance to draw and read keys: a program writing without a pause (``cat``
-of a big file) cannot freeze the screen."""
+"""Most output bytes shown at once."""
 
 WHEEL_LINES = 3
-"""How many lines a notch of the mouse wheel scrolls back or forward."""
+"""Lines per mouse wheel notch."""
 
 PASTE_START, PASTE_END = "\x1b[200~", "\x1b[201~"
-"""What a paste is wrapped in, for a program that asked (bracketed
-paste)."""
+"""Bracketed paste markers."""
 
 
 def shown_text(text: str) -> str:
-    """What a cell's text is drawn as, in its one column: a blank for the
-    right half of a wide character, and ``?`` for characters with marks
-    that do not combine into one."""
+    """How a cell's text is drawn.
+
+    :param text: The cell's text.
+    """
     if len(text) == 1:
         return text
     return " " if not text else UNSHOWABLE
 
 
 class TerminalView(Widget):  # pylint: disable=too-many-instance-attributes
-    """A command-line program, running in a terminal the size of the widget
-    (which follows it, with ``grow``), and what it shows: its screen, or,
-    scrolled back, the lines that went off its top, with the cursor, and any
-    text selected with the mouse.
+    """A command-line program in a terminal.
 
-    Nothing runs until ``start``. ``on_output`` is called (with the view)
-    each time output has been shown, and ``on_exit`` once the program has
-    ended and all its output has been shown; both on the desktop's
-    thread."""
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param width: Width in columns.
+    :param height: Height in rows.
+    :param command: Command to run, or ``None`` for the shell.
+    :param cwd: Working folder, if any.
+    :param env: Environment variables, if any.
+    :param scrollback: Most lines kept off the top.
+    :param on_output: Called with the view after output is shown.
+    :param on_exit: Called with the view after the program ends.
+    :param send_mouse: Whether the mouse goes to programs that ask.
+    :param name: Widget name.
+    :param status: Status bar text.
+    """
 
     focusable = True
 
     default_style: Style = DEFAULT
-    """The colours of whatever the program leaves in its default colours,
-    blank cells included. With no colours of its own, it shows the colours of
-    the terminal that Dasha Framework is running in."""
+    """Style for the program's default colours."""
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
@@ -96,8 +82,7 @@ class TerminalView(Widget):  # pylint: disable=too-many-instance-attributes
     ) -> None:
         super().__init__(row, column, width, height, name=name, status=status)
         self.command = list(command) if command else shell_command()
-        """What runs: the user's shell (``dasha.shell.shell_command``),
-        unless another command was given."""
+        """The command that runs."""
         self.cwd = cwd
         self.env = env
         self.on_output = on_output
@@ -107,18 +92,13 @@ class TerminalView(Widget):  # pylint: disable=too-many-instance-attributes
         self.pty: PseudoTerminal = open_pty()
         """The pseudo-terminal the program runs in."""
         self.exit_code: int | None = None
-        """How the program ended, once it has (``-1`` if that is not
-        known)."""
+        """Exit code, or ``-1`` if unknown."""
         self.send_mouse = send_mouse
-        """Whether the mouse goes to a program that asks to be told of it
-        (``is_mouse_for_program``), rather than selecting text and scrolling
-        back. Turn it off to select text in such a program."""
+        """Whether the mouse goes to programs that ask."""
         self.back = 0
         """How many lines the view is scrolled back into the scrollback."""
         self.selection: tuple[int, int, int, int] | None = None
-        """Text selected with the mouse: from (line, column) to (line,
-        column), where lines are counted as ``Screen.scrolled_off`` counts
-        them, so that they stay put while more output arrives."""
+        """Selected text range, as (line, column) pairs."""
         self._selecting = False
         self._anchor = (0, 0)
         self._pressed_for_program = False
@@ -158,8 +138,7 @@ class TerminalView(Widget):  # pylint: disable=too-many-instance-attributes
 
     @property
     def is_mouse_for_program(self) -> bool:
-        """Whether the mouse goes to the program now: it has asked to be
-        told of it, it is still running, and ``send_mouse`` is on."""
+        """Whether the mouse goes to the program now."""
         return (
             self.send_mouse and self.screen.is_tracking_mouse and self.exit_code is None
         )
@@ -170,13 +149,14 @@ class TerminalView(Widget):  # pylint: disable=too-many-instance-attributes
         return self.pty.is_running
 
     def close(self) -> None:
-        """End the program, if it is still running (see
-        ``PseudoTerminal.close``)."""
+        """End the program."""
         self.pty.close()
 
     def _arrived(self, data: bytes) -> None:
-        """Output, from the thread reading it: kept, and the desktop's loop
-        asked to show it."""
+        """Queue output from the reader thread.
+
+        :param data: The output.
+        """
         with self._output_lock:
             self._output += data
             if self._output_due:
@@ -193,8 +173,7 @@ class TerminalView(Widget):  # pylint: disable=too-many-instance-attributes
             manager.call_from_thread(callback)
 
     def _show_output(self) -> None:
-        """Feed the screen what has arrived (up to ``FEED_LIMIT``, with the
-        rest next time round), and answer any questions it asked."""
+        """Feed queued output to the screen."""
         with self._output_lock:
             data = bytes(self._output[:FEED_LIMIT])
             del self._output[:FEED_LIMIT]
@@ -217,8 +196,7 @@ class TerminalView(Widget):  # pylint: disable=too-many-instance-attributes
             self.on_output(self)
 
     def _ended(self) -> None:
-        """The program has ended: show the rest of its output, then say
-        so."""
+        """Show remaining output, then report the end."""
         with self._output_lock:
             data = bytes(self._output)
             self._output.clear()
@@ -260,9 +238,13 @@ class TerminalView(Widget):  # pylint: disable=too-many-instance-attributes
             )
 
     def _paint_line(self, canvas: Canvas, origin: Rect, index: int, line: Line) -> None:
-        """Draw row ``index`` of the view, in runs of cells of the same
-        style, blank past the end of a line narrower than the view (one
-        scrolled back from when the view was narrower)."""
+        """Draw one row.
+
+        :param canvas: Canvas to draw on.
+        :param origin: The window's interior on screen.
+        :param index: Row of the view.
+        :param line: The line to draw.
+        """
         row = origin.row + self.rect.row + index
         column = origin.column + self.rect.column
         selected = range(
@@ -287,8 +269,10 @@ class TerminalView(Widget):  # pylint: disable=too-many-instance-attributes
             column += len(text)
 
     def _in_colours(self, style: Style) -> Style:
-        """A style from the program, with ``default_style``'s colours for
-        those that it leaves as the default."""
+        """A program style with default colours filled in.
+
+        :param style: The program's style.
+        """
         default = self.default_style
         foreground = (
             default.foreground if style.foreground is None else style.foreground
@@ -299,11 +283,18 @@ class TerminalView(Widget):  # pylint: disable=too-many-instance-attributes
         return replace(style, foreground=foreground, background=background)
 
     def _line_number(self, row: int) -> int:
-        """The number (as ``selection`` counts) of a row of the view."""
+        """A view row's line number.
+
+        :param row: Row of the view.
+        """
         return self.screen.scrolled_off - self.back + row
 
     def _selected_columns(self, number: int, width: int) -> tuple[int, int]:
-        """Which columns of line ``number`` are selected: (start, end)."""
+        """A line's selected (start, end) columns.
+
+        :param number: Line number.
+        :param width: Line width.
+        """
         if self.selection is None:
             return (0, 0)
         first, first_column, last, last_column = self._ordered()
@@ -324,8 +315,10 @@ class TerminalView(Widget):  # pylint: disable=too-many-instance-attributes
     # Scrolling back
 
     def scroll_back(self, lines: int) -> None:
-        """Scroll ``lines`` further back into the scrollback (forward, if
-        negative), no further than it goes."""
+        """Scroll back or forward.
+
+        :param lines: Lines back; negative for forward.
+        """
         self.back = max(0, min(self.back + lines, len(self.screen.scrollback)))
 
     def clear_scrollback(self) -> None:
@@ -337,10 +330,11 @@ class TerminalView(Widget):  # pylint: disable=too-many-instance-attributes
     # Input
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """Send the key to the program, unless it is one the desktop keeps
-        (declined here too, so that a view on a desktop of its own behaves as
-        one in an application the desktop runs), or ``terminal_copy`` or
-        ``terminal_paste``."""
+        """Send a key to the program.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         if any(shortcuts.matches(action, key) for action in RESERVED_ACTIONS):
             return False
         if shortcuts.matches("terminal_copy", key):
@@ -356,16 +350,19 @@ class TerminalView(Widget):  # pylint: disable=too-many-instance-attributes
         return True
 
     def send(self, data: bytes) -> None:
-        """Send input to the program, as typed: the view comes back to the
-        bottom, and the selection goes."""
+        """Send input to the program.
+
+        :param data: The input.
+        """
         self.back = 0
         self.selection = None
         self.pty.write(data)
 
     def handle_paste(self, text: str) -> bool:
-        """Text pasted through the terminal goes to the program as typed
-        (each line ended by Enter), marked as a paste for a program that
-        asked for that, so that it is not run line by line."""
+        """Send pasted text to the program.
+
+        :param text: The pasted text.
+        """
         text = text.replace("\r\n", "\r").replace("\n", "\r")
         if self.screen.bracketed_paste:
             text = PASTE_START + text.replace(PASTE_END, "") + PASTE_END
@@ -408,7 +405,10 @@ class TerminalView(Widget):  # pylint: disable=too-many-instance-attributes
         self.selection = (first, 0, screen.scrolled_off + screen.lines - 1, 1 << 16)
 
     def _line(self, number: int) -> Line | None:
-        """A line by its number (as ``selection`` counts), if still kept."""
+        """A line by number, if still kept.
+
+        :param number: Line number.
+        """
         screen = self.screen
         index = number - (screen.scrolled_off - len(screen.scrollback))
         if index < 0:
@@ -419,14 +419,19 @@ class TerminalView(Widget):  # pylint: disable=too-many-instance-attributes
         return screen.rows[index] if index < screen.lines else None
 
     def popup_menu(self, shortcuts: Shortcuts) -> Menu | None:
-        """Copy and Paste for a right-click; none while the mouse goes to the
-        program, which gets the right-click instead."""
+        """Copy and Paste menu, unless the program takes the mouse.
+
+        :param shortcuts: Key bindings shown in the menu.
+        """
         return None if self.is_mouse_for_program else super().popup_menu(shortcuts)
 
     def handle_mouse(self, event: MouseEvent, row: int, column: int) -> bool:
-        """For a program that asks (``is_mouse_for_program``), the mouse goes to
-        it, unless Shift is held down. Otherwise, the wheel scrolls back and
-        forward, and dragging with the left button selects text."""
+        """Send, scroll or select with the mouse.
+
+        :param event: The mouse event.
+        :param row: Row in the window's interior.
+        :param column: Column in the window's interior.
+        """
         if self._for_program(event):
             self._report(event, row, column)
             return True
@@ -452,8 +457,10 @@ class TerminalView(Widget):  # pylint: disable=too-many-instance-attributes
         return True
 
     def _for_program(self, event: MouseEvent) -> bool:
-        """Whether mouse activity goes to the program. A drag and the
-        release go where their press went, whatever changes meanwhile."""
+        """Whether mouse activity goes to the program.
+
+        :param event: The mouse event.
+        """
         if event.action == "press":
             self._pressed_for_program = self.is_mouse_for_program and not event.shift
             return self._pressed_for_program
@@ -465,9 +472,12 @@ class TerminalView(Widget):  # pylint: disable=too-many-instance-attributes
         return self.is_mouse_for_program and not event.shift
 
     def _report(self, event: MouseEvent, row: int, column: int) -> None:
-        """Tell the program of mouse activity, at its place in the terminal
-        (kept inside it, for a drag that strays outside), if it asked to be
-        told of that kind."""
+        """Report mouse activity to the program.
+
+        :param event: The mouse event.
+        :param row: Row in the window's interior.
+        :param column: Column in the window's interior.
+        """
         row = min(max(0, row - self.rect.row), self.rect.height - 1)
         column = min(max(0, column - self.rect.column), self.rect.width - 1)
         data = encode_mouse(event, row, column, self.screen.mouse_modes)

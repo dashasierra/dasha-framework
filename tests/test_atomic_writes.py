@@ -1,6 +1,4 @@
-"""Tests for writing files whole or not at all (``config.write_atomically``),
-which the settings files and Notepad use, so that a failure part-way never
-leaves a file empty or cut short."""
+"""Tests for atomic file writes."""
 
 import os
 import stat
@@ -29,7 +27,7 @@ class WriteTests(unittest.TestCase):
         return sorted(p.name for p in self.folder.iterdir() if p != self.path)
 
     def test_new_and_replaced(self) -> None:
-        """A new file is made; an old one replaced; nothing else is left."""
+        """New and replaced files."""
         write_atomically(self.path, "first\n")
         self.assertEqual(self.path.read_text(encoding="utf-8"), "first\n")
         write_atomically(self.path, "second\n")
@@ -46,8 +44,7 @@ class WriteTests(unittest.TestCase):
         self.assertEqual(self.path.read_text(encoding="utf-16"), "é")
 
     def test_a_failure_leaves_the_file_as_it_was(self) -> None:
-        """The disk filling part-way: the old text is still there, the
-        temporary file is gone, and the error is raised."""
+        """A failure leaves the file as it was."""
         self.path.write_text("precious\n", encoding="utf-8")
         with mock.patch.object(os, "fsync", side_effect=FULL):
             with self.assertRaises(OSError) as caught:
@@ -57,7 +54,7 @@ class WriteTests(unittest.TestCase):
         self.assertEqual(self.left_behind(), [])
 
     def test_a_new_file_that_fails_is_not_made(self) -> None:
-        """No empty or partial file is left where the new one would be."""
+        """A failed new file is not made."""
         with mock.patch.object(os, "fsync", side_effect=FULL):
             with self.assertRaises(OSError):
                 write_atomically(self.path, "text")
@@ -65,8 +62,7 @@ class WriteTests(unittest.TestCase):
         self.assertEqual(self.left_behind(), [])
 
     def test_a_replace_that_fails(self) -> None:
-        """Where it cannot be put in place (and not for Windows' reason),
-        the old file stays and the error is raised."""
+        """A failed replace keeps the old file."""
         self.path.write_text("precious\n", encoding="utf-8")
         refused = PermissionError(13, "Permission denied")
         with (
@@ -79,9 +75,7 @@ class WriteTests(unittest.TestCase):
         self.assertEqual(self.left_behind(), [])
 
     def test_windows_file_held_open(self) -> None:
-        """On Windows, a file another program holds open cannot be replaced:
-        it is written in place after all, once the text has been written
-        safely beside it."""
+        """A file held open on Windows."""
         self.path.write_text("old\n", encoding="utf-8")
         refused = PermissionError(13, "Access is denied")
         with (
@@ -101,7 +95,7 @@ class WriteTests(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(self.path.stat().st_mode), 0o600)
 
     def test_a_symbolic_link_is_written_through(self) -> None:
-        """The file it points to is written, and the link stays a link."""
+        """Symbolic links are written through."""
         real = self.folder / "real.txt"
         real.write_text("old\n", encoding="utf-8")
         link = self.folder / "link.txt"
@@ -118,8 +112,7 @@ class SettingsTests(unittest.TestCase):
     """The settings files are written the same way."""
 
     def test_settings_toml(self) -> None:
-        """A failed save leaves ``settings.toml`` as it was, rather than
-        empty (which would lose every other setting)."""
+        """A failed save keeps ``settings.toml``."""
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "settings.toml"
             path.write_text('theme = "dark"\nanimations = false\n', encoding="utf-8")

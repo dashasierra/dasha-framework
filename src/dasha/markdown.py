@@ -1,28 +1,4 @@
-"""Markdown, made ready to draw in a text environment.
-
-``parse`` turns Markdown into blocks, and ``lay_out`` wraps the blocks to a
-width, as a ``Document`` of lines to draw. Help windows (``dasha.help``)
-use these, but nothing here draws anything: each piece of text says what kind
-of text it is (``BOLD``, ``LINK`` and so on), and whatever draws it chooses a
-style for that kind, so a change of theme needs no new layout.
-
-What the screen cannot do is shown as well as it can be:
-
-- **Headings** have no sizes, so they are bold and decorated by level:
-  ``═══ Title ═══``, a line under the title, ``── Title``, or bold alone.
-- **Italics** are ``EMPHASIS``, which is underlined by default.
-- **Images** are shown as ``[Image: their description]``.
-- **HTML tags** are removed, leaving the text inside them, and ``<br>``
-  breaks the line.
-- **Tables** are drawn in box characters, with text wrapped inside each cell
-  to fit the width. A table with too many columns to fit is written out as
-  ``Heading: value`` lines instead.
-- **Dashes, curly quotes and ellipses** become their plain equivalents, which
-  code page 437 has.
-
-Pages are text from anywhere, so nothing in one raises an error: whatever is
-not understood is shown as it was written.
-"""
+"""Markdown parsing and layout for text screens."""
 
 # pylint: disable=too-many-lines
 
@@ -46,15 +22,12 @@ HEADING = "heading"
 """A heading, and its decoration."""
 
 MAX_DEPTH = 16
-"""How many quotes and lists may be nested. Beyond this, more markers are
-just text, so that a page of ``> > > >`` cannot exhaust the stack."""
+"""Deepest nesting of quotes and lists."""
 _MAX_INLINE_DEPTH = 8
 _SCAN_LIMIT = 2000
-"""How far ahead to look for where a link goes, so that ``[x](`` and a long
-run of spaces cannot take forever."""
+"""How far to look for a link's target."""
 _NARROWEST = 8
-"""The least width that nesting leaves for what is inside it. The lines may
-then be wider than the page, which only a deep nest of lists would ask for."""
+"""Least width left by nesting."""
 _NARROWEST_COLUMN = 3
 _BULLETS = ("\N{BULLET}", "\N{WHITE CIRCLE}", "-")
 _RULE = "\N{BOX DRAWINGS LIGHT HORIZONTAL}"
@@ -99,7 +72,7 @@ class Span:
     text: str
     kind: str = TEXT
     link: int | None = None
-    """Which link it is part of: one number for all the pieces of a link."""
+    """The link it belongs to, by number."""
     target: str = ""
     """Where the link goes, as the page wrote it."""
 
@@ -155,8 +128,7 @@ class Rule:
 
 @dataclass(frozen=True)
 class Table:
-    """A table: ``aligns`` holds ``"left"``, ``"centre"`` or ``"right"`` for
-    each column, and each row holds as many cells as the heading does."""
+    """A table block."""
 
     header: list[list[Span]]
     aligns: list[str]
@@ -191,7 +163,10 @@ def _unquoted(line: str) -> str:
 
 
 def _cells(line: str) -> list[str]:
-    """A table row's cells, as written. A ``\\|`` stays in its cell."""
+    """A table row's cells.
+
+    :param line: The row.
+    """
     text = line.strip()
     text = text[1:] if text.startswith("|") else text
     cells, start, at = [], 0, 0
@@ -209,8 +184,10 @@ def _cells(line: str) -> list[str]:
 
 
 def _align_of(cell: str) -> str | None:
-    """How a cell of a table's second row lines its column up, or ``None``
-    if it is not such a cell."""
+    """A delimiter cell's alignment, or ``None``.
+
+    :param cell: The cell.
+    """
     dashes = cell.strip(":")
     if not dashes or set(dashes) != {"-"} or ":" in cell[1:-1]:
         return None
@@ -227,9 +204,11 @@ def _is_table(lines: Sequence[str], at: int) -> bool:
 
 
 def _starts_block(lines: Sequence[str], at: int) -> bool:
-    """Whether a line ends the paragraph before it. A list starts one only
-    with a bullet or the number 1, so that a line that happens to begin with
-    a year does not."""
+    """Whether a line starts a new block.
+
+    :param lines: The lines.
+    :param at: Line index.
+    """
     line = lines[at]
     marker = _MARKER.match(line)
     return (
@@ -246,7 +225,10 @@ def _starts_block(lines: Sequence[str], at: int) -> bool:
 
 
 class _Parser:
-    """Reads one page, numbering its links and its headings' slugs."""
+    """Parses one page.
+
+    :param references: Link reference definitions.
+    """
 
     def __init__(self, references: dict[str, str]) -> None:
         self.references = references
@@ -254,8 +236,10 @@ class _Parser:
         self._slugs: dict[str, int] = {}
 
     def slug(self, title: str) -> str:
-        """What a link calls a heading with this title; a second with the
-        same title gets ``-1`` on the end, and so on."""
+        """A unique slug for a heading.
+
+        :param title: The heading text.
+        """
         kept = "".join(c for c in title.lower() if c.isalnum() or c in " -_")
         base = kept.strip().replace(" ", "-")
         count = self._slugs.get(base, 0)
@@ -263,11 +247,19 @@ class _Parser:
         return f"{base}-{count}" if count else base
 
     def inline(self, text: str, kind: str = TEXT) -> list[Span]:
-        """The pieces that the text of a paragraph, say, is made of."""
+        """Parse inline text into pieces.
+
+        :param text: The text.
+        :param kind: Its kind of text.
+        """
         return _Inline(self, text, kind).spans()
 
     def blocks(self, lines: Sequence[str], depth: int = 0) -> list[Block]:
-        """The blocks that lines make up."""
+        """Parse lines into blocks.
+
+        :param lines: The lines.
+        :param depth: Nesting depth.
+        """
         found: list[Block] = []
         at = 0
         while at < len(lines):
@@ -282,8 +274,12 @@ class _Parser:
     def _block(
         self, lines: Sequence[str], at: int, depth: int
     ) -> tuple[Block | None, int]:
-        """The block starting at a line (``None`` for a comment), and the
-        line after it. Always moves on by at least a line."""
+        """The block at a line and the next line.
+
+        :param lines: The lines.
+        :param at: Line index.
+        :param depth: Nesting depth.
+        """
         line = lines[at]
         result: tuple[Block | None, int]
         if line.lstrip().startswith("<!--"):
@@ -308,7 +304,11 @@ class _Parser:
 
     @staticmethod
     def _comment(lines: Sequence[str], at: int) -> tuple[None, int]:
-        """An HTML comment, which may go on over several lines."""
+        """An HTML comment's end.
+
+        :param lines: The lines.
+        :param at: Line index.
+        """
         for end in range(at, len(lines)):
             if "-->" in lines[end]:
                 return None, end + 1
@@ -390,10 +390,12 @@ class _Parser:
     def _item(
         lines: Sequence[str], at: int, marker: re.Match[str]
     ) -> tuple[list[str], int]:
-        """The lines of one item of a list, without its marker or its
-        indent, and the line after them. Anything indented further than the
-        marker belongs to it, so that lists nest however they are indented,
-        as do lines that just carry on its paragraph."""
+        """One list item's lines and the next line.
+
+        :param lines: The lines.
+        :param at: Line index.
+        :param marker: The item marker match.
+        """
         rest = lines[at][marker.end() :]
         content = marker.end() if rest.strip() else len(marker.group(0).rstrip()) + 1
         inside = [rest]
@@ -439,8 +441,11 @@ class _Parser:
     def _paragraph(
         self, lines: Sequence[str], at: int
     ) -> tuple[Paragraph | Heading, int]:
-        """A paragraph, up to a blank line or the start of another block. A
-        line of ``=`` or ``-`` under it makes it a heading instead."""
+        """A paragraph or setext heading.
+
+        :param lines: The lines.
+        :param at: Line index.
+        """
         parts = [lines[at]]
         at += 1
         while at < len(lines) and lines[at].strip():
@@ -456,15 +461,21 @@ class _Parser:
 
 
 def _next_line(lines: Sequence[str], at: int) -> int:
-    """The first line from ``at`` that is not blank."""
+    """The first non-blank line from an index.
+
+    :param lines: The lines.
+    :param at: Line index.
+    """
     while at < len(lines) and not lines[at].strip():
         at += 1
     return at
 
 
 def _joined(parts: Sequence[str]) -> str:
-    """A paragraph's lines as one text. A line break there is only a space,
-    unless the line ends with two spaces or a backslash."""
+    """A paragraph's lines joined.
+
+    :param parts: The lines.
+    """
     text = ""
     for number, part in enumerate(parts):
         stripped = part.strip()
@@ -486,7 +497,15 @@ def _text_of(spans: Sequence[Span]) -> str:
 
 
 class _Inline:  # pylint: disable=too-few-public-methods
-    """Reads the bold, code, links and so on in one piece of text."""
+    """Parses inline Markdown.
+
+    :param parser: The page parser.
+    :param text: The text.
+    :param kind: Its kind of text.
+    :param link: Link number, if inside one.
+    :param target: Link target, if inside one.
+    :param depth: Nesting depth.
+    """
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
@@ -548,8 +567,10 @@ class _Inline:  # pylint: disable=too-few-public-methods
         self.found.append(Span(text, kind, self.link, self.target))
 
     def _within(self, kind: str) -> str:
-        """The kind for ``kind`` of text inside this text. Links and headings
-        stay as they are, and bold stays bold."""
+        """The kind for nested text.
+
+        :param kind: The inner kind.
+        """
         if self.kind in (LINK, HEADING):
             return self.kind
         return BOLD if BOLD in (self.kind, kind) else kind
@@ -576,7 +597,10 @@ class _Inline:  # pylint: disable=too-few-public-methods
         return at + 1
 
     def _run_at(self, at: int) -> int:
-        """How many of the same character are in a row from ``at``."""
+        """Run length of a repeated character.
+
+        :param at: Position.
+        """
         end = at
         while end < len(self.text) and self.text[end] == self.text[at]:
             end += 1
@@ -621,8 +645,12 @@ class _Inline:  # pylint: disable=too-few-public-methods
         return end + size
 
     def _emphasis_end(self, at: int, char: str, size: int) -> int | None:
-        """Where the mark that ends emphasis opened just before ``at`` is,
-        skipping marks of other sizes: those are for emphasis inside it."""
+        """Where emphasis closes.
+
+        :param at: Position after the opener.
+        :param char: The emphasis character.
+        :param size: The opener's length.
+        """
         if (char, size) in self._no_end:
             return None
         text = self.text
@@ -646,8 +674,10 @@ class _Inline:  # pylint: disable=too-few-public-methods
         return None
 
     def _closing_bracket(self, at: int) -> int | None:
-        """The ``]`` that matches the ``[`` at ``at``. They are all paired up
-        the first time, so that a long run of ``[`` is read only once."""
+        """The matching ``]``.
+
+        :param at: Position of the ``[``.
+        """
         if self._brackets is None:
             self._brackets = {}
             opened = []
@@ -664,9 +694,11 @@ class _Inline:  # pylint: disable=too-few-public-methods
         return self._brackets.get(at)
 
     def _destination(self, at: int, label: str) -> tuple[str, int] | None:
-        """Where a link whose text ended just before ``at`` goes, and the
-        position after it: ``(target)``, ``[reference]``, ``[]``, or just the
-        text itself, if the page defines it as a reference."""
+        """A link's target and the position after it.
+
+        :param at: Position after the link text.
+        :param label: The link text.
+        """
         references = self.parser.references
         if self.text[at : at + 1] == "(":
             found = _TARGET.match(self.text, at, at + _SCAN_LIMIT)
@@ -724,7 +756,10 @@ class _Inline:  # pylint: disable=too-few-public-methods
         self.found.append(Span(text, LINK, number, target))
 
     def _angle(self, at: int) -> int | None:
-        """An address in angle brackets, a line break or an HTML tag."""
+        """An autolink, line break or HTML tag.
+
+        :param at: Position of the ``<``.
+        """
         found = _AUTOLINK.match(self.text, at)
         if found is not None:
             if self.link is None:
@@ -740,7 +775,10 @@ class _Inline:  # pylint: disable=too-few-public-methods
         return found.end() if found is not None else None
 
     def _bare_url(self, at: int) -> int | None:
-        """A web address written out with nothing around it."""
+        """A bare web address.
+
+        :param at: Position.
+        """
         if self.link is not None or (at and self.text[at - 1].isalnum()):
             return None
         found = _BARE_URL.match(self.text, at)
@@ -752,7 +790,10 @@ class _Inline:  # pylint: disable=too-few-public-methods
 
 
 def parse(text: str) -> list[Block]:
-    """The blocks that a page of Markdown is made of."""
+    """Parse a Markdown page into blocks.
+
+    :param text: The Markdown.
+    """
     lines = text.translate(_PLAIN).expandtabs(4).splitlines()
     references: dict[str, str] = {}
     kept = []
@@ -784,7 +825,10 @@ class Section:
 
 
 def _plain_lines(block: Block) -> list[str]:
-    """What a block says, as lines of text without any Markdown."""
+    """A block's plain text lines.
+
+    :param block: The block.
+    """
     lines: list[str] = []
     if isinstance(block, Paragraph):
         lines.append(_text_of(block.spans))
@@ -804,7 +848,10 @@ def _plain_lines(block: Block) -> list[str]:
 
 
 def sections(blocks: Sequence[Block]) -> list[Section]:
-    """A page's text, heading by heading."""
+    """A page's text, by heading.
+
+    :param blocks: The page's blocks.
+    """
     found: list[Section] = []
     title, slug = "", ""
     lines: list[str] = []
@@ -821,7 +868,10 @@ def sections(blocks: Sequence[Block]) -> list[Section]:
 
 
 def title_of(blocks: Sequence[Block]) -> str:
-    """A page's first heading, or ``""`` if it has none."""
+    """A page's first heading, or "".
+
+    :param blocks: The page's blocks.
+    """
     for block in blocks:
         if isinstance(block, Heading):
             return _text_of(block.spans)
@@ -840,8 +890,7 @@ class Link:
     target: str
     """Where it goes, as the page wrote it."""
     places: list[tuple[int, int, int]] = field(default_factory=list)
-    """Where its pieces are, as (row, column, length). A link that wraps has
-    several."""
+    """Where its pieces are, as (row, column, length)."""
 
     @property
     def row(self) -> int:
@@ -866,7 +915,11 @@ class Document:
     """The row of each heading, by slug."""
 
     def link_at(self, row: int, column: int) -> int | None:
-        """The number in ``links`` of the link at a place, if one is there."""
+        """The link number at a place, if any.
+
+        :param row: Line number.
+        :param column: Column.
+        """
         for number, link in enumerate(self.links):
             for at_row, at_column, length in link.places:
                 if at_row == row and at_column <= column < at_column + length:
@@ -874,12 +927,18 @@ class Document:
         return None
 
     def text(self, row: int) -> str:
-        """The characters of one line, without their kinds."""
+        """A line's characters.
+
+        :param row: Line number.
+        """
         return "".join(span.text for span in self.lines[row])
 
 
 class _Wrapper:
-    """Fills lines to a width from pieces of text, breaking between words."""
+    """Wraps pieces of text to a width.
+
+    :param width: Line width.
+    """
 
     def __init__(self, width: int) -> None:
         self.width = max(1, width)
@@ -890,7 +949,10 @@ class _Wrapper:
         self.gap: Span | None = None
 
     def add(self, span: Span) -> None:
-        """Add a piece of text. A line break in it ends the line."""
+        """Add a piece of text.
+
+        :param span: The piece.
+        """
         for part in _PARTS.findall(span.text):
             if part == "\n":
                 self._end_word()
@@ -902,8 +964,7 @@ class _Wrapper:
                 self.word.append(replace(span, text=part))
 
     def _end_word(self) -> None:
-        """Place the word that has been added, on the next line if it does
-        not fit, and in pieces if it is longer than a line."""
+        """Place the pending word."""
         if not self.word:
             return
         length = sum(len(piece.text) for piece in self.word)
@@ -941,7 +1002,10 @@ class _Wrapper:
 
 
 def _merged(line: Line) -> Line:
-    """A line with neighbouring pieces of one kind made into one."""
+    """A line with like pieces merged.
+
+    :param line: The line.
+    """
     merged: Line = []
     for span in line:
         if merged and replace(merged[-1], text="") == replace(span, text=""):
@@ -970,7 +1034,10 @@ class _Laid:
     anchors: dict[str, int] = field(default_factory=dict)
 
     def extend(self, other: "_Laid") -> None:
-        """Add other lines below these."""
+        """Add lines below.
+
+        :param other: The lines to add.
+        """
         offset = len(self.lines)
         self.lines += other.lines
         for slug, row in other.anchors.items():
@@ -1000,8 +1067,11 @@ def _laid_heading(block: Heading, width: int) -> _Laid:
 
 
 def _laid_code(block: CodeBlock, width: int) -> _Laid:
-    """Code in a block as wide as the page, with long lines broken rather
-    than cut off."""
+    """A code block laid out.
+
+    :param block: The code block.
+    :param width: Page width.
+    """
     inner = max(1, width - 2)
     lines: list[Line] = []
     for line in block.lines or [""]:
@@ -1011,8 +1081,12 @@ def _laid_code(block: CodeBlock, width: int) -> _Laid:
 
 
 def _prefixed(laid: _Laid, first: str, others: str) -> None:
-    """Put text before the lines, in place: ``first`` before the first, and
-    ``others`` before the rest."""
+    """Prefix lines in place.
+
+    :param laid: The lines.
+    :param first: Prefix for the first line.
+    :param others: Prefix for the rest.
+    """
     laid.lines = [
         [Span(first if number == 0 else others), *line]
         for number, line in enumerate(laid.lines or [[]])
@@ -1043,8 +1117,11 @@ def _laid_quote(block: Quote, width: int, depth: int) -> _Laid:
 
 
 def _column_widths(block: Table, room: int) -> list[int] | None:
-    """How wide each column should be to fit ``room``, wide columns giving
-    way first, or ``None`` if there are too many columns to fit."""
+    """Column widths to fit, or ``None``.
+
+    :param block: The table.
+    :param room: Width available.
+    """
     if _NARROWEST_COLUMN * len(block.header) > room:
         return None
     widths = []
@@ -1057,7 +1134,12 @@ def _column_widths(block: Table, room: int) -> list[int] | None:
 
 
 def _aligned(line: Line, width: int, align: str) -> Line:
-    """A line of a cell, padded to the width of its column."""
+    """A cell line padded to its column.
+
+    :param line: The line.
+    :param width: Column width.
+    :param align: Alignment.
+    """
     spare = max(0, width - _length(line))
     before = {"left": 0, "centre": spare // 2, "right": spare}[align]
     return [Span(" " * before), *line, Span(" " * (spare - before))]
@@ -1066,7 +1148,12 @@ def _aligned(line: Line, width: int, align: str) -> Line:
 def _table_row(
     cells: Sequence[list[Span]], widths: list[int], aligns: list[str]
 ) -> list[Line]:
-    """The lines of one row of a table, between its upright lines."""
+    """One table row's lines.
+
+    :param cells: The row's cells.
+    :param widths: Column widths.
+    :param aligns: Column alignments.
+    """
     upright = Span("\N{BOX DRAWINGS LIGHT VERTICAL}")
     columns = [_wrapped(cell, width) for cell, width in zip(cells, widths)]
     lines = []
@@ -1118,8 +1205,11 @@ def _laid_table(block: Table, width: int) -> _Laid:
 
 
 def _table_written_out(block: Table, width: int) -> _Laid:
-    """A table with too many columns to fit, as ``Heading: value`` lines,
-    with a blank line between its rows."""
+    """A too-wide table as ``Heading: value`` lines.
+
+    :param block: The table.
+    :param width: Page width.
+    """
     laid = _Laid()
     empty: list[list[Span]] = [[] for _ in block.header]
     for number, row in enumerate(block.rows or [empty]):
@@ -1149,8 +1239,13 @@ def _laid_block(  # pylint: disable=too-many-return-statements
 
 
 def _stack(blocks: Sequence[Block], width: int, depth: int, in_item: bool) -> _Laid:
-    """Blocks one below another, with a blank line between each, except
-    before a list inside the item of another list."""
+    """Lay blocks out one below another.
+
+    :param blocks: The blocks.
+    :param width: Page width.
+    :param depth: Nesting depth.
+    :param in_item: Whether inside a list item.
+    """
     laid = _Laid()
     for number, block in enumerate(blocks):
         if number and not (in_item and isinstance(block, ListBlock)):
@@ -1160,7 +1255,11 @@ def _stack(blocks: Sequence[Block], width: int, depth: int, in_item: bool) -> _L
 
 
 def lay_out(blocks: Sequence[Block], width: int) -> Document:
-    """Blocks wrapped to a width, ready to draw."""
+    """Lay blocks out to a width.
+
+    :param blocks: The blocks.
+    :param width: Page width.
+    """
     laid = _stack(blocks, max(1, width), 0, False)
     links: dict[int, Link] = {}
     for row, line in enumerate(laid.lines):

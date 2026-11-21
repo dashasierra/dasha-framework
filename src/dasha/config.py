@@ -1,5 +1,4 @@
-"""Reading the user's JSON settings files (shortcuts, colours), and
-writing files safely (``write_atomically``)."""
+"""Settings file reading and safe writing."""
 
 import json
 import os
@@ -8,8 +7,7 @@ import tempfile
 from pathlib import Path
 
 _WINDOWS = os.name == "nt"
-"""Whether files are written by Windows' rules (a file held open by another
-program cannot be replaced)."""
+"""Whether Windows file rules apply."""
 
 
 class ConfigError(ValueError):
@@ -17,13 +15,9 @@ class ConfigError(ValueError):
 
 
 def read_json_object(path: Path) -> dict[str, object] | None:
-    """Read a JSON object from ``path``, or return ``None`` if the file does
-    not exist.
+    """Read a JSON object, or ``None`` if missing.
 
-    The file can be UTF-8 (with or without a byte order mark) or UTF-16,
-    which is what Windows PowerShell 5.1 writes with ``>``. Raises
-    ``ConfigError`` if the file cannot be read, is not valid JSON, or does
-    not contain a JSON object.
+    :param path: The file.
     """
     try:
         raw = path.read_bytes()
@@ -44,18 +38,12 @@ def read_json_object(path: Path) -> dict[str, object] | None:
 def write_atomically(
     path: str | Path, text: str, *, encoding: str = "utf-8", newline: str | None = None
 ) -> None:
-    """Write a text file whole, or not at all, so that a failure part-way
-    (a full disk, a drive going away, the process being killed) leaves the
-    file as it was rather than empty or cut short.
+    """Write a text file whole or not at all.
 
-    The text goes to a temporary file in the same folder, which is flushed
-    to the disk and then put in the file's place in one step
-    (``os.replace``). The file keeps its permissions, and a symbolic link is
-    written through, to the file it points to. On Windows, a file that
-    another program holds open cannot be replaced; it is then written in
-    place, as before, once the text has been written safely beside it.
-    ``newline`` is as for ``open``. Raises ``OSError`` if the file cannot
-    be written; the temporary file is then removed.
+    :param path: The file.
+    :param text: The text.
+    :param encoding: Text encoding.
+    :param newline: As for ``open``.
     """
     target = Path(os.path.realpath(path))
     try:

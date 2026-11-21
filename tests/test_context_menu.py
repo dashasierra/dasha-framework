@@ -24,17 +24,28 @@ DOWN, ESCAPE, SHIFT_F10 = "\x1b[B", "\x1b", "\x1b[21;2~"
 
 
 def right_click(row: int, column: int) -> list[str]:
-    """A right button press and release at a screen position."""
+    """A right click at a screen position.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    """
     return [f"\x1b[<2;{column + 1};{row + 1}M", f"\x1b[<2;{column + 1};{row + 1}m"]
 
 
 def left_click(row: int, column: int) -> list[str]:
-    """A left button press and release at a screen position."""
+    """A left click at a screen position.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    """
     return [f"\x1b[<0;{column + 1};{row + 1}M", f"\x1b[<0;{column + 1};{row + 1}m"]
 
 
 class Recording(PresentationManager):
-    """Notes each popup it shows."""
+    """Records each popup shown.
+
+    :param windows: Windows to start with.
+    """
 
     def __init__(self, windows: list[Window]) -> None:
         super().__init__(windows=windows)
@@ -47,8 +58,7 @@ class Recording(PresentationManager):
 
 
 class ContextMenuTests(unittest.TestCase):
-    """A window with a text box of "hello" (inside on screen row 3, from
-    column 2), a label with a menu of its own, and a menu for the window."""
+    """A window with context menus."""
 
     def setUp(self) -> None:
         self.done: list[str] = []
@@ -76,13 +86,19 @@ class ContextMenuTests(unittest.TestCase):
         self.manager = Recording([self.window])
 
     def run_with(self, inputs: list[str]) -> None:
-        """Run on scripted input, then Ctrl+Q and Shutdown."""
+        """Run on scripted input, then quit.
+
+        :param inputs: Input to read.
+        """
         terminal = FakeTerminal([*inputs, "\x11", "\r"], sizes=[(60, 20)])
         self.manager.run(cast(Terminal, terminal))
         self.assertEqual(terminal.inputs, [])
 
     def labels(self, number: int = 0) -> list[str]:
-        """The labels of a popup shown."""
+        """A shown popup's labels.
+
+        :param number: Which popup.
+        """
         return [item.label for item in self.manager.popups[number].menu.items]
 
     def test_a_text_box_has_one_of_its_own(self) -> None:
@@ -95,8 +111,7 @@ class ContextMenuTests(unittest.TestCase):
         self.assertEqual(self.box.selection, (0, 5))
 
     def test_greyed_out_items_are_skipped(self) -> None:
-        """Nothing to undo or paste and nothing selected: only Select all
-        can be chosen, so Enter chooses it."""
+        """Greyed-out items are skipped."""
         self.run_with([*right_click(3, 4), "\r"])
         popup = self.manager.popups[0]
         self.assertEqual(popup.items.highlight, len(popup.menu.items) - 1)
@@ -122,9 +137,7 @@ class ContextMenuTests(unittest.TestCase):
         self.assertTrue(self.manager.popups[1].submenu)
 
     def test_left_closes_a_submenu(self) -> None:
-        """Down goes past the separator and the greyed item to More; Right
-        opens its submenu, Left closes it only, and Escape the menu; Up
-        from the first item goes round to the last."""
+        """Left closes only a submenu."""
         self.run_with(
             [
                 *right_click(6, 3),
@@ -142,8 +155,7 @@ class ContextMenuTests(unittest.TestCase):
         self.assertEqual(self.manager.popups[0].items.highlight, 3)  # back on More
 
     def test_a_lists_row_is_highlighted_first(self) -> None:
-        """A right-click on a list's item highlights it before its menu
-        pops up, so the menu acts on what was clicked."""
+        """A list's row is highlighted first."""
         window = Window("W", Rect(1, 0, 10, 30))
         items = window.add(ListBox(["a", "b", "c"], 0, 0, 10, 3))
         chosen: list[str] = []
@@ -163,8 +175,7 @@ class ContextMenuTests(unittest.TestCase):
         self.assertEqual(self.done, ["window"])
 
     def test_shift_f10(self) -> None:
-        """Shift+F10 pops up the focused widget's menu (the text box's) under
-        it; Enter takes its one item that can be chosen, Select all."""
+        """Shift+F10 opens the focused widget's menu."""
         self.run_with([SHIFT_F10, "\r"])
         self.assertEqual(self.box.selection, (0, 5))
         popup = self.manager.popups[0]
@@ -182,8 +193,7 @@ class ContextMenuTests(unittest.TestCase):
         self.assertEqual(self.done, ["go"])
 
     def test_mouse_in_the_menu(self) -> None:
-        """A click on an item chooses it; one on the separator or a greyed
-        item does nothing; one outside closes the menu."""
+        """Mouse use in the menu."""
         clicks = [*left_click(8, 4), *left_click(9, 4)]  # separator, greyed
         self.run_with([*right_click(6, 3), *clicks, ESCAPE, ""])
         self.assertEqual(self.done, [])
@@ -193,8 +203,7 @@ class ContextMenuTests(unittest.TestCase):
         self.assertEqual(self.done, ["first"])
 
     def test_drawn(self) -> None:
-        """Items in the menu bar's colours, greyed where they cannot be
-        chosen, ► for a submenu, ─ for a separator."""
+        """How the menu is drawn."""
         popup = MenuPopup(self.label.popup_menu(Shortcuts()) or Menu("", []))
         popup.move_to(0, 0)
         canvas = Canvas(30, 8)
@@ -208,8 +217,7 @@ class ContextMenuTests(unittest.TestCase):
         self.assertEqual(popup.status, "First")
 
     def test_a_repeated_letter(self) -> None:
-        """Two items marking the same letter: the first keeps it, lit and
-        chosen by it; the second's is not lit."""
+        """A repeated mnemonic letter."""
         menu = Menu(
             "",
             [MenuItem("&Default", lambda: None), MenuItem("&Dark", lambda: None)],
@@ -236,7 +244,10 @@ class DefaultMenuTests(unittest.TestCase):
     """The menus text boxes and text areas have of their own."""
 
     def labels(self, menu: Menu | None) -> list[str]:
-        """A menu's labels, without separators."""
+        """A menu's labels, without separators.
+
+        :param menu: The menu, if any.
+        """
         assert menu is not None
         return [item.label for item in menu.items if item.label]
 
@@ -248,8 +259,7 @@ class DefaultMenuTests(unittest.TestCase):
         )
 
     def test_text_area(self) -> None:
-        """A text area's menu, its items greyed out while they would do
-        nothing; Undo once there is something to undo."""
+        """A text area's default menu."""
         area = TextArea(0, 0, text="abc")
         area.clipboard = Clipboard()
         menu = area.popup_menu(Shortcuts())
@@ -272,8 +282,7 @@ class DefaultMenuTests(unittest.TestCase):
 
 
 class UnderAPopupTests(unittest.TestCase):
-    """The window a context menu comes from still looks active under it, so
-    the text it would cut or copy stays selected on screen."""
+    """The window under a context menu looks active."""
 
     def setUp(self) -> None:
         self.window = Window("W", Rect(1, 0, 8, 30))
@@ -289,8 +298,7 @@ class UnderAPopupTests(unittest.TestCase):
         return canvas
 
     def test_the_selection_stays_while_the_menu_is_up(self) -> None:
-        """Under a context menu: still selected, still a double frame, and
-        no cursor (that is the menu's)."""
+        """The selection stays while the menu is up."""
         popup = MenuPopup(self.area.popup_menu(Shortcuts()) or Menu("", []))
         popup.move_to(4, 10)
         self.manager.add(popup)
@@ -302,8 +310,7 @@ class UnderAPopupTests(unittest.TestCase):
         self.assertTrue(self.manager.looks_active(self.window))
 
     def test_a_dialog_still_makes_it_inactive(self) -> None:
-        """An ordinary dialog in front is another matter: the window behind
-        it looks inactive, its selection hidden."""
+        """A dialog still makes it inactive."""
         dialog = Dialog("Question", 20, 5)
         dialog.move_to(5, 15)  # clear of the window's corner and its text
         self.manager.add(dialog)
@@ -313,8 +320,7 @@ class UnderAPopupTests(unittest.TestCase):
         self.assertFalse(self.manager.looks_active(self.window))
 
     def test_only_the_window_right_behind_the_popups(self) -> None:
-        """Popups in front of popups (a submenu) still leave the window they
-        came from looking active, and only that one."""
+        """Only the window behind the popups looks active."""
         back = Window("Back", Rect(2, 2, 5, 10))
         self.manager.add(back)
         self.manager.bring_to_front(self.window)
@@ -324,9 +330,7 @@ class UnderAPopupTests(unittest.TestCase):
         self.assertFalse(self.manager.looks_active(back))
 
     def test_hosted(self) -> None:
-        """An application in a process of its own draws its window as
-        active under its own popup, going by the window the desktop says is
-        active; not when the desktop says another application's is."""
+        """A hosted window looks active under its popup."""
         _, app_end = pipe()
         manager = ClientManager(app_end, WELCOME)
         self.addCleanup(manager.stop_listening)
@@ -340,11 +344,10 @@ class UnderAPopupTests(unittest.TestCase):
 
 
 class HostedTests(unittest.TestCase):
-    """A context menu in an application run by a desktop, over a pipe."""
+    """Context menus in a hosted application."""
 
     def test_right_click_in_a_hosted_window(self) -> None:
-        """The application pops the menu up itself (a popup window the
-        desktop is told of), and its keys, sent to the window, reach it."""
+        """Right-click in a hosted window."""
         desktop, app_end = pipe()
         manager = ClientManager(app_end, WELCOME)
         self.addCleanup(manager.stop_listening)

@@ -1,5 +1,4 @@
-"""Check boxes: a group of options, any number of which can be
-checked."""
+"""Check box groups."""
 
 from collections.abc import Iterable, Sequence
 from typing import Unpack
@@ -9,18 +8,13 @@ from dasha.widgets.cluster import Cluster, ClusterOptions
 
 
 class CheckBoxes(Cluster):
-    """A group of options that can each be on or off, with any number on at
-    once::
+    """A group of options, any of which can be checked.
 
-        CheckBoxes(
-            labels=["&Bold", "&Italic", "&Underline"], row=1, column=2, checked=[0]
-        )
-
-    Space (or a click, or the option's letter) checks or unchecks an
-    option. The group's ``value`` is a tuple of the indexes of the checked
-    options; ``checked`` is a list of ``True`` or ``False`` values, one for
-    each option; and ``checked_labels`` holds the checked options' labels
-    without their ``&``.
+    :param labels: Option labels; ``&`` marks mnemonics.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param checked: Indexes of checked options.
+    :param options: Further cluster options.
     """
 
     def __init__(

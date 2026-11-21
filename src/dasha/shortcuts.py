@@ -1,21 +1,4 @@
-"""Keyboard shortcuts: built-in defaults, which can be overridden from a
-JSON file.
-
-Each action has a list of keys. A user's ``shortcuts.json`` replaces the
-list for any action it names, and leaves the others at their defaults, so
-it only needs to mention what it changes::
-
-    {
-        "open_menu": ["f10", "ctrl+o"],
-        "menu_mnemonic_modifiers": []
-    }
-
-Key names are the names that ``dasha.events`` produces (run
-``dasha --key-test`` to see them): single characters such as ``"q"``,
-or named keys such as ``"tab"``, ``"enter"``, ``"f10"`` or ``"pageup"``,
-optionally with ``shift+``, ``alt+`` or ``ctrl+`` in front. Modifiers can be
-written in any order and case.
-"""
+"""Keyboard shortcuts, with JSON overrides."""
 
 import json
 from collections.abc import Mapping, Sequence
@@ -25,8 +8,7 @@ from dasha.config import ConfigError, read_json_object
 from dasha.events import MODIFIERS, NAMED_KEYS
 
 DEFAULT_PATH = Path.home() / ".dasha" / "shortcuts.json"
-"""Where Dasha Framework looks for the user's shortcuts file:
-``~/.dasha/shortcuts.json``.
+"""The user's shortcuts file.
 
 :meta hide-value:
 """
@@ -41,9 +23,7 @@ DESKTOP_KEYS = (
     "move_window",
     "resize_window",
 )
-"""The actions whose keys the desktop keeps for itself, rather than passing them on
-to the application whose window is active. An application's menus cannot
-use these keys, or ``open_menu``, as shortcuts either."""
+"""Actions whose keys the desktop keeps."""
 
 DEFAULTS: dict[str, tuple[str, ...]] = {
     "exit": ("ctrl+q",),
@@ -179,12 +159,7 @@ DEFAULTS: dict[str, tuple[str, ...]] = {
     "menu_choose": ("enter",),
     "menu_mnemonic_modifiers": ("alt",),
 }
-"""The built-in shortcuts, keyed by action.
-
-``menu_mnemonic_modifiers`` is different from the rest, because it lists
-modifiers rather than keys. Pressing a menu title's mnemonic letter with
-one of these modifiers (Alt+F for ``&File``) opens that menu.
-"""
+"""Built-in shortcuts, by action."""
 
 DESCRIPTIONS: dict[str, str] = {
     "exit": "Leave Dasha Desktop (when no menu is open)",
@@ -347,7 +322,10 @@ _PRETTY_NAMES = {
 
 
 def _split(name: str) -> tuple[list[str], str]:
-    """Split ``"alt+ctrl+x"`` into ``(["alt", "ctrl"], "x")``; ``"ctrl++"`` works."""
+    """Split a key name into modifiers and key.
+
+    :param name: The key name.
+    """
     if len(name) > 1 and name.endswith("++"):
         prefix, base = name[:-2], "+"
     else:
@@ -356,19 +334,13 @@ def _split(name: str) -> tuple[list[str], str]:
 
 
 class ShortcutsError(ValueError):
-    """A shortcuts file could not be used; the message lists every
-    problem."""
+    """An unusable shortcuts file."""
 
 
 def normalise_key(name: str) -> str | None:
-    """Return a key name in the form that ``dasha.events`` produces, or
-    ``None`` if it is not a valid key name.
+    """A key name in standard form, or ``None``.
 
-    Modifiers are lower-cased and put in the standard order (``ctrl+Alt+x``
-    becomes ``alt+ctrl+x``), and named keys are lower-cased. A single
-    character keeps its case, because ``alt+X`` (Alt+Shift+X) is different
-    from ``alt+x``, except with Ctrl, where terminals cannot tell the two
-    apart.
+    :param name: The key name.
     """
     if len(name) == 1:
         return name
@@ -388,8 +360,10 @@ def normalise_key(name: str) -> str | None:
 
 
 def pretty_key(name: str) -> str:
-    """A key name as people usually write it: ``"ctrl+q"`` becomes
-    ``"Ctrl+Q"``."""
+    """A key name as people write it.
+
+    :param name: The key name.
+    """
     modifiers, base = _split(name)
     parts = [modifier.capitalize() for modifier in modifiers]
     if len(base) == 1:
@@ -400,12 +374,10 @@ def pretty_key(name: str) -> str:
 
 
 def key_from_pretty(text: str) -> str | None:
-    """The key that a ``pretty_key`` name stands for, as
-    ``dasha.events`` names it (``"Ctrl+Q"`` is ``"ctrl+q"``, and
-    ``"PgUp"`` is ``"pageup"``), or ``None`` if it names no key. The status
-    bar uses this to turn a clicked hint back into the key to press. A letter
-    is taken to be the one without Shift, as in the hints for Dasha Framework's own
-    keys."""
+    """The key a pretty name stands for, or ``None``.
+
+    :param text: The pretty name.
+    """
     if len(text) == 1:
         return text.lower()
     prefixes, base = _split(text)
@@ -420,8 +392,10 @@ def key_from_pretty(text: str) -> str | None:
 
 
 class Shortcuts:
-    """The key bindings in effect: the defaults, with any overrides
-    applied."""
+    """The key bindings in effect.
+
+    :param overrides: Keys by action, if any.
+    """
 
     def __init__(self, overrides: Mapping[str, object] | None = None) -> None:
         self._bindings = dict(DEFAULTS)
@@ -463,7 +437,7 @@ class Shortcuts:
         return tuple(checked)
 
     def _check_escape_routes(self) -> list[str]:
-        """Make sure the keyboard can always leave a menu and leave Dasha Desktop."""
+        """Ensure menus and the desktop can always be left."""
         problems = []
         if not self._bindings["exit"] and not self._bindings["open_menu"]:
             problems.append(
@@ -497,11 +471,9 @@ class Shortcuts:
 
     @classmethod
     def load(cls, path: Path) -> "Shortcuts":
-        """Read overrides from a JSON file. If the file does not exist, the
-        defaults are used.
+        """Load overrides from a JSON file.
 
-        If the file cannot be used, raises ``ShortcutsError``, describing
-        every problem.
+        :param path: The shortcuts file.
         """
         try:
             data = read_json_object(path)
@@ -510,29 +482,36 @@ class Shortcuts:
         return cls(data or {})
 
     def keys(self, action: str) -> tuple[str, ...]:
-        """The keys bound to an action."""
+        """An action's keys.
+
+        :param action: The action.
+        """
         return self._bindings[action]
 
     def matches(self, action: str, key: str) -> bool:
-        """Whether ``key`` is one of the keys bound to ``action``."""
+        """Whether a key is bound to an action.
+
+        :param action: The action.
+        :param key: The key.
+        """
         return key in self._bindings[action]
 
     def hint(self, action: str) -> str:
-        """The first key bound to an action, written as a menu shows it
-        (``"Ctrl+Q"``)."""
+        """An action's first key, as a menu shows it.
+
+        :param action: The action.
+        """
         keys = self._bindings[action]
         return pretty_key(keys[0]) if keys else ""
 
     @property
     def bindings(self) -> dict[str, tuple[str, ...]]:
-        """Every action's keys, as a new dictionary (changing it changes
-        nothing here)."""
+        """Every action's keys, as a copy."""
         return dict(self._bindings)
 
     @property
     def overrides(self) -> dict[str, list[str]]:
-        """The bindings that differ from the defaults, as a shortcuts file
-        needs them: everything else is left at its default."""
+        """Bindings that differ from the defaults."""
         return {
             action: list(keys)
             for action, keys in self._bindings.items()

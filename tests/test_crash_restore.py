@@ -1,7 +1,4 @@
-"""An application that crashes, run standalone on a real ``Terminal``,
-leaves the user's terminal as it found it before the traceback prints:
-the alternate screen left, mouse reporting and bracketed paste off, the
-cursor shown, and the console out of raw mode."""
+"""Crashes restore the terminal."""
 
 import sys
 import tempfile
@@ -20,9 +17,7 @@ from tests.test_terminal import FakeConsole
 
 
 class Crash(BaseException):
-    """What the crashing applications raise: not an ``Exception``, so that
-    the desktop's soft failing (``dasha.recovery``) lets it through, as
-    it does ``KeyboardInterrupt``, and the application really ends."""
+    """A crash the desktop does not recover from."""
 
 
 class Bug(Exception):
@@ -63,7 +58,10 @@ class PaintCrash(Window):
 
 
 def crashing(window_class: type[Window]) -> Application:
-    """An application whose one window is a ``window_class``."""
+    """An application with one window of a class.
+
+    :param window_class: The window class.
+    """
 
     class Crashing(Application):  # pylint: disable=too-few-public-methods
         """Opens the crashing window."""
@@ -94,8 +92,10 @@ class CrashRestoreTests(unittest.TestCase):
         self.addCleanup(starting_theme.stop)
 
     def run_crashing(self, application: Application) -> str:
-        """Run ``application`` standalone, as ``Application.run`` does on
-        the real terminal; check it crashes, and return what was written."""
+        """Run an application until it crashes; return the output.
+
+        :param application: The application.
+        """
         with self.assertRaises(Crash):
             application.run()
         self.assertIs(sys.stdout, self.stream)  # what Terminal() wrote to
@@ -105,8 +105,10 @@ class CrashRestoreTests(unittest.TestCase):
         return output
 
     def assert_restored(self, output: str) -> None:
-        """After the last drawing, everything switched on is switched off,
-        ending on the user's own screen, and the console is out of raw mode."""
+        """Check the terminal was restored.
+
+        :param output: The output written.
+        """
         self.assertTrue(output.startswith(ansi.ENTER_ALT_SCREEN), output[:40])
         ending = output[output.rindex(ansi.ENABLE_MOUSE) :]
         tail = output[output.rindex(ansi.DISABLE_MOUSE) :]
@@ -141,9 +143,7 @@ class CrashRestoreTests(unittest.TestCase):
         self.assert_restored(self.run_crashing(crashing(PaintCrash)))
 
     def test_a_bug_that_keeps_failing(self) -> None:
-        """An ordinary exception is recovered from; one on every frame makes
-        it give up after ``Recovery.limit``, putting the terminal back as
-        ever, and saying where the log is."""
+        """A bug that keeps failing ends the desktop."""
         errors = StringIO()
         application = crashing(PaintBug)
         with (
@@ -174,9 +174,7 @@ class CrashRestoreTests(unittest.TestCase):
         self.assertEqual(self.console.calls, [])
 
     def test_mouse_switched_off_though_the_setting_changed(self) -> None:
-        """Mouse reporting switched on is switched off on leaving, even if
-        ``mouse`` was changed while the terminal was in use; and one never
-        switched on is never switched off."""
+        """Mouse reporting is switched off as it was on."""
         for before, after in ((True, False), (False, True)):
             with self.subTest(before=before):
                 stream = StringIO()

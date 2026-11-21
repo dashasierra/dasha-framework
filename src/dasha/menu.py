@@ -1,11 +1,4 @@
-"""Drop-down menus and the menu bar along the top of the screen.
-
-Menu titles and item labels can mark a mnemonic letter with ``&``, as in
-``"&File"`` or ``"E&xit"``. The letter is highlighted; Alt with that letter
-opens a menu from the bar, and pressing the letter in an open menu chooses
-the item. Write ``&&`` for a literal ampersand. The keys that operate the
-menus come from ``dasha.shortcuts``, so users can remap them.
-"""
+"""Drop-down menus and the menu bar."""
 
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
@@ -21,8 +14,10 @@ SEPARATOR_RIGHT = "\N{BOX DRAWINGS LIGHT VERTICAL AND LEFT}"
 
 
 def split_mnemonic(label: str) -> tuple[str, int | None]:
-    """Return a label without its ``&`` marker, together with the index of
-    its mnemonic letter."""
+    """A label without ``&`` and its mnemonic index.
+
+    :param label: The label.
+    """
     text: list[str] = []
     mnemonic: int | None = None
     index = 0
@@ -38,26 +33,26 @@ def split_mnemonic(label: str) -> tuple[str, int | None]:
 
 
 def mnemonic_key(label: str) -> str | None:
-    """The mnemonic letter of a label, in lower case, if it has one."""
+    """A label's lowercase mnemonic letter, if any.
+
+    :param label: The label.
+    """
     text, index = split_mnemonic(label)
     return None if index is None else text[index].lower()
 
 
 class DuplicateMnemonicError(ValueError):
-    """Two items of one menu, or two titles on the menu bar, mark the same
-    mnemonic letter (raised by ``Menu.check_mnemonics`` and
-    ``unique_mnemonics(..., strict=True)``)."""
+    """Two labels mark the same mnemonic letter."""
 
 
 def unique_mnemonics(
     labels: Iterable[str], *, strict: bool = False
 ) -> list[int | None]:
-    """Where each label's mnemonic letter is, as ``split_mnemonic`` gives it,
-    except that a letter can only be used once: the first label to mark it
-    keeps it, and any later label marking the same letter (in either case)
-    is treated as having none, so its letter is neither highlighted nor
-    pressed. With ``strict``, a repeated letter raises
-    ``DuplicateMnemonicError`` instead."""
+    """Mnemonic indexes, each letter used once.
+
+    :param labels: The labels.
+    :param strict: Whether a repeat raises ``DuplicateMnemonicError``.
+    """
     owners: dict[str, str] = {}
     positions: list[int | None] = []
     for label in labels:
@@ -78,8 +73,10 @@ def unique_mnemonics(
 
 
 def _letters(labels: Sequence[str]) -> list[str | None]:
-    """Each label's mnemonic letter, in lower case, as ``unique_mnemonics``
-    leaves them: ``None`` for a label with none, or with a repeated one."""
+    """Each label's unique mnemonic letter, or ``None``.
+
+    :param labels: The labels.
+    """
     return [
         None if index is None else split_mnemonic(label)[0][index].lower()
         for label, index in zip(labels, unique_mnemonics(labels))
@@ -87,29 +84,12 @@ def _letters(labels: Sequence[str]) -> list[str | None]:
 
 
 SUBMENU_MARK = "\N{BLACK RIGHT-POINTING POINTER}"
-"""``►`` (code page 437 glyph 16), shown on the right of an item that has
-a submenu."""
+"""Submenu marker character."""
 
 
 @dataclass
 class MenuItem:
-    """One choice in a menu.
-
-    When chosen, an item runs its ``action``, or opens its ``submenu``
-    (a ``Menu`` of its own, which can have submenus too), in which case it
-    is shown with ``►`` on its right. An item with neither is greyed out,
-    including its shortcut, and can be neither chosen nor highlighted.
-
-    ``shortcut`` is shown on the right, written in the style of
-    ``pretty_key`` (``"Ctrl+Q"``, ``"Alt+F3"``). Pressing that key chooses
-    the item, whether or not its menu is open, including for items in
-    submenus (except for single characters). ``status`` is optional help
-    shown on the status bar while the item is highlighted, such as
-    ``"Opens a file"``. ``enabled``, if given, is called each time the menu
-    is shown or the item is chosen, and the item is greyed out whenever it
-    returns false; for example, ``enabled=app.has_window`` for an item that
-    needs a window.
-    """
+    """One menu choice."""
 
     label: str
     action: Callable[[], object] | None = None
@@ -121,8 +101,7 @@ class MenuItem:
 
     @property
     def is_available(self) -> bool:
-        """Whether the item can be chosen (or its submenu opened) at the
-        moment."""
+        """Whether the item can be chosen now."""
         if self.is_separator or (self.action is None and self.submenu is None):
             return False
         return self.enabled is None or bool(self.enabled())
@@ -135,46 +114,23 @@ def separator() -> MenuItem:
 
 @dataclass
 class Menu:
-    """A list of items with a title, shown as a drop-down from the menu bar,
-    or as a submenu beside the item that opens it.
-
-    ``items`` is an ordinary list, so items can be added or removed at any
-    time.
-
-    Each mnemonic letter belongs to one item: if two items mark the same
-    letter, the first keeps it and the later one is shown and treated as
-    if it had none (``mnemonics``). ``check_mnemonics`` raises
-    ``DuplicateMnemonicError`` instead, for catching such a mistake in a
-    test.
-    """
+    """A titled list of items."""
 
     title: str
     items: list[MenuItem] = field(default_factory=list)
     lists_minimised: bool = False
-    """Whether the presentation manager adds its minimised windows to the
-    end of this menu, so that they can be restored from it, when there is no
-    system menu to list them in. A Window menu does this."""
+    """Whether minimised windows are listed here."""
     on_open: "Callable[[Menu], object] | None" = None
-    """Called with the menu just before it opens, from the menu bar or as a
-    submenu, to bring its items up to date. For example, the system menu's
-    Themes uses it to list the theme files present at that moment."""
+    """Called with the menu before it opens."""
     after_window: bool = False
-    """Whether the menu bar shows this menu, one of an application's
-    ``menus``, after the Window menu that Dasha Framework adds, rather than before
-    it, as a Help menu usually is."""
+    """Whether it goes after the Window menu."""
 
     def mnemonics(self) -> list[str | None]:
-        """Each item's mnemonic letter, in lower case, in the order of
-        ``items``: ``None`` for an item (or separator) without one, and for
-        an item whose letter an earlier item already has."""
+        """Each item's unique mnemonic letter, or ``None``."""
         return _letters([item.label for item in self.items])
 
     def check_mnemonics(self) -> None:
-        """Raise ``DuplicateMnemonicError`` if two of the items mark the
-        same mnemonic letter, in this menu or in any submenu opened from it
-        (each submenu is checked on its own, since its letters only work
-        while it is open). Each menu's ``on_open`` is called first, so that
-        items it fills in are checked as they would be shown."""
+        """Raise ``DuplicateMnemonicError`` on repeated letters."""
         seen: set[int] = set()
         pending: list[Menu] = [self]
         while pending:
@@ -190,27 +146,17 @@ class Menu:
 
 @dataclass
 class _Level:
-    """One open menu: the drop-down from the bar, or a submenu of it."""
+    """One open menu level."""
 
     menu: Menu
     highlight: int | None = None
-    """The highlighted item: always an enabled one, or ``None`` when the
-    menu has nothing that can be chosen."""
+    """The highlighted item, or ``None``."""
 
 
 class MenuBar:  # pylint: disable=too-many-public-methods
-    """The bar of menu titles along the top row, together with the open
-    drop-down and any submenus opened from it.
+    """The menu bar and its open menus.
 
-    The bar does not own its menus: the presentation manager gives it the
-    current list (``set_menus``) whenever the list may have changed. While a
-    menu is open, the bar takes all keyboard and mouse input. Its appearance
-    is set by class attributes, so a subclass can restyle it.
-
-    The open menus form levels: the drop-down is the first level, a submenu
-    opened from it the next, and so on. A submenu opens beside its item,
-    lined up with it: to the right if it fits, and otherwise to the left,
-    moved up or inwards as needed to stay on the screen.
+    :param shortcuts: Key bindings, or ``None`` for the defaults.
     """
 
     bar_style: Style = Style(foreground=BLACK, background=WHITE)
@@ -220,19 +166,16 @@ class MenuBar:  # pylint: disable=too-many-public-methods
     selected_style: Style = Style(foreground=BLACK, background=GREEN)
     """The style of the open menu's title, and of the highlighted item."""
     selected_mnemonic_style: Style = Style(foreground=RED, background=GREEN)
-    """The style of the mnemonic letter in the open title or highlighted
-    item."""
+    """Mnemonic style when highlighted."""
     disabled_style: Style = Style(foreground=BRIGHT_BLACK, background=WHITE)
     """The style of items that cannot be chosen."""
     border: Border = SINGLE
     """The frame drawn around each drop-down and submenu."""
     frame_padding: int = 1
-    """How many blank columns there are outside each side of the
-    drop-down's frame (``" │ Open │ "``)."""
+    """Blank columns beside the drop-down's frame."""
 
     shadow_style: Style | None = SHADOW
-    """The style of the open drop-down's shadow, like a window's; ``None``
-    for no shadow. The bar itself casts no shadow."""
+    """Drop-down shadow style, or ``None``."""
     shadow_width: int = 2
     shadow_height: int = 1
 
@@ -240,24 +183,22 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         self.shortcuts = shortcuts if shortcuts is not None else Shortcuts()
         self.menus: list[Menu] = []
         self.lines = 24
-        """The screen's height, for keeping submenus on it (the presentation
-        manager keeps it up to date)."""
+        """Screen height."""
         self._open: int | None = None
         self._levels: list[_Level] = []
         self.shortcut_key: str | None = None
-        """While an item chosen by its shortcut runs: the key pressed (an
-        item's action can pass it on; ``None`` otherwise)."""
+        """The key that chose the running item, or ``None``."""
         self.inert: frozenset[int] = frozenset()
-        """The menus (by place on the bar) that are shown but cannot be
-        opened: an application's, while one of its dialogs waits."""
+        """Bar positions of menus that cannot open."""
 
     # State
 
     def set_menus(self, menus: Sequence[Menu], inert: Iterable[int] = ()) -> None:
-        """Show these menus. Those at the positions in ``inert`` are shown,
-        but cannot be opened by key or mouse, and their shortcuts do not
-        work. An open menu is closed if the list has changed, or if it has
-        become inert."""
+        """Show these menus.
+
+        :param menus: The menus.
+        :param inert: Positions of menus that cannot open.
+        """
         if len(menus) != len(self.menus) or any(
             new is not old for new, old in zip(menus, self.menus)
         ):
@@ -268,10 +209,7 @@ class MenuBar:  # pylint: disable=too-many-public-methods
             self.close()
 
     def check_mnemonics(self) -> None:
-        """Raise ``DuplicateMnemonicError`` if two menu titles on the bar
-        mark the same letter, or if any of the menus fails
-        ``Menu.check_mnemonics``. Shown as they are, a repeated letter goes
-        to the first title or item with it, and the others have none."""
+        """Raise ``DuplicateMnemonicError`` on repeated letters."""
         unique_mnemonics((menu.title for menu in self.menus), strict=True)
         for menu in self.menus:
             menu.check_mnemonics()
@@ -293,14 +231,16 @@ class MenuBar:  # pylint: disable=too-many-public-methods
 
     @property
     def highlighted(self) -> MenuItem | None:
-        """The highlighted item of the innermost open menu, if any. Only an
-        enabled item is ever highlighted."""
+        """The innermost highlighted item, if any."""
         if not self._levels:
             return None
         return self._item(len(self._levels) - 1)
 
     def _item(self, depth: int) -> MenuItem | None:
-        """The highlighted item of one level, if any."""
+        """A level's highlighted item, if any.
+
+        :param depth: The level.
+        """
         level = self._levels[depth]
         index = level.highlight
         if index is None or index >= len(level.menu.items):
@@ -309,10 +249,11 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         return item if item.is_available else None
 
     def open(self, index: int, step: int = 0) -> None:
-        """Open the drop-down of the menu at ``index``, closing any other. An
-        inert menu is not opened; with ``step`` (1 or -1, for moving along
-        the bar), the next menu in that direction that is not inert is
-        opened instead."""
+        """Open a menu's drop-down.
+
+        :param index: Bar position.
+        :param step: Direction to skip inert menus, or 0.
+        """
         index = self._not_inert(index, step)
         if index in self.inert:
             return
@@ -324,9 +265,11 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         self._move_highlight(1)  # to the first item that can be chosen
 
     def _not_inert(self, index: int, step: int) -> int:
-        """``index`` on the bar, wrapped round; with ``step`` (1 or -1), the
-        first menu from there in that direction that is not inert. If every
-        menu is inert, the result is one of them."""
+        """The nearest non-inert bar position.
+
+        :param index: Bar position.
+        :param step: Direction to search, or 0.
+        """
         count = len(self.menus)
         index %= count
         if step:
@@ -337,10 +280,10 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         return index
 
     def _step_along_bar(self, step: int) -> None:
-        """Open the next menu along the bar in the direction of ``step`` (1
-        or -1) that is not inert, wrapping round. If that is the open menu
-        itself, because no other can be opened, it is left as it is, its
-        highlight where it was."""
+        """Open the next menu along the bar.
+
+        :param step: 1 or -1.
+        """
         assert self._open is not None
         index = self._not_inert(self._open + step, step)
         if index != self._open:
@@ -352,8 +295,7 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         self._levels = []
 
     def open_submenu(self) -> bool:
-        """Open the submenu of the innermost highlighted item. Returns
-        ``False`` if the item has no submenu."""
+        """Open the highlighted item's submenu; return whether it had one."""
         item = self.highlighted
         if item is None or item.submenu is None:
             return False
@@ -364,21 +306,27 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         return True
 
     def close_submenu(self) -> bool:
-        """Close the innermost submenu. Returns ``False`` if only the
-        drop-down is open."""
+        """Close the innermost submenu; return whether there was one."""
         if len(self._levels) <= 1:
             return False
         self._levels.pop()
         return True
 
     def choose(self, item: MenuItem) -> None:
-        """Close the menus and run an item's action, if the item is enabled."""
+        """Close the menus and run an item.
+
+        :param item: The item.
+        """
         if item.is_available and item.action is not None:
             self.close()
             item.action()
 
     def _choose_by_key(self, item: MenuItem, key: str) -> None:
-        """Choose an item by its shortcut, ``shortcut_key`` saying which."""
+        """Choose an item by its shortcut.
+
+        :param item: The item.
+        :param key: The key pressed.
+        """
         self.shortcut_key = key
         try:
             self.choose(item)
@@ -386,8 +334,11 @@ class MenuBar:  # pylint: disable=too-many-public-methods
             self.shortcut_key = None
 
     def _activate(self, depth: int, index: int) -> None:
-        """Choose item ``index`` of level ``depth``: open its submenu, or
-        run it. Any submenus open beyond that level close first."""
+        """Choose an item at a level.
+
+        :param depth: The level.
+        :param index: Item index.
+        """
         del self._levels[depth + 1 :]
         level = self._levels[depth]
         item = level.menu.items[index]
@@ -400,9 +351,10 @@ class MenuBar:  # pylint: disable=too-many-public-methods
             self.choose(item)
 
     def _move_highlight(self, step: int) -> None:
-        """Move the innermost highlight to the next enabled item in the
-        direction of ``step``, wrapping round. Separators and disabled items
-        are skipped; if nothing can be chosen, nothing is highlighted."""
+        """Move the innermost highlight.
+
+        :param step: 1 or -1.
+        """
         level = self._levels[-1]
         items = level.menu.items
         if not any(item.is_available for item in items):
@@ -431,8 +383,11 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         return spans
 
     def _width(self, menu: Menu, with_title: bool) -> int:
-        """How wide a menu's box is: its labels, shortcuts or ``►``, frame
-        and padding (and, for a drop-down, room for its title)."""
+        """A menu box's width.
+
+        :param menu: The menu.
+        :param with_title: Whether to fit the title.
+        """
         labels = [len(split_mnemonic(item.label)[0]) for item in menu.items]
         rights = [
             len(SUBMENU_MARK) if item.submenu is not None else len(item.shortcut)
@@ -446,10 +401,11 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         return inner + 2 + 2 * self.frame_padding
 
     def level_rects(self, columns: int, lines: int | None = None) -> list[Rect]:
-        """Where each open menu is drawn on a screen of the given size: the
-        drop-down below its title, and each submenu beside the item that
-        opened it, to its right if there is room and otherwise to its left,
-        always kept on the screen."""
+        """Where each open menu is drawn.
+
+        :param columns: Screen width.
+        :param lines: Screen height, if known.
+        """
         if self._open is None or not self._levels:
             return []
         lines = self.lines if lines is None else lines
@@ -475,7 +431,10 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         return rects
 
     def dropdown_rect(self, columns: int) -> Rect | None:
-        """Where the open drop-down is drawn on a screen of the given width."""
+        """Where the drop-down is drawn.
+
+        :param columns: Screen width.
+        """
         rects = self.level_rects(columns)
         return rects[0] if rects else None
 
@@ -491,40 +450,48 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         *,
         mnemonic: int | None,
     ) -> None:
-        """Write a label, its mnemonic letter (at ``mnemonic``, as
-        ``unique_mnemonics`` gives it) in the second style."""
+        """Write a label with its mnemonic.
+
+        :param canvas: Canvas to draw on.
+        :param row: Screen row.
+        :param column: Screen column.
+        :param label: The label, without ``&``.
+        :param styles: Label and mnemonic styles.
+        :param mnemonic: Mnemonic index, if any.
+        """
         text = split_mnemonic(label)[0]
         canvas.write(row, column, text, styles[0])
         if mnemonic is not None:
             canvas.write(row, column + mnemonic, text[mnemonic], styles[1])
 
     def dropping_rect(self, rect: Rect, shown: float) -> Rect:
-        """Where a drop-down at ``rect`` is drawn while it is dropping down:
-        moved up under the bar, so that only the fraction ``shown`` of it
-        (from 0 to 1, but always at least one row) has come out below the
-        bar."""
+        """A drop-down's rect while dropping.
+
+        :param rect: Its full rect.
+        :param shown: Fraction shown, from 0 to 1.
+        """
         rows = max(1, min(rect.height, round(rect.height * shown)))
         return Rect(
             rect.row - (rect.height - rows), rect.column, rect.height, rect.width
         )
 
     def _shown_rects(self, canvas: Canvas, shown: float) -> list[Rect]:
-        """``level_rects``; while the drop-down drops (``shown`` under 1),
-        just the drop-down, part of the way out."""
+        """The rects to draw now.
+
+        :param canvas: Canvas to draw on.
+        :param shown: Fraction of the drop-down shown.
+        """
         rects = self.level_rects(canvas.width, canvas.height)
         if rects and shown < 1:
             return [self.dropping_rect(rects[0], shown)]
         return rects
 
     def paint(self, canvas: Canvas, shown: float = 1) -> None:
-        """Paint the bar on the top row, the open drop-down below it, and its
-        submenus, each with its shadow (which never falls on the status
-        bar).
+        """Paint the bar and open menus.
 
-        With ``shown`` below 1, the drop-down is part-way through dropping
-        down from the bar (``PresentationManager.animations``): only that
-        fraction of it has come out from under the bar, and its submenus are
-        not drawn yet."""
+        :param canvas: Canvas to draw on.
+        :param shown: Fraction of the drop-down shown.
+        """
         canvas.fill(Rect(0, 0, 1, canvas.width), " ", self.bar_style)
         letters = unique_mnemonics(menu.title for menu in self.menus)
         for index, (menu, span) in enumerate(zip(self.menus, self.title_spans)):
@@ -549,13 +516,10 @@ class MenuBar:  # pylint: disable=too-many-public-methods
                 self._paint_level(canvas, self._levels[depth], rect)
 
     def paint_shadow(self, canvas: Canvas, shown: float = 1) -> None:
-        """Darken the area under the open drop-down's shadow, keeping what
-        lies beneath, with the drop-down the fraction ``shown`` of the way
-        out, as in ``paint``.
+        """Paint the drop-down's shadow.
 
-        This is separate from ``paint`` so that the presentation manager
-        can paint the status bar in between, because shadows never fall on
-        the status bar.
+        :param canvas: Canvas to draw on.
+        :param shown: Fraction of the drop-down shown.
         """
         rects = self._shown_rects(canvas, shown)
         if rects and self.shadow_style is not None:
@@ -605,15 +569,20 @@ class MenuBar:  # pylint: disable=too-many-public-methods
     # Input
 
     def _menu_for_mnemonic(self, letter: str) -> int | None:
-        """The menu on the bar with this letter, if any (only the first
-        title to mark a letter has it), unless that menu is inert."""
+        """The bar menu with a letter, if any.
+
+        :param letter: The letter.
+        """
         letters = _letters([menu.title for menu in self.menus])
         if letter in letters and letters.index(letter) not in self.inert:
             return letters.index(letter)
         return None
 
     def _mnemonic_menu(self, key: str) -> int | None:
-        """The menu a mnemonic shortcut (such as Alt+F) opens, if any."""
+        """The menu a mnemonic shortcut opens, if any.
+
+        :param key: The key.
+        """
         for modifier in self.shortcuts.keys("menu_mnemonic_modifiers"):
             prefix = modifier + "+"
             if key.startswith(prefix) and len(key) == len(prefix) + 1:
@@ -621,7 +590,10 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         return None
 
     def handle_key(self, key: str) -> bool:
-        """Handle a key, and return whether the menu bar used it."""
+        """Handle a key; return whether used.
+
+        :param key: The key.
+        """
         if not self.menus:
             return False
         if self._open is None:
@@ -641,11 +613,10 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         return True  # an open menu takes all keys
 
     def _navigate(self, key: str) -> bool:
-        """The keys that move about the open menus; whether ``key`` was one.
-        Escape and Left go back a submenu at a time (Left, from the
-        drop-down, to the menu before); Right opens a submenu, or the next
-        menu. With no other menu to go to, Left and Right do nothing. F10
-        closes them all."""
+        """Move about the open menus; return whether used.
+
+        :param key: The key.
+        """
         assert self._open is not None
         shortcuts = self.shortcuts
         if shortcuts.matches("open_menu", key):
@@ -684,12 +655,10 @@ class MenuBar:  # pylint: disable=too-many-public-methods
             self._handle_letter(key.lower())
 
     def _handle_letter(self, letter: str) -> None:
-        """A plain letter while menus are open: the innermost open submenu
-        with an enabled item of that letter wins, then each menu out from
-        it, then a menu on the bar with that letter. Submenus that are not
-        showing do not count, nor do disabled items, nor items whose letter
-        an earlier item in the same menu already has; otherwise the letter is
-        ignored."""
+        """Choose by letter in the open menus.
+
+        :param letter: The letter.
+        """
         for depth in range(len(self._levels) - 1, -1, -1):
             menu = self._levels[depth].menu
             for index, mnemonic in enumerate(menu.mnemonics()):
@@ -701,11 +670,10 @@ class MenuBar:  # pylint: disable=too-many-public-methods
             self.open(bar_index)
 
     def item_for_shortcut(self, key: str) -> MenuItem | None:
-        """The enabled item, in any menu or submenu, whose ``shortcut`` names
-        this key (``"Alt+F3"`` for ``"alt+f3"``), so that the shortcut a menu
-        shows works whether or not the menu is open. Plain characters never
-        count, because they are used for typing and for choosing items by
-        their letters."""
+        """The enabled item with this shortcut, if any.
+
+        :param key: The key.
+        """
         if len(key) == 1:
             return None
         hint = pretty_key(key).lower()
@@ -730,14 +698,21 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         )
 
     def _title_at(self, row: int, column: int) -> int | None:
-        """The index of the menu whose title is at a position, if any."""
+        """The bar position of the title at a place, if any.
+
+        :param row: Screen row.
+        :param column: Screen column.
+        """
         for index, span in enumerate(self.title_spans):
             if span.contains(row, column):
                 return index
         return None
 
     def _items_rect(self, rect: Rect) -> Rect:
-        """The part of a drop-down inside its frame (and padding)."""
+        """A drop-down's inner area.
+
+        :param rect: The drop-down's rect.
+        """
         pad = self.frame_padding
         return Rect(
             rect.row + 1,
@@ -747,8 +722,11 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         )
 
     def _item_at(self, event: MouseEvent, columns: int) -> tuple[int, int] | None:
-        """The (level, item) under the pointer, the innermost menu first, as
-        it is drawn on top; ``None`` if over no item."""
+        """The (level, item) under the pointer, or ``None``.
+
+        :param event: The mouse event.
+        :param columns: Screen width.
+        """
         rects = self.level_rects(columns)
         for depth in range(len(rects) - 1, -1, -1):
             rect = rects[depth]
@@ -759,8 +737,11 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         return None
 
     def _hover(self, depth: int, index: int) -> None:
-        """The pointer moved onto an item: highlight it, closing any
-        submenus beyond its menu, and open its own submenu."""
+        """Highlight the hovered item.
+
+        :param depth: The level.
+        :param index: Item index.
+        """
         level = self._levels[depth]
         item = level.menu.items[index]
         if not item.is_available:
@@ -779,14 +760,10 @@ class MenuBar:  # pylint: disable=too-many-public-methods
             self.open_submenu()
 
     def handle_mouse(self, event: MouseEvent, columns: int) -> bool:
-        """Handle a mouse event, and return whether the menu bar used it.
+        """Handle a mouse event; return whether used.
 
-        A click on a title opens its menu (or closes it, if it is already
-        open). A click on an enabled item chooses it or opens its submenu,
-        and so does releasing the button over an item after dragging down
-        from the title. While a menu is open, moving over an item highlights
-        it (and opens its submenu), moving over another title opens that
-        menu, and a click anywhere else closes the menus.
+        :param event: The mouse event.
+        :param columns: Screen width.
         """
         left = event.button == "left"
         if event.row == 0 and event.action == "press" and left:

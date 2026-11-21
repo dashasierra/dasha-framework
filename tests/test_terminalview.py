@@ -1,5 +1,4 @@
-"""Tests for ``TerminalView``: a program's output shown, keys and pastes
-sent to it, the scrollback, the selection and its ending."""
+"""Tests for ``TerminalView``."""
 
 import sys
 import time
@@ -23,8 +22,7 @@ PATIENCE = 20.0
 
 
 class FakePty:  # pylint: disable=too-many-instance-attributes
-    """Stands in for a ``PseudoTerminal``, with no program: it records what
-    it is sent, and the test gives it output and its ending."""
+    """A pseudo-terminal stand-in with no program."""
 
     def __init__(self) -> None:
         self.on_output: Callable[[bytes], None] = lambda data: None
@@ -49,7 +47,13 @@ class FakePty:  # pylint: disable=too-many-instance-attributes
         env: Mapping[str, str] | None = None,
         size: tuple[int, int] = (80, 24),
     ) -> None:
-        """Start, or fail to, as the test says."""
+        """Start, or fail as the test says.
+
+        :param argv: The program and its arguments.
+        :param cwd: Working folder, if any.
+        :param env: Environment, if any.
+        :param size: Terminal (columns, lines).
+        """
         del cwd, env
         if self.fail is not None:
             raise self.fail
@@ -58,11 +62,18 @@ class FakePty:  # pylint: disable=too-many-instance-attributes
         self.pid = 1
 
     def write(self, data: bytes) -> None:
-        """Record input."""
+        """Record input.
+
+        :param data: The input.
+        """
         self.sent += data
 
     def resize(self, columns: int, lines: int) -> None:
-        """Record a size."""
+        """Record a size.
+
+        :param columns: Width.
+        :param lines: Height.
+        """
         self.sizes.append((columns, lines))
 
     def close(self) -> None:
@@ -74,18 +85,23 @@ class FakePty:  # pylint: disable=too-many-instance-attributes
         return False
 
     def output(self, text: str) -> None:
-        """The program writes ``text``."""
+        """The program writes text.
+
+        :param text: The output.
+        """
         self.on_output(text.encode())
 
     def end(self, code: int) -> None:
-        """The program ends."""
+        """The program ends.
+
+        :param code: Exit code.
+        """
         self.exit_code = code
         self.on_exit()
 
 
 def desktop() -> PresentationManager:
-    """A desktop, as though running (so that what other threads ask of it
-    is done), whose loop the tests turn by hand (``pump``)."""
+    """A running desktop pumped by hand."""
     manager = PresentationManager()
     manager.handle_resize(100, 30)
     manager._running = True  # pylint: disable=protected-access
@@ -95,7 +111,11 @@ def desktop() -> PresentationManager:
 def pump(
     manager: PresentationManager, until: Callable[[], bool] = lambda: True
 ) -> None:
-    """Call what other threads asked the desktop to, until ``until()``."""
+    """Run thread callbacks until a condition holds.
+
+    :param manager: The desktop.
+    :param until: The condition.
+    """
     deadline = time.monotonic() + PATIENCE
     while True:
         manager._call_from_threads()  # pylint: disable=protected-access
@@ -139,7 +159,10 @@ class _View(unittest.TestCase):
         self.outputs += 1
 
     def output(self, text: str) -> None:
-        """The program writes ``text``, and the desktop shows it."""
+        """The program writes and the desktop shows it.
+
+        :param text: The output.
+        """
         self.pty.output(text)
         pump(self.manager)
 
@@ -149,11 +172,18 @@ class _View(unittest.TestCase):
         return [canvas.text(row).rstrip() for row in range(canvas.height)]
 
     def key(self, key: str) -> bool:
-        """Press a key in the window."""
+        """Press a key in the window.
+
+        :param key: The key.
+        """
         return self.window.handle_key(key, self.manager.shortcuts)
 
     def at(self, row: int, column: int) -> tuple[int, int]:
-        """A place in the view, on the screen."""
+        """A place in the view, on screen.
+
+        :param row: View row.
+        :param column: View column.
+        """
         interior = self.window.interior
         return interior.row + row, interior.column + column
 
@@ -178,8 +208,7 @@ class ProgramTests(_View):
         self.assertEqual(self.outputs, 1)
 
     def test_output_in_one_go_is_shown_once(self) -> None:
-        """Pieces arriving before the desktop comes round are shown
-        together."""
+        """Output in one go is shown once."""
         self.pty.output("one ")
         self.pty.output("two")
         pump(self.manager)
@@ -192,8 +221,7 @@ class ProgramTests(_View):
         self.assertEqual(bytes(self.pty.sent), b"\x1b[1;3R")
 
     def test_ending(self) -> None:
-        """Its ending is reported after the rest of its output is shown; the
-        cursor goes."""
+        """Ending."""
         self.pty.output("last words")
         self.pty.end(3)
         pump(self.manager, lambda: bool(self.ended))
@@ -225,7 +253,11 @@ class DefaultStyleTests(_View):
     """The view's colours for what a program leaves in its default colours."""
 
     def cell_style(self, row: int, column: int) -> Style:
-        """The style of a cell inside the window."""
+        """A cell's style inside the window.
+
+        :param row: Interior row.
+        :param column: Interior column.
+        """
         return self.window.render_interior(active=True).cell(row, column)[1]
 
     def test_the_terminals_own_by_default(self) -> None:
@@ -242,8 +274,7 @@ class DefaultStyleTests(_View):
             )
 
     def test_the_programs_colours_win(self) -> None:
-        """A colour the program asks for stays, and the other is the view's;
-        its bold stays too."""
+        """The program's colours win."""
         self.view.default_style = Style(foreground=WHITE, background=BLACK)
         self.output("\x1b[1;31mred")
         self.assertEqual(
@@ -277,16 +308,14 @@ class KeyTests(_View):
         self.assertEqual(bytes(self.pty.sent), b"\x1bOA")
 
     def test_desktop_keys_are_declined(self) -> None:
-        """The desktop's own keys are not sent, even on a desktop of its
-        own."""
+        """Desktop keys are declined."""
         shortcuts = self.manager.shortcuts
         for key in ("ctrl+q", "f6", "f5", "f10", "alt+f4", "alt+f12"):
             self.assertFalse(self.view.handle_key(key, shortcuts), key)
         self.assertEqual(bytes(self.pty.sent), b"")
 
     def test_paste(self) -> None:
-        """A paste is sent as typed, with Enter for each line break, and
-        marked as a paste for a program that asked."""
+        """Paste."""
         self.window.handle_paste("a\nb\r\n")
         self.assertEqual(bytes(self.pty.sent), b"a\rb\r")
         self.pty.sent.clear()
@@ -295,8 +324,7 @@ class KeyTests(_View):
         self.assertEqual(bytes(self.pty.sent), b"\x1b[200~xy\x1b[201~")
 
     def test_copy_and_paste_keys(self) -> None:
-        """``terminal_copy`` and ``terminal_paste``, given keys, copy and
-        paste instead of being sent."""
+        """Copy and paste keys."""
         shortcuts = Shortcuts({"terminal_copy": ["f7"], "terminal_paste": ["f8"]})
         self.output("word")
         self.view.select_all()
@@ -318,14 +346,20 @@ class MouseTests(_View):
     def mouse(
         self, action: str, button: str, row: int, column: int, **held: bool
     ) -> None:
-        """Mouse activity at a place in the view."""
+        """Mouse activity in the view.
+
+        :param action: Mouse action.
+        :param button: Mouse button.
+        :param row: View row.
+        :param column: View column.
+        :param held: Modifier keys held.
+        """
         self.window.handle_mouse(
             MouseEvent(action, button, *self.at(row, column), **held)
         )
 
     def test_clicks_and_drags_go_to_the_program(self) -> None:
-        """A press, a drag and a release are reported, and select
-        nothing."""
+        """Clicks and drags go to the program."""
         self.assertTrue(self.view.is_mouse_for_program)
         self.mouse("press", "left", 2, 5)
         self.mouse("drag", "left", 3, 7)
@@ -334,8 +368,7 @@ class MouseTests(_View):
         self.assertIsNone(self.view.selection)
 
     def test_wheel_and_right_click(self) -> None:
-        """The wheel goes to the program, not the scrollback, and so does a
-        right-click, with no menu popping up."""
+        """Wheel and right-click."""
         self.mouse("scroll", "down", 0, 0)
         self.mouse("press", "right", 1, 1)
         self.assertEqual(bytes(self.pty.sent), b"\x1b[<65;1;1M\x1b[<2;2;2M")
@@ -362,8 +395,7 @@ class MouseTests(_View):
         self.assertEqual(self.view.selected_text(), "el")
 
     def test_a_drag_ends_where_it_started(self) -> None:
-        """A release goes where its press went, even if the switch changed
-        in between."""
+        """A drag ends where it started."""
         self.mouse("press", "left", 0, 0)
         self.view.send_mouse = False
         self.mouse("release", "left", 0, 0)
@@ -381,8 +413,7 @@ class ScrollAndCopyTests(_View):
     """The scrollback, the selection and the clipboard."""
 
     def test_wheel_scrolls_back(self) -> None:
-        """The wheel scrolls back, and stays put as output arrives; a key
-        brings it back down."""
+        """The wheel scrolls back."""
         self.output("\r\n".join(f"line {n}" for n in range(34)))
         self.window.handle_mouse(MouseEvent("scroll", "up", *self.at(1, 0)))
         self.assertEqual(self.view.back, 3)
@@ -396,8 +427,7 @@ class ScrollAndCopyTests(_View):
         self.assertEqual((self.view.back, len(self.view.screen.scrollback)), (0, 0))
 
     def test_select_and_copy(self) -> None:
-        """Dragging selects, drawn reversed; copying puts it on the
-        clipboard."""
+        """Select and copy."""
         self.output("hello world\r\nsecond line")
         self.window.handle_mouse(MouseEvent("press", "left", *self.at(0, 6)))
         self.window.handle_mouse(MouseEvent("drag", "left", *self.at(1, 5)))

@@ -1,17 +1,4 @@
-"""``python -m dasha.host TARGET``: how the desktop starts an
-application in its own process.
-
-``TARGET`` is either ``MODULE:CLASS`` (an importable module and the
-application class in it), or a script: ``path/app.py``, or
-``path/app.py:CLASS`` when the script holds more than one application. A
-script's folder is put on ``sys.path``, so that the script can import the
-modules beside it; a script inside a package (its folder has an
-``__init__.py``) is imported as part of that package instead, with the
-folder above the package on ``sys.path``, so that its imports of the
-package's other modules work. The application then finds the desktop through
-``DASHA_ADDRESS`` (with the key arriving on standard input) and runs on
-it.
-"""
+"""Start an application in its own process."""
 
 import importlib
 import importlib.util
@@ -26,9 +13,10 @@ from dasha.registry import is_script, split_script
 
 
 def _package_name(path: Path) -> tuple[Path, str] | None:
-    """For a script inside a package, the folder above the outermost
-    package and the script's dotted module name (``pgh/app.py`` is
-    ``pgh.app``); ``None`` for a script that is not in one."""
+    """A script's package root and module name, or ``None``.
+
+    :param path: The script.
+    """
     parts = [] if path.stem == "__init__" else [path.stem]
     folder = path.parent
     while (folder / "__init__.py").is_file() and folder.name.isidentifier():
@@ -40,8 +28,10 @@ def _package_name(path: Path) -> tuple[Path, str] | None:
 
 
 def _load_script(path: Path) -> ModuleType:
-    """Run a script as a module (not as ``__main__``, so its own
-    ``if __name__ == "__main__"`` part does not start anything)."""
+    """Import a script as a module.
+
+    :param path: The script.
+    """
     if not path.is_file():
         raise ImportError(f"no such script: {path}")
     package = _package_name(path)
@@ -61,7 +51,10 @@ def _load_script(path: Path) -> ModuleType:
 
 
 def _only_application(module: ModuleType) -> type[Application]:
-    """The one application class a module defines itself."""
+    """The one application class a module defines.
+
+    :param module: The module.
+    """
     found = [
         value
         for value in vars(module).values()
@@ -76,9 +69,10 @@ def _only_application(module: ModuleType) -> type[Application]:
 
 
 def find(target: str) -> type[Application]:
-    """The application class that ``target`` names. Raises ``ValueError``
-    if it names something other than an application class, and
-    ``ImportError`` if it cannot be found."""
+    """The application class a target names.
+
+    :param target: ``MODULE:CLASS`` or a script path.
+    """
     if is_script(target):
         path, class_name = split_script(target)
         module = _load_script(Path(path).expanduser().resolve())
@@ -99,8 +93,10 @@ def find(target: str) -> type[Application]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the application named on the command line, and return an exit
-    code."""
+    """Run the named application; return an exit code.
+
+    :param argv: Arguments, or ``None`` for ``sys.argv``.
+    """
     args = list(sys.argv[1:] if argv is None else argv)
     if len(args) != 1:
         say(

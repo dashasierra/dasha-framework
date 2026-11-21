@@ -1,4 +1,4 @@
-"""Group boxes: a titled frame around a group of widgets."""
+"""Group boxes."""
 
 from dasha.border import SINGLE
 from dasha.canvas import Canvas, Rect
@@ -10,38 +10,19 @@ from dasha.widgets.label import on_window, paint_mnemonic_label
 
 
 class GroupBox(Container, Widget):
-    """A ``GroupBox`` is a titled single-line frame around widgets that belong
-    together:
+    """A titled frame around widgets.
 
-    ::
-
-        ┌─ Account ──────────────────────┐
-        │ Name:      [                 ] │
-        │ Password:  [•••••••          ] │
-        └────────────────────────────────┘
-
-    ::
-
-        account = dialog.add(
-            widget=GroupBox(title="&Account", row=5, column=2, width=42, height=6)
-        )
-        account.add(widget=Label(text="Name:", row=0, column=1))
-        account.add(widget=TextBox(row=0, column=11, width=26, name="name"))
-
-    Its widgets are positioned relative to the inside of the frame. The title
-    can mark a mnemonic letter with ``&``, which moves the focus to the first
-    widget in the group that can take it (with Alt and the letter, or the letter
-    alone in a dialog); the group box itself never takes the focus. Its frame and
-    title are drawn in the ``groupbox`` colours, which, left as ``default``, are
-    the window's.
-
-    Add the group box before its widgets, so that it is drawn underneath them.
+    :param title: Frame title; ``&`` marks the mnemonic.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param width: Width in columns.
+    :param height: Height in rows.
+    :param name: Widget name.
     """
 
     noun = "group box"
     style: Style = Style()
-    """The style of the frame and title. A colour it leaves as ``None``
-    takes the window's colour."""
+    """Frame and title style."""
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
@@ -75,8 +56,7 @@ class GroupBox(Container, Widget):
         return mnemonic_key(self.title)
 
     def activate(self) -> None:
-        """Move the focus to the first widget in the group that can take
-        it."""
+        """Focus the group's first focusable widget."""
         window = self.window
         if window is None:
             return

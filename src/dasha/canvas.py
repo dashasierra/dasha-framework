@@ -1,18 +1,4 @@
-"""An off-screen grid of styled cells, on which each frame of the screen is
-composed.
-
-Everything on the screen (the desktop, windows, menus and the status bar) is
-painted onto a ``Canvas``, from back to front. The finished canvas is then
-compared with the one currently on screen, and only the cells that have
-changed are sent to the terminal. This keeps redrawing fast and free of
-flicker, even over SSH.
-
-Control characters never reach the terminal, where they could act as
-commands (for example, from a file whose name contains an escape sequence):
-``render`` shows them as code page 437 pictures instead (``CONTROL_GLYPHS``).
-Nor do characters that would not take up exactly one cell, or that cannot be
-written at all; see ``shown``.
-"""
+"""An off-screen grid of styled cells."""
 
 import unicodedata
 from collections.abc import Iterator
@@ -50,11 +36,18 @@ class Rect:
         return self.height <= 0 or self.width <= 0
 
     def contains(self, row: int, column: int) -> bool:
-        """Whether the cell at ``row``, ``column`` is inside the rectangle."""
+        """Whether a cell is inside the rect.
+
+        :param row: Cell row.
+        :param column: Cell column.
+        """
         return self.row <= row < self.bottom and self.column <= column < self.right
 
     def intersect(self, other: "Rect") -> "Rect":
-        """The overlap of two rectangles (possibly empty)."""
+        """The overlap with another rect.
+
+        :param other: The other rect.
+        """
         row = max(self.row, other.row)
         column = max(self.column, other.column)
         return Rect(
@@ -65,7 +58,10 @@ class Rect:
         )
 
     def inset(self, amount: int = 1) -> "Rect":
-        """The rectangle shrunk by ``amount`` cells on every side."""
+        """The rect shrunk on every side.
+
+        :param amount: Cells to shrink by.
+        """
         return Rect(
             self.row + amount,
             self.column + amount,
@@ -78,7 +74,7 @@ SHADOW_BLANKS = frozenset(
     "\N{LOWER HALF BLOCK}\N{UPPER HALF BLOCK}\N{FULL BLOCK}"
     "\N{LEFT HALF BLOCK}\N{RIGHT HALF BLOCK}"
 )
-"""Characters a drop shadow replaces with a space: ▄ ▀ █ ▌ ▐."""
+"""Characters a shadow blanks out."""
 
 _C0_GLYPHS = (
     " \N{WHITE SMILING FACE}\N{BLACK SMILING FACE}\N{BLACK HEART SUIT}"
@@ -99,33 +95,19 @@ CONTROL_GLYPHS: dict[str, str] = {
     "\x7f": "\N{HOUSE}",
     **{chr(code): "?" for code in range(0x80, 0xA0)},
 }
-"""What ``render`` sends in place of each control character, which the
-terminal could otherwise take as a command or part of one. C0 controls are
-sent as their code page 437 pictures (escape as ←, bell as •), delete as ⌂,
-and C1 controls as ``?``. The canvas itself keeps the original character."""
+"""Safe replacements for control characters."""
 
 UNSHOWABLE = "?"
-"""What ``shown`` draws for a character that cannot take up exactly one
-cell."""
+"""Replacement for unshowable characters."""
 
 _shown_cache: dict[str, str] = {}
 
 
 def shown(char: str) -> str:
-    """What the terminal is sent for a cell holding ``char``: either the
-    character itself, or a replacement that is safe to send and takes up
-    exactly one column, as every cell must for the rows to line up.
+    """What the terminal is sent for a character.
 
-    - Control characters are replaced by their ``CONTROL_GLYPHS``.
-    - Surrogates (such as ``"\\udcff"``, which Python produces for a file
-      name that is not valid UTF-8, and which JSON may contain) cannot be
-      encoded at all, so they become ``UNSHOWABLE``.
-    - Wide characters (such as ``"\\u5bec"``, and most emoji) take up two
-      columns, and zero-width characters (combining accents, joiners and
-      direction marks) take up none and could make text read in a different
-      order, so they also become ``UNSHOWABLE``.
-
-    Every code page 437 character is shown as it is."""
+    :param char: The cell's character.
+    """
     if len(char) != 1:  # a cell holds one character; anything else is not one
         return UNSHOWABLE
     if char < "̀" and char not in CONTROL_GLYPHS:
@@ -149,13 +131,11 @@ def _looked_up(char: str) -> str:
 
 
 def shadow_rects(rect: Rect, width: int = 2, height: int = 1) -> tuple[Rect, Rect]:
-    """Where the drop shadow falls for something occupying ``rect``.
+    """Where a drop shadow falls.
 
-    The shadow is a strip ``width`` columns wide down the right side,
-    starting ``height`` rows below the top, and a strip ``height`` rows high
-    along the bottom, starting ``width`` columns in, so that the box seems to
-    float above the screen. Two columns by one row looks square in most
-    terminal fonts.
+    :param rect: The shadowed area.
+    :param width: Shadow width in columns.
+    :param height: Shadow height in rows.
     """
     return (
         Rect(rect.row + height, rect.right, rect.height, width),
@@ -164,8 +144,11 @@ def shadow_rects(rect: Rect, width: int = 2, height: int = 1) -> tuple[Rect, Rec
 
 
 class Canvas:
-    """A grid of ``width`` by ``height`` cells, each holding a character and
-    a style."""
+    """A grid of styled character cells.
+
+    :param width: Width in cells.
+    :param height: Height in cells.
+    """
 
     def __init__(self, width: int, height: int) -> None:
         self.width = width
@@ -173,8 +156,7 @@ class Canvas:
         self._rows: list[list[Cell]] = [[(" ", DEFAULT)] * width for _ in range(height)]
         self._clip: Rect | None = None
         self.cursor: tuple[int, int] | None = None
-        """Where the terminal's cursor is shown (row, column), or ``None`` to
-        hide it. A focused text box puts the cursor where typing will go."""
+        """Cursor position, or ``None`` to hide it."""
 
     @property
     def bounds(self) -> Rect:
@@ -183,13 +165,9 @@ class Canvas:
 
     @contextmanager
     def clipped(self, rect: Rect) -> Iterator[None]:
-        """Keep all drawing inside ``rect`` (and inside any outer clipping
-        area) until the ``with`` block ends.
+        """Clip drawing to a rect within a ``with`` block.
 
-        This is used to draw a window's scrolled contents: the widgets draw
-        as usual, at positions that may lie outside the window, and only the
-        part inside the frame reaches the canvas. Clipping areas can be
-        nested.
+        :param rect: The clipping area.
         """
         outer = self._clip
         self._clip = rect if outer is None else outer.intersect(rect)
@@ -199,23 +177,35 @@ class Canvas:
             self._clip = outer
 
     def _area(self, rect: Rect | None = None) -> Rect:
-        """The part of the canvas drawing may touch: the canvas, within the
-        current clip, within ``rect``."""
+        """The drawable area.
+
+        :param rect: Area to limit to, if any.
+        """
         area = self.bounds if self._clip is None else self.bounds.intersect(self._clip)
         return area if rect is None else area.intersect(rect)
 
     def place_cursor(self, row: int, column: int) -> None:
-        """Show the cursor at a position, if that position is inside the
-        canvas and the current clipping area; otherwise, leave it hidden."""
+        """Show the cursor if the position is drawable.
+
+        :param row: Cursor row.
+        :param column: Cursor column.
+        """
         if self._area().contains(row, column):
             self.cursor = (row, column)
 
     def cell(self, row: int, column: int) -> Cell:
-        """Return the character and style at a position."""
+        """The character and style at a position.
+
+        :param row: Cell row.
+        :param column: Cell column.
+        """
         return self._rows[row][column]
 
     def text(self, row: int) -> str:
-        """Return the characters of one row, without styles."""
+        """A row's characters.
+
+        :param row: The row.
+        """
         return "".join(char for char, _ in self._rows[row])
 
     def write(
@@ -226,8 +216,14 @@ class Canvas:
         style: Style = DEFAULT,
         clip: Rect | None = None,
     ) -> None:
-        """Write text at a position, one character to a cell, clipped to
-        ``clip`` and to the canvas."""
+        """Write text at a position.
+
+        :param row: Starting row.
+        :param column: Starting column.
+        :param text: The text.
+        :param style: Text style.
+        :param clip: Area to clip to, if any.
+        """
         area = self._area(clip)
         if not area.row <= row < area.bottom:
             return
@@ -240,7 +236,12 @@ class Canvas:
                 cells[col] = (char, style)
 
     def fill(self, rect: Rect, char: str = " ", style: Style = DEFAULT) -> None:
-        """Fill a rectangle (clipped to the canvas) with a single character."""
+        """Fill a rect with a character.
+
+        :param rect: The area.
+        :param char: The character.
+        :param style: Fill style.
+        """
         area = self._area(rect)
         for row in range(area.row, area.bottom):
             self._rows[row][area.column : area.right] = [(char, style)] * area.width
@@ -248,9 +249,13 @@ class Canvas:
     def copy_from(
         self, source: "Canvas", row: int, column: int, clip: Rect | None = None
     ) -> None:
-        """Copy every cell of another canvas onto this one, with its top-left
-        cell at ``row``, ``column``, clipped to ``clip`` and to this
-        canvas."""
+        """Copy another canvas onto this one.
+
+        :param source: The canvas to copy.
+        :param row: Destination row.
+        :param column: Destination column.
+        :param clip: Area to clip to, if any.
+        """
         area = self._area(clip).intersect(
             Rect(row, column, source.height, source.width)
         )
@@ -261,8 +266,11 @@ class Canvas:
             ]
 
     def restyle(self, rect: Rect, style: Style) -> None:
-        """Give every cell in a rectangle (clipped) a new style, keeping its
-        character. Shadows use this to darken whatever lies beneath them."""
+        """Restyle a rect, keeping its characters.
+
+        :param rect: The area.
+        :param style: New style.
+        """
         area = self._area(rect)
         for row in range(area.row, area.bottom):
             cells = self._rows[row]
@@ -272,12 +280,12 @@ class Canvas:
     def cast_shadow(
         self, rect: Rect, style: Style, width: int = 2, height: int = 1
     ) -> None:
-        """Darken the area where ``rect`` casts its drop shadow, keeping the
-        characters beneath.
+        """Darken a rect's drop shadow.
 
-        Block characters (``SHADOW_BLANKS``) become spaces instead, because
-        redrawn dark grey on black they would look like bright patches (as
-        button shadows did under a window's shadow).
+        :param rect: The shadowed area.
+        :param style: Shadow style.
+        :param width: Shadow width in columns.
+        :param height: Shadow height in rows.
         """
         area = self._area()  # the canvas, within any clip
         for shadow in shadow_rects(rect, width, height):
@@ -289,15 +297,9 @@ class Canvas:
                     cells[column] = (" " if char in SHADOW_BLANKS else char, style)
 
     def render(self, previous: "Canvas | None" = None) -> str:
-        """Return the terminal output that changes the screen from
-        ``previous`` to this canvas.
+        """Terminal output to update the screen.
 
-        Without ``previous`` (or if it is a different size), every cell is
-        drawn. Each cell is sent as ``shown`` translates it: control
-        characters as ``CONTROL_GLYPHS``, and characters that cannot take up
-        exactly one cell as ``UNSHOWABLE``, never as they are. The cursor
-        stays hidden until a canvas has a ``cursor``; the output then ends by
-        moving the cursor there and showing it.
+        :param previous: The canvas on screen, if any.
         """
         old_rows: list[list[Cell]] | None = None
         if previous is not None and previous.width == self.width:

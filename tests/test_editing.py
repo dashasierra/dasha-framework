@@ -1,5 +1,4 @@
-"""Tests for undo, moving by words, tabs in text areas, Ctrl+Tab, and the
-key hints on the status bar."""
+"""Tests for undo, word moves, tabs and focus keys."""
 
 import unittest
 
@@ -15,7 +14,11 @@ from dasha.window import Window
 
 
 def keys(widget: TextArea | TextBox, *names: str) -> None:
-    """Offer keys with the default shortcuts."""
+    """Offer keys to a widget.
+
+    :param widget: The widget.
+    :param names: The keys.
+    """
     shortcuts = Shortcuts()
     for name in names:
         widget.handle_key(name, shortcuts)
@@ -25,7 +28,7 @@ class WordTests(unittest.TestCase):
     """Where Ctrl+Left and Ctrl+Right go."""
 
     def test_word_left_and_right(self) -> None:
-        """Left goes to the start of a word; right to the start of the next."""
+        """Word moves left and right."""
         text = "one, two  three"
         self.assertEqual(word_left(text, 15), 10)
         self.assertEqual(word_left(text, 10), 5)
@@ -45,8 +48,7 @@ class WordTests(unittest.TestCase):
         self.assertEqual(box.cursor, 6)
 
     def test_text_area_words_cross_lines(self) -> None:
-        """At a line's start Ctrl+Left goes to the end of the line above;
-        at its end Ctrl+Right goes to the next line."""
+        """Word moves cross lines in a text area."""
         area = TextArea(0, 0, text="first line\nsecond")
         area.cursor = (1, 0)
         keys(area, "ctrl+left")
@@ -78,7 +80,7 @@ class TextBoxUndoTests(unittest.TestCase):
     """Ctrl+Z in a text box."""
 
     def test_typing_is_undone_a_word_at_a_time(self) -> None:
-        """A run of typing goes in one undo; a space starts the next."""
+        """Typing is undone a word at a time."""
         box = TextBox(0, 0, 30)
         keys(box, *"hello world")
         keys(box, "ctrl+z")
@@ -87,8 +89,7 @@ class TextBoxUndoTests(unittest.TestCase):
         self.assertEqual(box.text, "")
 
     def test_each_edit_and_the_selection_come_back(self) -> None:
-        """Deleting, clearing and typing over a selection are undone in turn,
-        putting the cursor and selection back."""
+        """Each edit and selection come back."""
         box = TextBox(0, 0, 30, text="abcdef")
         box.select(1, 4)
         keys(box, "x", "backspace", "ctrl+y")
@@ -99,8 +100,7 @@ class TextBoxUndoTests(unittest.TestCase):
         self.assertFalse(box.undo())  # nothing more
 
     def test_redo(self) -> None:
-        """Redo goes forward again through what was undone; something new
-        typed forgets it."""
+        """Redo in a text box."""
         box = TextBox(0, 0, 30)
         keys(box, *"hi", " ", *"there")  # two steps: "hi" and " there"
         keys(box, "ctrl+z", "ctrl+z")
@@ -114,7 +114,7 @@ class TextBoxUndoTests(unittest.TestCase):
         self.assertEqual(box.text, "hi!")
 
     def test_limit_can_be_large(self) -> None:
-        """The limit is 20 by default and can be raised (or set on a box)."""
+        """The undo limit can be large."""
         box = TextBox(0, 0, 30)
         box.undo_limit = 2000
         for _ in range(100):
@@ -165,8 +165,7 @@ class TextAreaUndoTests(unittest.TestCase):
         self.assertEqual(len(area.lines), 6)
 
     def test_redo(self) -> None:
-        """Alt+Z redoes what Ctrl+Z undid, cursor and all, step by step;
-        Ctrl+Shift+Z does too where the terminal sends it."""
+        """Redo in a text area."""
         area = TextArea(0, 0)
         keys(area, *"one", " ", *"two", "enter")
         keys(area, "ctrl+z", "ctrl+z")
@@ -180,8 +179,7 @@ class TextAreaUndoTests(unittest.TestCase):
         self.assertEqual(area.text, "one two")
 
     def test_redo_of_a_selection_replaced(self) -> None:
-        """Undoing typing over a selection, then redoing it, works both ways
-        with the selection coming back on undo."""
+        """Redo of a replaced selection."""
         area = TextArea(0, 0, text="a\nb\nc")
         area.select((0, 0), (2, 1))
         keys(area, "x", "ctrl+z")
@@ -220,8 +218,7 @@ class TabTests(unittest.TestCase):
         self.assertEqual(area.text, "x\ty")
 
     def test_drawn_to_the_next_stop(self) -> None:
-        """A tab is drawn as spaces to the next multiple of tab_size, and
-        the cursor after it is drawn there."""
+        """Tabs are drawn to the next stop."""
         self.area.cursor = (0, 2)
         canvas = Canvas(30, 8)
         self.window.paint(canvas, active=True)
@@ -238,7 +235,7 @@ class TabTests(unittest.TestCase):
         self.assertEqual(self.area.cursor, (0, 1))  # inside the tab: at it
 
     def test_click_on_a_tab(self) -> None:
-        """A click on the cells of a tab puts the cursor before it."""
+        """A click on a tab."""
         event = MouseEvent("press", "left", 0, 3)
         self.area.handle_mouse(event, 0, 3)
         self.assertEqual(self.area.cursor, (0, 1))
@@ -261,8 +258,7 @@ class FocusKeyTests(unittest.TestCase):
         )
 
     def test_into_and_out_of_a_text_area(self) -> None:
-        """Ctrl+Tab moves the focus on from a text area (and from anything
-        else), Ctrl+Shift+Tab back, while Tab types a tab."""
+        """Ctrl+Tab into and out of a text area."""
         window = Window("W", Rect(0, 0, 12, 30))
         area = window.add(TextArea(0, 0, 20, 5))
         ok = window.add(Button("&OK", 6, 1))
@@ -290,8 +286,7 @@ class LooksTests(unittest.TestCase):
         self.assertEqual(TextArea.style.background, BLUE)
 
     def test_status_bar_hints(self) -> None:
-        """Hints go on the right, key names in key_style; those that do not
-        fit are left off, and the text gives way to the rest."""
+        """Status bar hints."""
         status_bar = StatusBar()
         hints = [("Ctrl+Z", "Undo"), ("Ctrl+A", "All")]
         canvas = Canvas(50, 2)

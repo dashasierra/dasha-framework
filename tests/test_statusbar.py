@@ -1,4 +1,4 @@
-"""Tests for the status bar and the status text of whatever has focus."""
+"""Tests for the status bar."""
 
 import unittest
 from typing import cast
@@ -53,7 +53,7 @@ class StatusBarPaintTests(unittest.TestCase):
     """Drawing the bottom row."""
 
     def test_paints_text_on_bottom_row(self) -> None:
-        """The bar fills the bottom row and shows the text after a space."""
+        """Text on the bottom row."""
         canvas = Canvas(12, 3)
         status_bar = StatusBar()
         status_bar.paint(canvas, "Opens a file")
@@ -118,9 +118,7 @@ class ManagerStatusTests(unittest.TestCase):
         self.assertEqual(self.manager.status(), "Window A")
 
     def test_status_bar_is_drawn(self) -> None:
-        """The composed screen shows the text on the bottom row, after
-        "Dasha Desktop", as no application is running, and the key that opens
-        the menu bar on the right."""
+        """The status bar is drawn."""
         self.manager.bring_to_front(self.with_status)
         canvas = Canvas(40, 10)
         self.manager.compose(canvas)
@@ -141,13 +139,16 @@ class ManagerStatusTests(unittest.TestCase):
 
 
 def move(row: int, column: int) -> MouseEvent:
-    """The pointer moving with no button held."""
+    """A mouse move with no button.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    """
     return MouseEvent("move", "none", row, column)
 
 
 class MenuKeyHintTests(unittest.TestCase):
-    """The key that opens the menu bar is on the status bar whenever it
-    would open it."""
+    """The menu key hint."""
 
     def test_on_an_empty_desktop(self) -> None:
         """No application, no window: still F10 Menu."""
@@ -159,7 +160,7 @@ class MenuKeyHintTests(unittest.TestCase):
         self.assertTrue(canvas.text(9).rstrip().endswith("F10 Menu"))
 
     def test_first_before_the_widgets_keys(self) -> None:
-        """Ahead of the focused widget's, so it is the last to give way."""
+        """First before the widget's keys."""
         manager = PresentationManager()
         window = Window("Notes", Rect(2, 2, 8, 30))
         window.add(TextArea(0, 0, 20, 2))
@@ -170,14 +171,14 @@ class MenuKeyHintTests(unittest.TestCase):
         self.assertGreater(len(hints), 1)
 
     def test_follows_the_shortcuts(self) -> None:
-        """The user's key for it, and none if they took its keys away."""
+        """Follows the shortcuts."""
         remapped = PresentationManager(shortcuts=Shortcuts({"open_menu": ["f9"]}))
         self.assertEqual(remapped.key_hints(), [("F9", "Menu")])
         unbound = PresentationManager(shortcuts=Shortcuts({"open_menu": []}))
         self.assertEqual(unbound.key_hints(), [])
 
     def test_not_while_it_would_not_open(self) -> None:
-        """Not with a menu open, during a dialog, or with every menu inert."""
+        """Not while it would not open."""
         manager = PresentationManager()
         manager.handle_event("f10")
         self.assertEqual(manager.key_hints(), [])
@@ -202,7 +203,11 @@ class HintClickTests(unittest.TestCase):
         self.manager.handle_resize(80, 24)
 
     def click_hint(self, key: str, on_label: bool = False) -> None:
-        """A left press on a hint on the status bar: its key, or its label."""
+        """A left press on a hint.
+
+        :param key: The hint's key.
+        :param on_label: Whether to press its label.
+        """
         places = self.manager.status_bar.hint_places(
             80, self.manager.key_hints(), self.manager.status_owner
         )
@@ -211,7 +216,7 @@ class HintClickTests(unittest.TestCase):
         self.manager.handle_event(MouseEvent("press", "left", 23, column))
 
     def test_f10_opens_the_menu_bar(self) -> None:
-        """On an empty desktop, as F10 does: on the key, or on "Menu"."""
+        """F10 opens the menu bar."""
         self.click_hint("F10")
         self.assertTrue(self.manager.menu_bar.is_open)
         self.manager.handle_event("escape")
@@ -228,14 +233,13 @@ class HintClickTests(unittest.TestCase):
         self.assertIs(window.focused, box)
 
     def test_elsewhere_on_the_bar_nothing(self) -> None:
-        """The gap before a hint, the status text and the name: no key."""
+        """Elsewhere on the bar, nothing."""
         for column in (1, 10, 80 - len("F10Menu") - 3):  # the gap before it
             self.manager.handle_event(MouseEvent("press", "left", 23, column))
             self.assertFalse(self.manager.menu_bar.is_open, column)
 
     def test_in_a_dialog(self) -> None:
-        """While a dialog waits for its answer, its widget's keys work too:
-        a text area's Ctrl+Tab moves the focus."""
+        """In a dialog."""
         dialog = Dialog("Name", 40, 8)
         dialog.add(TextArea(0, 2, 20, 2))
         box = dialog.add(TextBox(3, 2, 20))
@@ -292,7 +296,7 @@ class HoverTests(unittest.TestCase):
         self.assertEqual(self.manager.status(), "About Dasha Desktop")
 
     def test_press_drag_release_chooses(self) -> None:
-        """Press on the title, drag down, release on an item: it is chosen."""
+        """Press, drag and release chooses."""
         self.manager.handle_event("escape")
         self.manager.handle_event(MouseEvent("press", "left", 0, 5))
         rect = self.manager.menu_bar.dropdown_rect(40)
@@ -320,7 +324,7 @@ class LayeringTests(unittest.TestCase):
         self.manager.handle_resize(40, 10)
 
     def test_window_is_drawn_under_status_bar(self) -> None:
-        """A window reaching the bottom row is hidden by the status bar there."""
+        """Windows are drawn under the status bar."""
         canvas = Canvas(40, 10)
         self.manager.compose(canvas)
         self.assertEqual(canvas.cell(9, 0), (" ", self.manager.status_bar.style))
@@ -359,8 +363,7 @@ class OwnerTests(unittest.TestCase):
         self.assertEqual(canvas.text(1), f" Notepad {DIVIDER} A long st  F1 Help ")
 
     def test_named_by_the_manager(self) -> None:
-        """The active application, numbered as the system menu numbers it;
-        "Dasha Desktop" with none."""
+        """Named by the manager."""
         manager = PresentationManager()
         manager.handle_resize(80, 24)
         self.assertEqual(manager.status_owner, "Dasha Desktop")
@@ -377,9 +380,7 @@ class OwnerTests(unittest.TestCase):
         self.assertEqual(manager.status_owner, "Dasha Desktop")
 
     def test_standalone(self) -> None:
-        """Run on its own, the application is named too, and nothing on
-        screen names Dasha Framework: someone given the application need never hear
-        of it."""
+        """Stand-alone naming."""
         terminal = FakeTerminal(["\x11", "\r"], sizes=[(80, 24)])
         Hello().run(cast(Terminal, terminal))
         shown = without_styles(terminal.output.getvalue())
@@ -387,8 +388,7 @@ class OwnerTests(unittest.TestCase):
         self.assertNotIn("dasha", shown.casefold())
 
     def test_standalone_before_it_is_active(self) -> None:
-        """Run on its own, with the application not active yet (still
-        loading, say), the bar shows no name at all, and no divider."""
+        """Stand-alone before it is active."""
         manager = PresentationManager()
         manager.stand_alone("Hello")
         manager.handle_resize(40, 10)
@@ -399,7 +399,7 @@ class OwnerTests(unittest.TestCase):
         self.assertNotIn("dasha", canvas.text(9).casefold())
 
     def test_standalone_messages(self) -> None:
-        """Run on its own, what it says names the application, not Dasha Framework."""
+        """Stand-alone messages."""
         manager = PresentationManager()
         self.assertEqual(manager.program_name, "Dasha Desktop")
         manager.stand_alone("Notepad and Demo")

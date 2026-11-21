@@ -1,4 +1,4 @@
-"""Tests for help: pages, links, history, what F1 goes to, and who has any."""
+"""Tests for help."""
 
 # pylint: disable=too-many-lines
 
@@ -70,7 +70,11 @@ PAGES = {
 
 
 def write_pages(folder: Path, pages: dict[str, str]) -> None:
-    """Make a folder of pages."""
+    """Make a folder of pages.
+
+    :param folder: The folder.
+    :param pages: Page text by name.
+    """
     for name, text in pages.items():
         path = folder / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -218,21 +222,35 @@ class BookTests(PagesCase):
 
 
 def laid_out_view(book: HelpBook, width: int = 40, height: int = 12) -> HelpView:
-    """A help view at the index."""
+    """A help view at the index.
+
+    :param book: The help pages.
+    :param width: View width.
+    :param height: View height.
+    """
     view = HelpView(book, 0, 0, width, height)
     view.go(INDEX)
     return view
 
 
 def press_at(view: HelpView, row: int, column: int) -> None:
-    """Press and release the left button."""
+    """Press and release the left button.
+
+    :param view: The help view.
+    :param row: Row in the view.
+    :param column: Column in the view.
+    """
     for action in ("press", "release"):
         event = MouseEvent(action, "left", row, column)
         view.handle_mouse(event, row, column)
 
 
 def press_key(view: HelpView, name: str) -> bool:
-    """Press a key on a view."""
+    """Press a key on a view.
+
+    :param view: The help view.
+    :param name: The key.
+    """
     return view.handle_key(name, SHORTCUTS)
 
 
@@ -517,8 +535,7 @@ class ViewTests(PagesCase):
         self.assertIn(("Alt+Left", "Back"), self.view.key_help(SHORTCUTS))
 
     def test_a_highlighted_link_leaves_room_for_where_it_goes(self) -> None:
-        """Only the keys for the link show, so that the status bar has room
-        for its address."""
+        """A highlighted link leaves room for its address."""
         self.view.go("one")
         press_key(self.view, "tab")
         self.assertEqual(
@@ -646,7 +663,10 @@ class LookTests(PagesCase):
 
 
 class _Helpful(Application):
-    """An application with help."""
+    """An application with help.
+
+    :param folder: Help folder, if any.
+    """
 
     name = "Helpful"
 
@@ -740,11 +760,17 @@ class ApplicationTests(PagesCase):
         self.manager.handle_resize(80, 24)
 
     def launch(self, folder: Path | None = None) -> _Helpful:
-        """A running application with help in ``folder`` (or the pages)."""
+        """A running application with help.
+
+        :param folder: Help folder, or ``None`` for the test pages.
+        """
         return self.manager.launch(_Helpful(folder or self.folder))
 
     def help_window(self, application: Application) -> HelpWindow:
-        """The application's help window, which must be open."""
+        """The application's open help window.
+
+        :param application: The application.
+        """
         found = [w for w in application.windows if isinstance(w, HelpWindow)]
         self.assertEqual(len(found), 1)
         return found[0]
@@ -892,7 +918,10 @@ class NoHelpTests(PagesCase):
     """Applications with none: F1 does nothing, and nothing has changed."""
 
     def assert_nothing_happens(self, application: Application) -> None:
-        """F1 leaves the desktop as it was."""
+        """Check F1 leaves the desktop as it was.
+
+        :param application: The application.
+        """
         manager = application.manager
         assert manager is not None
         windows = manager.windows
@@ -973,7 +1002,11 @@ class _Noting(Scripted):
         return super().execute(dialog)
 
     def run_keys(self, actions: list[Callable[[], object]], *keys: str) -> None:
-        """Run on these keys, with ``"x"`` running the next of ``actions``."""
+        """Run on keys, with "x" running the next action.
+
+        :param actions: Actions to run.
+        :param keys: The keys.
+        """
         self.actions = actions
         inputs = [raw for key in keys for raw in TYPED.get(key, [key])]
         self.run(cast(Terminal, FakeTerminal(inputs, [(80, 24)])))
@@ -994,7 +1027,10 @@ class DialogTests(PagesCase):
         self.seen = self.manager.seen
 
     def ask(self, *keys: str) -> None:
-        """Show the dialog, press the keys, and finish."""
+        """Show the dialog and press keys.
+
+        :param keys: The keys.
+        """
 
         def ask() -> None:
             self.manager.execute(self.dialog)
@@ -1198,8 +1234,7 @@ class DesktopHelpTests(PagesCase):
         self.assertEqual(window.view.topic, "index")
 
     def test_the_system_menu_does_not_take_the_key_from_applications(self) -> None:
-        """Menu items' shortcuts come before the active window, so an item
-        with the help key would take it from every application."""
+        """The system menu does not take the help key."""
         manager = PresentationManager()
         manager.use_own_help()
         item = next(i for i in manager.system_menu.items if i.label == "&Help")
@@ -1294,8 +1329,10 @@ class ShippedPagesTests(unittest.TestCase):
 
 
 def _on_code_page_437(char: str) -> bool:
-    """Whether code page 437 has a character, including the pictures that
-    Dasha Framework draws for its control codes."""
+    """Whether code page 437 has a character.
+
+    :param char: The character.
+    """
     try:
         char.encode("cp437")
         return True
@@ -1337,7 +1374,7 @@ class _NotingClient(ClientManager):
 
 
 class HostedTests(PagesCase):
-    """The application's side of F1, with the desktop at the end of a pipe."""
+    """F1 in a hosted application."""
 
     def setUp(self) -> None:
         super().setUp()
@@ -1349,7 +1386,11 @@ class HostedTests(PagesCase):
         self.window = self.application.windows[0]
 
     def press(self, window: Window, name: str) -> None:
-        """A key from the desktop."""
+        """A key from the desktop.
+
+        :param window: The window.
+        :param name: The key.
+        """
         self.manager.handle(
             {"type": "key", "id": self.manager.window_id(window), "key": name}
         )
@@ -1404,8 +1445,7 @@ class HostedTests(PagesCase):
         self.assertNotIn(window, self.application.windows)
 
     def test_a_dialog_of_its_own(self) -> None:
-        """Help opens in front of the dialog, the keys go to it, and closing
-        it goes back to the dialog, as it was."""
+        """Help over a dialog of its own."""
         dialog = Dialog("Question", 40, 10)
         box = dialog.add(TextBox(1, 2, 30, name="answer"))
         box.help = "one"
@@ -1432,8 +1472,7 @@ class HostedTests(PagesCase):
         )
 
     def test_typing_ahead_into_a_window_a_dialog_is_blocking(self) -> None:
-        """F1 sent to a window before the desktop knew of the dialog is the
-        dialog's."""
+        """F1 typed ahead into a blocked window."""
         dialog = information("Told", "Something")
         number = self.manager.window_id(self.window)
         help_id = 3

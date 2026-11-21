@@ -1,13 +1,4 @@
-"""Containers, which hold widgets inside a window: collapsible areas, group
-boxes, tab pages and the panes of a splitter.
-
-A container's widgets are still ordinary widgets of the window. They are in
-``window.widgets``, so Tab, mnemonics, ``window.widget(name)`` and
-``dialog.values`` all find them. Each widget knows its container as
-``widget.parent``, and is shown only while every container it is in is
-showing its children (``Widget.is_shown``). Containers of any kind can be
-nested.
-"""
+"""Containers that hold widgets in a window."""
 
 from collections import defaultdict
 from collections.abc import Sequence
@@ -20,31 +11,19 @@ W = TypeVar("W", bound=Widget)
 
 
 class Container:
-    """Holds widgets, positioned relative to its content, which move with
-    the widget it belongs to (its ``anchor``).
-
-    Subclasses provide ``anchor`` and ``content_origin``, and say when their
-    widgets are shown (``is_showing_children``). A collapsible area also takes up
-    room below itself while it is showing them (``opens_below``); every
-    other kind of container keeps its widgets within its own rectangle.
-    """
+    """Holds widgets positioned relative to its content."""
 
     noun = "container"
     """What the container is called in error messages."""
 
     opens_below = False
-    """Whether showing its widgets moves the widgets below it down by
-    their height (as a collapsible area does), rather than the widgets being
-    inside its rectangle."""
+    """Whether showing its widgets pushes those below down."""
 
     sizes_children = False
-    """Whether the container moves and stretches its widgets itself, as
-    their window would (as a splitter's pane does), so that the window's own
-    size changes leave them alone."""
+    """Whether it sizes its own widgets."""
 
     help: str | None = None
-    """The help topic for the widgets in it that have none of their own (see
-    ``dasha.help``). Set it on a container, such as a tab page."""
+    """Help topic for its widgets."""
 
     def __init__(self) -> None:
         self.children: list[Widget] = []
@@ -52,27 +31,23 @@ class Container:
 
     @property
     def anchor(self) -> Widget:
-        """The widget the container belongs to: the container itself, for a
-        container that is a widget, or the widget that owns it, for a tab
-        page or a pane."""
+        """The widget the container belongs to."""
         raise NotImplementedError
 
     @property
     def is_showing_children(self) -> bool:
-        """Whether the container's widgets are shown (if the container itself
-        is)."""
+        """Whether its widgets are shown."""
         return True
 
     def content_origin(self) -> tuple[int, int]:
-        """Where row 0, column 0 of the container's widgets is in the
-        window's content, as laid out (before any collapsible area moved
-        it)."""
+        """Where its content starts in the window."""
         raise NotImplementedError
 
     def add(self, widget: W) -> W:
-        """Put a widget in the container, at the widget's ``row`` and
-        ``column`` relative to the container's content, and return it. The
-        container must already be in a window."""
+        """Add a widget to the container and return it.
+
+        :param widget: The widget to add.
+        """
         window = self.anchor.window
         if window is None:
             raise ValueError(f"add the {self.noun} to a window first")
@@ -95,7 +70,10 @@ class Container:
 
 
 def ancestors(widget: Widget) -> list[Container]:
-    """The containers that a widget is in, nearest first."""
+    """A widget's containers, nearest first.
+
+    :param widget: The widget.
+    """
     found: list[Container] = []
     container = widget.parent
     while container is not None:
@@ -105,25 +83,26 @@ def ancestors(widget: Widget) -> list[Container]:
 
 
 def owners(widget: Widget) -> list[Widget]:
-    """``widget`` itself, then the widgets whose containers it is in,
-    nearest first (such as the tabs on one of whose pages it sits)."""
+    """A widget and the widgets owning its containers.
+
+    :param widget: The widget.
+    """
     return [widget] + [container.anchor for container in ancestors(widget)]
 
 
 def sized_by_container(widget: Widget) -> bool:
-    """Whether a container the widget is in moves and stretches it (as a
-    splitter's pane does), rather than its window doing so."""
+    """Whether a container sizes the widget.
+
+    :param widget: The widget.
+    """
     return any(container.sizes_children for container in ancestors(widget))
 
 
 def lay_out(widgets: Sequence[Widget]) -> None:
-    """Move each of a window's ``widgets`` to where its containers put it:
-    along with the widget its container belongs to, and down by the height
-    of every expanded collapsible area whose header is above it and that it
-    is not inside, as though every area had been collapsed when the window
-    was laid out. Only the rows that the areas add are changed
-    (``Widget.area_shift``), so widgets moved by code, or grown with the
-    window, keep their positions."""
+    """Position widgets for their containers.
+
+    :param widgets: The window's widgets.
+    """
     homes = {widget: widget.rect.row - widget.area_shift for widget in widgets}
     members: dict[Container | None, list[Widget]] = defaultdict(list)
     for widget in widgets:
@@ -135,7 +114,10 @@ def lay_out(widgets: Sequence[Widget]) -> None:
     heights: dict[Container, int] = {}
 
     def opens(widget: Widget) -> bool:
-        """Whether a widget is an area taking room below itself now."""
+        """Whether a widget is an open area.
+
+        :param widget: The widget.
+        """
         return (
             isinstance(widget, Container)
             and widget.opens_below
@@ -143,8 +125,10 @@ def lay_out(widgets: Sequence[Widget]) -> None:
         )
 
     def within(container: Container | None) -> dict[Widget, int]:
-        """How far each widget directly in ``container`` (or the window) is
-        moved down by the open areas above it there."""
+        """How far each widget is moved down.
+
+        :param container: The container, or ``None`` for the window.
+        """
         inside = members[container]
         open_areas = [w for w in inside if opens(w)]
         return {
@@ -153,7 +137,10 @@ def lay_out(widgets: Sequence[Widget]) -> None:
         }
 
     def height(area: Widget) -> int:
-        """How many rows an open area takes below its header."""
+        """Rows an open area takes.
+
+        :param area: The area.
+        """
         assert isinstance(area, Container)
         if area not in heights:
             moved = within(area)

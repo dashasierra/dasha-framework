@@ -1,11 +1,4 @@
-"""The Shortcuts page of Settings...: the keys of every action.
-
-A key is added by pressing it (in ``KeyDialog``), and every change is
-checked as a shortcuts file is, so the keyboard can always leave a menu, a
-dialog and Dasha Framework. Changes work at once, and are saved to the shortcuts
-file when the settings are kept. Load... and Save as... read and write
-other shortcuts files.
-"""
+"""The Shortcuts settings page."""
 
 import json
 import textwrap
@@ -33,19 +26,22 @@ ABOUT_WIDTH = 70
 """How much of an action's description is shown below the table."""
 
 MODIFIER_ACTION = "menu_mnemonic_modifiers"
-"""The one action whose keys are modifiers (held with a menu's letter),
-which are chosen rather than pressed."""
+"""The action whose keys are modifiers."""
 
 
 def shortcuts_json(shortcuts: Shortcuts) -> str:
-    """A shortcuts file holding the bindings that differ from the defaults."""
+    """A shortcuts file of non-default bindings.
+
+    :param shortcuts: The bindings.
+    """
     return json.dumps(shortcuts.overrides, indent=4) + "\n"
 
 
 class KeyDialog(Dialog):
-    """Asks for a key by having it pressed. Every key counts, Escape and
-    Enter included, so only the mouse can press Cancel. ``key`` is the key
-    pressed, once answered ``"ok"``."""
+    """Asks for a key by having it pressed.
+
+    :param action: The action being bound.
+    """
 
     takes_every_key = True
 
@@ -65,9 +61,11 @@ class KeyDialog(Dialog):
 
 
 class ShortcutsPage:
-    """A table of the actions and their keys, with buttons to change the
-    highlighted action's keys, put all of them back, and load or save
-    them."""
+    """Actions and their keys.
+
+    :param dialog: The settings dialog.
+    :param page: Its tab page.
+    """
 
     def __init__(self, dialog: "SettingsDialog", page: TabPage) -> None:
         self.dialog = dialog
@@ -103,8 +101,7 @@ class ShortcutsPage:
         self._describe()
 
     def _describe(self) -> None:
-        """Say what the highlighted action does, below the table (cut short
-        at a word, if it is too long for the line)."""
+        """Describe the highlighted action."""
         about = DESCRIPTIONS.get(self.action, "")
         self.about.text = textwrap.shorten(about, ABOUT_WIDTH, placeholder="...")
 
@@ -122,7 +119,10 @@ class ShortcutsPage:
         return list(self.bindings)[index]
 
     def _change(self, bindings: dict[str, tuple[str, ...]]) -> None:
-        """Use these bindings, if they are allowed; otherwise say why not."""
+        """Use bindings if allowed.
+
+        :param bindings: Keys by action.
+        """
         try:
             shortcuts = Shortcuts(
                 {action: list(keys) for action, keys in bindings.items()}
@@ -141,8 +141,10 @@ class ShortcutsPage:
         self._change({**self.bindings, action: keys})
 
     def _add_key(self, button: Button | None) -> None:
-        """Add a key to the highlighted action (Add key..., or a
-        double-click or Enter on the action)."""
+        """Add a key to the highlighted action.
+
+        :param button: The button pressed, if any.
+        """
         del button
         action = self.action
         if action == MODIFIER_ACTION:
@@ -212,8 +214,7 @@ class ShortcutsPage:
             )
 
     def save(self) -> bool:
-        """Keep the shortcuts for next time, in the shortcuts file, if they
-        have changed. Returns whether all went well."""
+        """Save the shortcuts; return whether all went well."""
         if self.bindings == self._saved:
             return True
         path = self.manager.shortcuts_path

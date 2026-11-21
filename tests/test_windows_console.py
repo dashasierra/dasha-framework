@@ -24,7 +24,10 @@ if sys.platform == "win32":
     )
 
     def make_records(*specs: tuple[int, str, bool]) -> "list[INPUT_RECORD]":
-        """Build input records from (event type, character, key down)."""
+        """Build input records.
+
+        :param specs: (event type, character, key down) triples.
+        """
         records = []
         for event_type, char, down in specs:
             record = INPUT_RECORD(EventType=event_type)
@@ -38,7 +41,10 @@ if sys.platform == "win32":
         """Turning console input records into text."""
 
         def convert(self, *specs: tuple[int, str, bool]) -> tuple[str, bool]:
-            """Run records_to_text over records built from specs."""
+            """Run ``records_to_text`` on built records.
+
+            :param specs: (event type, character, key down) triples.
+            """
             records = make_records(*specs)
             array = (INPUT_RECORD * len(records))(*records)
             return records_to_text(array, len(records))
@@ -69,9 +75,7 @@ if sys.platform == "win32":
             self.assertEqual(text, chr(0x1F600))
 
         def test_halves_split_between_reads(self) -> None:
-            """A first half at the end of one read is held back and joined to
-            the second half at the start of the next, rather than becoming
-            two replacement characters."""
+            """Halves split between reads."""
             held: list[int] = []
             first = make_records((KEY_EVENT, "a", True), (KEY_EVENT, chr(0xD83D), True))
             second = make_records(
@@ -90,8 +94,7 @@ if sys.platform == "win32":
             self.assertEqual(records_to_text(array, 1), ("xxx", False))
 
         def test_space_release_is_reported(self) -> None:
-            """Letting go of Space becomes the release sequence; other
-            releases are still skipped."""
+            """A Space release is reported."""
             records = make_records(
                 (KEY_EVENT, " ", True), (KEY_EVENT, " ", False), (KEY_EVENT, "x", False)
             )
@@ -105,15 +108,18 @@ if sys.platform == "win32":
     def buffer(
         columns: int, lines: int, window: tuple[int, int, int, int]
     ) -> CONSOLE_SCREEN_BUFFER_INFO:
-        """A screen buffer's size, and its window's (left, top, right,
-        bottom)."""
+        """A screen buffer's info.
+
+        :param columns: Buffer width.
+        :param lines: Buffer height.
+        :param window: Window (left, top, right, bottom).
+        """
         return CONSOLE_SCREEN_BUFFER_INFO(
             dwSize=COORD(columns, lines), srWindow=SMALL_RECT(*window)
         )
 
     class OutgrownWindowTests(unittest.TestCase):
-        """Noticing a resize that leaves the screen buffer larger than the
-        window, as restoring the classic console from maximised does."""
+        """Noticing an outgrown window."""
 
         def setUp(self) -> None:
             self.console = WindowsConsole()
@@ -123,8 +129,10 @@ if sys.platform == "win32":
             self.addCleanup(waiting.stop)
 
         def read_resize(self, info: "CONSOLE_SCREEN_BUFFER_INFO | OSError") -> str:
-            """Read one window buffer size event, with the buffer and window
-            as ``info`` says (or failing to tell)."""
+            """Read one resize event.
+
+            :param info: Buffer info, or an error.
+            """
 
             def one_resize(
                 _handle: int, records: "ctypes.Array[INPUT_RECORD]", *args: Any
@@ -141,8 +149,7 @@ if sys.platform == "win32":
                 return self.console.read(0)
 
         def test_restored_window_is_reported(self) -> None:
-            """A maximised window restored: 213x63 left in a 118x28 window,
-            scrolled to the bottom."""
+            """A restored window is reported."""
             self.assertEqual(self.read_resize(buffer(213, 63, (0, 35, 117, 62))), "")
             self.assertTrue(self.console.is_woken)
             self.assertTrue(self.console.has_outgrown_window)
@@ -159,8 +166,7 @@ if sys.platform == "win32":
             self.assertFalse(self.console.has_outgrown_window)
 
         def test_refit_fits_the_main_buffer_and_clears_the_report(self) -> None:
-            """Refitting shrinks the (main) buffer again, carrying on if that
-            fails, and the report is dealt with."""
+            """Refit fits the main buffer."""
             self.read_resize(buffer(213, 63, (0, 35, 117, 62)))
             # pylint: disable-next=protected-access
             hider = self.console._scroll_bars

@@ -76,9 +76,7 @@ class CanvasTests(unittest.TestCase):
         self.assertEqual(after.render(after), "")
 
     def test_control_characters_are_never_sent(self) -> None:
-        """Control characters (from a file's name, say) are drawn as code
-        page 437 pictures, so the terminal cannot take them as commands;
-        the canvas keeps them as they are."""
+        """Control characters are never sent."""
         unsafe = "\x1b\x07\x7f\x9b"  # escape, bell, delete, one-byte CSI
         canvas = Canvas(4, 1)
         canvas.write(0, 0, unsafe)

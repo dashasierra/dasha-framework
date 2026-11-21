@@ -8,7 +8,12 @@ from dasha.style import BLACK, BLUE, CYAN, Style
 
 
 def paint(desktop: Desktop, width: int, height: int) -> Canvas:
-    """Paint a desktop onto a fresh canvas."""
+    """Paint a desktop onto a fresh canvas.
+
+    :param desktop: The desktop.
+    :param width: Canvas width.
+    :param height: Canvas height.
+    """
     canvas = Canvas(width, height)
     desktop.paint(canvas)
     return canvas
@@ -18,8 +23,7 @@ class DesktopTests(unittest.TestCase):
     """The desktop fills the screen and can be customised."""
 
     def test_default_pattern_is_light_shade(self) -> None:
-        """The default is code page 437 character 176, as Unicode, in cyan
-        on black."""
+        """The default pattern is light shade."""
         self.assertEqual(Desktop.pattern, "\N{LIGHT SHADE}")
         self.assertEqual(Desktop.style, Style(foreground=CYAN, background=BLACK))
 

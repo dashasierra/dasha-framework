@@ -1,10 +1,4 @@
-"""A text area holding a big file: about 5 MB, 100,000 lines.
-
-Typing, moving and painting must cost about what they cost in a short
-text, not time in proportion to the whole of it. The time bounds are
-generous, for slow machines; work proportional to the text on every key
-breaks them by far.
-"""
+"""Tests for a text area holding a big file."""
 
 import random
 import time
@@ -20,8 +14,7 @@ LINES = 100_000
 LINE = "The quick brown fox jumps over the lazy dog, now and again.\t1234"
 
 BOUND = 0.25
-"""Seconds each step may take at most: generous, as a step without work in
-proportion to the text takes well under a millisecond."""
+"""Most seconds per step."""
 
 
 def big_editor() -> tuple[Window, TextArea]:
@@ -41,7 +34,11 @@ class LargeTextTests(unittest.TestCase):
         self.canvas = Canvas(80, 25)
 
     def timed(self, label: str, action: object) -> None:
-        """Run ``action`` (a callable) and check it was quick enough."""
+        """Run an action and check it was quick.
+
+        :param label: What it does.
+        :param action: The callable.
+        """
         assert callable(action)
         start = time.perf_counter()
         action()
@@ -49,7 +46,11 @@ class LargeTextTests(unittest.TestCase):
         self.assertLess(took, BOUND, f"{label} took {took:.3f}s")
 
     def key(self, name: str, times: int = 1) -> None:
-        """Press a key in the text area (``times`` times)."""
+        """Press a key in the text area.
+
+        :param name: The key.
+        :param times: How many times.
+        """
         for _ in range(times):
             self.area.handle_key(name, self.shortcuts)
 
@@ -66,8 +67,7 @@ class LargeTextTests(unittest.TestCase):
         self.assertLess(time.perf_counter() - start, 8 * BOUND)
 
     def test_typing_moving_and_painting(self) -> None:
-        """Typing a character, moving to the end, and painting, each a
-        moment's work, here and at the end of the text."""
+        """Typing, moving and painting are quick."""
         self.timed("painting", self.paint)
         # A hundred together, so even a few milliseconds each of work in
         # proportion to the text adds up to more than the bound.
@@ -86,8 +86,7 @@ class LargeTextTests(unittest.TestCase):
         self.assertEqual(len(self.area.lines), LINES)
 
     def test_width_follows_the_widest_line(self) -> None:
-        """The text area is as wide as its widest line, as lines grow and
-        shrink: the widest is kept count of, not measured afresh."""
+        """The width follows the widest line."""
         interior = self.window.interior.width
         self.assertEqual(self.area.rect.width, interior)  # the lines fit
         self.key("end")
@@ -104,8 +103,7 @@ class LargeTextTests(unittest.TestCase):
         self.assertEqual(self.area.rect.width, interior)
 
     def test_random_edits_keep_the_width_right(self) -> None:
-        """After random edits, undos and redos, the width is what measuring
-        every line gives."""
+        """Random edits keep the width right."""
         rng = random.Random(1)
         window = Window("Small", Rect(0, 0, 12, 30), resizable=True)
         area = window.add(TextArea(0, 0, text="one\ntwo\tthree\n\nfour"))

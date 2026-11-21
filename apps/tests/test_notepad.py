@@ -16,7 +16,7 @@ ALT_F4 = "\x1b[1;3S"
 
 
 class _Notepad(unittest.TestCase):
-    """A folder with a file in it, and a desktop to run Notepad on."""
+    """A folder with a file, and a desktop."""
 
     def setUp(self) -> None:
         folder = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
@@ -27,19 +27,29 @@ class _Notepad(unittest.TestCase):
         self.manager.handle_resize(80, 24)
 
     def file(self, name: str, text: str) -> str:
-        """Write a file in the test's folder; returns its path."""
+        """Write a file; return its path.
+
+        :param name: File name.
+        :param text: Its text.
+        """
         path = os.path.join(self.root, name)
         with open(path, "w", encoding="utf-8", newline="") as file:
             file.write(text)
         return path
 
     def text_of(self, path: str) -> str:
-        """A file's text."""
+        """A file's text.
+
+        :param path: The file.
+        """
         with open(path, encoding="utf-8", newline="") as file:
             return file.read()
 
     def launch(self, *paths: str) -> tuple[Notepad, NotepadWindow]:
-        """Notepad with these files, and its front window."""
+        """Notepad with files, and its front window.
+
+        :param paths: Files to open.
+        """
         notepad = self.manager.launch(Notepad(paths))
         assert isinstance(notepad, Notepad)
         window = notepad.windows[-1]
@@ -86,8 +96,7 @@ class NotepadTests(_Notepad):
         self.assertEqual(self.text_of(self.notes), "Oh, hello\nworld\n")
 
     def test_keeps_line_endings(self) -> None:
-        """A file with Windows line endings is saved with them; the text
-        area itself only ever has \\n."""
+        """Keeps line endings."""
         path = self.file("windows.txt", "one\r\ntwo\r\n")
         _, window = self.launch(path)
         self.assertEqual(window.area.text, "one\ntwo\n")
@@ -134,8 +143,7 @@ class NotepadTests(_Notepad):
         self.assertIsNone(notepad.open_path(path))
 
     def test_unreadable_file_named_at_start(self) -> None:
-        """A file named on the command line that cannot be read is not
-        opened, and says why once the desktop is running."""
+        """An unreadable file named at start."""
         path = os.path.join(self.root, "binary.dat")
         with open(path, "wb") as file:
             file.write(b"\xff\xfe\x00")
@@ -184,7 +192,7 @@ class NotepadTests(_Notepad):
         self.assertTrue(notepad.is_running)  # runs on, windows or not
 
     def test_save_as(self) -> None:
-        """Save as: a new name in the file dialog, and the title follows."""
+        """Save as."""
         _, window = self.launch(self.notes)
         self.manager.actions += [window.save_as, self.manager.quit]
         run(self.manager, ["x", "\x01", *"other.txt", "\r", "x"])  # Ctrl+A, type
@@ -193,8 +201,7 @@ class NotepadTests(_Notepad):
         self.assertEqual(self.text_of(other), "hello\nworld\n")
 
     def test_save_as_that_fails_keeps_the_name(self) -> None:
-        """If the new file cannot be written, the window is still the file
-        it was."""
+        """A failed Save as keeps the name."""
         _, window = self.launch(self.notes)
         self.manager.actions += [window.save_as, self.manager.quit]
         with mock.patch.object(NotepadWindow, "save", return_value=False):
@@ -202,8 +209,7 @@ class NotepadTests(_Notepad):
         self.assertEqual((window.path, window.title), (self.notes, "notes.txt"))
 
     def test_a_failed_save_keeps_the_file(self) -> None:
-        """The disk filling part-way through a save: the file still has its
-        old text, the window still has its changes, and it says so."""
+        """A failed save keeps the file."""
         _, window = self.launch(self.notes)
         window.area.insert("changed ")
         full = OSError(28, "No space left on device")
@@ -246,8 +252,7 @@ class NotepadTests(_Notepad):
         self.assertTrue(window.modified)
 
     def test_exit_with_a_minimised_window(self) -> None:
-        """A minimised window with unsaved changes comes back to ask about
-        them at shutdown; Save keeps them."""
+        """Exit with a minimised window."""
         _, window = self.launch(self.notes)
         window.area.insert("more ")
         self.manager.minimise(window)
@@ -270,9 +275,7 @@ class DisplayTests(_Notepad):
     """What a Notepad window shows: its text, and the cursor's place."""
 
     def test_escape_sequences_shown_not_sent(self) -> None:
-        """A file holding escape sequences shows them as code page 437
-        pictures, sends none of them to the terminal, and is saved back
-        just as it was."""
+        """Escape sequences shown, not sent."""
         text = "Title\x1b]0;pwned\x07 and \x1b[2Jclear\n"
         path = self.file("escapes.txt", text)
         _, window = self.launch(path)
@@ -288,8 +291,7 @@ class DisplayTests(_Notepad):
         self.assertEqual(self.text_of(path), text)
 
     def test_cursor_place_at_the_foot(self) -> None:
-        """COL:ROW at the foot of the frame, both from 1: a tab counts as
-        one character; with word wrap, ROW counts lines, not rows."""
+        """Cursor position at the foot."""
         notepad, window = self.launch()
         self.assertEqual(window.footer_parts(), ["1:1"])
         window.load(path=self.notes, text="\tab\nsecond")
@@ -305,8 +307,7 @@ class DisplayTests(_Notepad):
         self.assertTrue(edge.startswith(f"╚═ {character + 1}:1 ═"), edge)
 
     def test_changes_marked_at_the_foot(self) -> None:
-        """``☼`` before COL:ROW while there are changes to save, the
-        frame's own line between them; saving takes it away."""
+        """Changes marked at the foot."""
         _, window = self.launch(self.notes)
         window.area.insert("x")
         self.assertEqual(window.footer_parts(), [MODIFIED, "2:1"])
@@ -315,7 +316,10 @@ class DisplayTests(_Notepad):
         self.assertEqual(window.footer_parts(), ["2:1"])
 
     def bottom_edge(self, window: NotepadWindow) -> str:
-        """A window's bottom edge, as the desktop draws it."""
+        """A window's bottom edge.
+
+        :param window: The window.
+        """
         canvas = Canvas(80, 24)
         self.manager.compose(canvas)
         return canvas.text(window.rect.bottom - 1)[window.rect.column :]
@@ -325,15 +329,14 @@ class MenuTests(_Notepad):
     """Notepad's Edit and Format menus."""
 
     def test_no_letter_is_repeated(self) -> None:
-        """No two menus on the bar, and no two items of a menu, share a
-        letter."""
+        """No letter is repeated."""
         self.launch(self.notes)
         menu_bar = MenuBar()
         menu_bar.set_menus(self.manager.bar_menus())
         menu_bar.check_mnemonics()
 
     def test_insert_needs_a_window(self) -> None:
-        """Edit > Insert, and everything in it, greyed out with no file open."""
+        """Insert needs a window."""
         notepad, window = self.launch()
         insert = next(i for i in notepad.menus[1].items if i.label == "&Insert")
         assert insert.submenu is not None
@@ -345,7 +348,7 @@ class MenuTests(_Notepad):
         self.assertEqual([item.label for item in everything if item.is_available], [])
 
     def test_menus_act_on_the_front_window(self) -> None:
-        """Edit acts on the file in front, and is greyed out with none."""
+        """Menus act on the front window."""
         notepad, first = self.launch(self.notes)
         second = notepad.new()
         edit = notepad.menus[1]
@@ -366,8 +369,7 @@ class MenuTests(_Notepad):
         self.assertTrue(notepad.is_running)
 
     def test_word_wrap(self) -> None:
-        """Format > Word wrap, off to begin with, wraps every window, and
-        those opened later; it is marked while on, and turns off again."""
+        """Word wrap."""
         notepad, first = self.launch(self.notes)
         wrap = notepad.menus[2].items[0]
         self.assertEqual(wrap.label, "  &Word wrap")
@@ -382,8 +384,7 @@ class MenuTests(_Notepad):
         self.assertEqual(wrap.label, "  &Word wrap")
 
     def test_line_numbers(self) -> None:
-        """Format > Line numbers, off to begin with, numbers every window's
-        lines, and those opened later; marked while on, it turns off again."""
+        """Line numbers."""
         notepad, first = self.launch(self.notes)
         numbers = notepad.menus[2].items[1]
         self.assertEqual(numbers.label, "  &Line numbers")

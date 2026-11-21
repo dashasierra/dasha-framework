@@ -38,8 +38,7 @@ class MnemonicTests(unittest.TestCase):
 
 
 class DuplicateMnemonicTests(unittest.TestCase):
-    """Two items, or two menu titles, marking the same letter: the first
-    keeps it, and the others are treated as having none."""
+    """Repeated mnemonic letters."""
 
     def setUp(self) -> None:
         self.chosen: list[str] = []
@@ -90,8 +89,7 @@ class DuplicateMnemonicTests(unittest.TestCase):
         self.assertEqual(self.chosen, ["default"])
 
     def test_a_disabled_first_does_not_pass_it_on(self) -> None:
-        """With the first greyed out, the letter does nothing, rather than
-        choosing the later item whose letter is not shown."""
+        """A disabled first item does not pass its letter on."""
         self.themes.items[0].action = None
         self.menu_bar.open(0)
         self.menu_bar.handle_key("d")
@@ -109,8 +107,7 @@ class DuplicateMnemonicTests(unittest.TestCase):
         self.assertEqual(canvas.cell(5, 3), ("M", self.menu_bar.mnemonic_style))
 
     def test_check_the_bar(self) -> None:
-        """The bar checks its titles, and each menu's items, filled in by
-        ``on_open`` first."""
+        """The bar checks its titles and menus."""
         self.menu_bar.set_menus([Menu("&File"), Menu("&Format")])
         with self.assertRaisesRegex(DuplicateMnemonicError, "&Format"):
             self.menu_bar.check_mnemonics()
@@ -123,8 +120,7 @@ class DuplicateMnemonicTests(unittest.TestCase):
             self.menu_bar.check_mnemonics()
 
     def test_menu_titles(self) -> None:
-        """On the bar too: Alt+F opens the first F menu, and only its F is
-        lit, even with that menu inert."""
+        """Repeated letters among menu titles."""
         file, form = Menu("&File", [MenuItem("&New", print)]), Menu("&Format")
         self.menu_bar.set_menus([file, form])
         self.menu_bar.handle_key("alt+f")
@@ -142,9 +138,7 @@ class BuiltInMenusTests(unittest.TestCase):
     """Dasha Framework's own menus never repeat a letter."""
 
     def test_the_desktops_menus(self) -> None:
-        """The system menu (with Themes, and running applications listed),
-        an application's Window menu, and the bar with a window of no
-        application's in front."""
+        """The desktop's built-in menus."""
         manager = PresentationManager()
         manager.handle_resize(80, 24)
         manager.launch(Hello)
@@ -196,8 +190,7 @@ class MenuBarTests(unittest.TestCase):
         self.assertIs(self.menu_bar.open_menu, self.file)
 
     def test_arrows_move_and_skip_separators(self) -> None:
-        """Up and down wrap, skipping separators and disabled items; left and
-        right switch menus."""
+        """Arrows move and skip separators."""
         self.menu_bar.open(0)
         self.assertEqual(self.menu_bar.highlighted, self.file.items[0])
         self.menu_bar.handle_key("down")  # past disabled Open and the separator
@@ -214,9 +207,7 @@ class MenuBarTests(unittest.TestCase):
         self.assertIs(self.menu_bar.open_menu, self.help)
 
     def test_left_and_right_with_one_menu(self) -> None:
-        """With no other menu on the bar and no submenu, Left and Right do
-        nothing: the highlight stays where it is, and ``on_open`` is not run
-        again."""
+        """Left and Right with one menu."""
         opened: list[Menu] = []
         self.file.on_open = opened.append
         self.menu_bar.set_menus(menus=[self.file])
@@ -239,8 +230,7 @@ class MenuBarTests(unittest.TestCase):
         self.assertEqual(self.chosen, ["new", "exit"])
 
     def test_letter_opens_another_menu(self) -> None:
-        """In an open menu, a letter no item here uses opens the menu on the
-        bar with that mnemonic; the open menu's own letter does nothing."""
+        """A letter opens another menu."""
         self.menu_bar.open(0)
         self.assertTrue(self.menu_bar.handle_key("h"))
         self.assertIs(self.menu_bar.open_menu, self.help)
@@ -251,8 +241,7 @@ class MenuBarTests(unittest.TestCase):
         self.assertEqual(self.chosen, [])
 
     def test_item_letter_beats_menu_letter_only_when_enabled(self) -> None:
-        """An enabled item with the letter is chosen rather than opening the
-        menu with it; a disabled one does not claim the letter."""
+        """An enabled item's letter beats a menu's."""
         window = Menu("&Window", [MenuItem("&Tile", print)])
         file = Menu(
             "&File",
@@ -291,8 +280,7 @@ class MenuBarTests(unittest.TestCase):
         self.assertEqual(canvas.cell(5, 3)[1], self.menu_bar.selected_style)
 
     def test_menu_with_nothing_enabled(self) -> None:
-        """A menu of disabled items opens with nothing highlighted, all of it
-        greyed out, shortcuts included; keys and the mouse change nothing."""
+        """A menu with nothing enabled."""
         dead = Menu(
             "&Edit",
             [MenuItem("&Cut", None, "Ctrl+X"), separator(), MenuItem("&Paste")],
@@ -363,11 +351,15 @@ class MenuBarTests(unittest.TestCase):
         self.assertEqual(rect.right, 12)
 
     def click(self, row: int, column: int) -> bool:
-        """Left-click at a position on a 40-column screen."""
+        """Left-click on a 40-column screen.
+
+        :param row: Screen row.
+        :param column: Screen column.
+        """
         return self.menu_bar.handle_mouse(MouseEvent("press", "left", row, column), 40)
 
     def test_mouse_opens_toggles_and_chooses(self) -> None:
-        """Click a title to open or close it; click an item to choose it."""
+        """The mouse opens, toggles and chooses."""
         click = self.click
         self.assertTrue(click(0, 8))
         self.assertIs(self.menu_bar.open_menu, self.help)
@@ -393,31 +385,28 @@ class MenuBarTests(unittest.TestCase):
         )
 
     def test_shortcut_hint_chooses_item_when_closed(self) -> None:
-        """The key a hint shows chooses its item with every menu closed;
-        a disabled item's key passes on."""
+        """A shortcut chooses its item when closed."""
         self.assertTrue(self.menu_bar.handle_key("ctrl+n"))
         self.assertEqual(self.chosen, ["new"])
         self.assertFalse(self.menu_bar.handle_key("f3"))  # Open is disabled
         self.assertFalse(self.menu_bar.handle_key("ctrl+m"))
 
     def test_shortcut_hint_chooses_item_when_open(self) -> None:
-        """With a menu open, even another one, the hinted key still works,
-        and closes the menu."""
+        """A shortcut chooses its item when open."""
         self.menu_bar.open(1)  # Help
         self.assertTrue(self.menu_bar.handle_key("ctrl+n"))
         self.assertEqual(self.chosen, ["new"])
         self.assertFalse(self.menu_bar.is_open)
 
     def test_plain_character_hints_do_nothing(self) -> None:
-        """A hint of a single character would steal typing, so it is ignored."""
+        """Plain character hints do nothing."""
         self.file.items.append(MenuItem("&Quit", lambda: self.chosen.append("q"), "Q"))
         self.assertFalse(self.menu_bar.handle_key("q"))
         self.assertFalse(self.menu_bar.handle_key("Q"))
         self.assertEqual(self.chosen, [])
 
     def test_alt_f3_closes_window_with_menu_open(self) -> None:
-        """The reported bug: Window > Close shows Alt+F3, and Alt+F3 works
-        with that menu showing."""
+        """Alt+F3 closes a window with a menu open."""
         window = Window("W", Rect(2, 2, 5, 20), closable=True)
         manager = PresentationManager(windows=[window])
         window.menus = [
@@ -434,7 +423,7 @@ class MenuBarTests(unittest.TestCase):
         self.assertFalse(manager.menu_bar.is_open)
 
     def test_changing_menus_closes_open_menu(self) -> None:
-        """A different list of menus closes the open one; the same list does not."""
+        """Changing menus closes the open one."""
         self.menu_bar.open(1)
         self.menu_bar.set_menus([self.file, self.help])
         self.assertTrue(self.menu_bar.is_open)

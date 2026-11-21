@@ -1,5 +1,4 @@
-"""Spin boxes, which hold a whole number within a fixed range, typed in or
-stepped up and down with ``▼`` and ``▲``."""
+"""Spin boxes."""
 
 import time
 from collections.abc import Callable
@@ -14,46 +13,26 @@ from dasha.widgets.textbox import TextBox
 
 
 class SpinBox(Widget):  # pylint: disable=too-many-instance-attributes
-    """A ``SpinBox`` holds a whole number within a fixed range, from ``minimum``
-    to ``maximum``, both given when it is created. The number is in a text box,
-    with ``▼`` and ``▲`` on its right to step it:
+    """A number in a range, typed or stepped.
 
-    ::
-
-         42      ▼▲
-
-    - Up / Down (``spin_up`` / ``spin_down``): step the number by ``step``
-      (1 by default)
-    - Page Up / Page Down (``spin_page_up`` / ``spin_page_down``): step it by
-      ``page`` (10 steps by default)
-    - A click on ``▲`` or ``▼``: step it, repeating while the button is held
-      down
-    - The mouse wheel: step it
-    - Digits (and ``-``, for ranges below 0): type a number
-
-    Stepping stops at either end of the range. When the box receives the focus,
-    the number is selected, so typing replaces it; the rest of the text box's
-    editing works too. What was typed takes effect once the focus leaves, when
-    Enter, Tab or Escape is pressed, or when the number is stepped. If it is not
-    a whole number within the range (``150`` for a range of 0 to 100, or nothing
-    at all), it is discarded, and the number goes back to what it was before
-    typing began. Enter, Tab and Escape are then passed on to the window, so
-    Enter presses a dialog's default button with the typed number already
-    accepted.
-
-    ``value`` is the number, which is kept within range when code sets it.
-    ``set(value)`` changes it as the user does, ``commit()`` accepts what was
-    typed, and ``on_change(box)`` is called for every change the user makes. The
-    text box is ``field``, in the text box's colours, and the arrows use
-    ``spinbox.arrows``.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param width: Width in columns.
+    :param minimum: Smallest value.
+    :param maximum: Largest value.
+    :param value: Initial value, or ``None`` for the minimum.
+    :param step: Amount of one step.
+    :param page: Amount of one page, if not ten steps.
+    :param on_change: Called with the box when the user changes it.
+    :param name: Widget name.
+    :param status: Status bar text.
     """
 
     focusable = True
     arrow_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
     """The style of the ``▼▲`` on the right."""
     min_width: int = 5
-    """The narrowest width: a text box's three columns, and the two
-    arrows."""
+    """Narrowest width."""
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
@@ -97,8 +76,7 @@ class SpinBox(Widget):  # pylint: disable=too-many-instance-attributes
 
     @property
     def value(self) -> int:
-        """The number. Setting it from code keeps it within range, and does
-        not call ``on_change``."""
+        """The number."""
         return self._value
 
     @value.setter
@@ -107,8 +85,10 @@ class SpinBox(Widget):  # pylint: disable=too-many-instance-attributes
         self.field.text = str(self._value)
 
     def parse(self, text: str) -> int | None:
-        """The number that ``text`` holds, if it is a whole number within the
-        range."""
+        """The number some text holds, if valid.
+
+        :param text: The text.
+        """
         try:
             number = int(text)
         except ValueError:
@@ -116,21 +96,25 @@ class SpinBox(Widget):  # pylint: disable=too-many-instance-attributes
         return number if self.minimum <= number <= self.maximum else None
 
     def set(self, value: int) -> None:
-        """Change the number as the user does, keeping it within range and
-        calling ``on_change`` if it changed."""
+        """Change the number, as the user does.
+
+        :param value: New value.
+        """
         before = self._value
         self.value = value
         if self._value != before and self.on_change is not None:
             self.on_change(self)
 
     def commit(self) -> None:
-        """Accept what was typed, if it is a number within the range; otherwise
-        put the number back as it was."""
+        """Accept the typed number, or restore the old one."""
         typed = self.parse(self.field.text)
         self.set(self._value if typed is None else typed)
 
     def step_by(self, amount: int) -> None:
-        """Step the number (after accepting what was typed)."""
+        """Step the number.
+
+        :param amount: Amount to step by.
+        """
         self.commit()
         self.set(self._value + amount)
 
@@ -143,14 +127,15 @@ class SpinBox(Widget):  # pylint: disable=too-many-instance-attributes
         self.field.window = self.window
 
     def _place_field(self) -> None:
-        """Keep the text box where the spin box is, less the arrows (the
-        spin box may have been moved or stretched)."""
+        """Keep the text box in place."""
         rect = self.rect
         self.field.rect = Rect(rect.row, rect.column, 1, rect.width - 2)
 
     def focus_changed(self, focused: bool) -> None:
-        """When the focus arrives, select the number, so that typing replaces
-        it; when the focus leaves, accept what was typed."""
+        """Select or accept the number.
+
+        :param focused: Whether the box now has the focus.
+        """
         if focused:
             self.field.select_all()
         else:
@@ -171,9 +156,11 @@ class SpinBox(Widget):  # pylint: disable=too-many-instance-attributes
         return steps + self.field.key_help(shortcuts)
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """Step the number, or edit it as text. A key the box does not use
-        (Enter, Tab or Escape) first accepts what was typed, and is then
-        passed on to the window."""
+        """Step or edit the number.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         steps = {
             "spin_up": self.step,
             "spin_down": -self.step,
@@ -194,13 +181,19 @@ class SpinBox(Widget):  # pylint: disable=too-many-instance-attributes
         return self.field.handle_paste(text)
 
     def _arrow_at(self, column: int) -> int:
-        """Which way an arrow at ``column`` steps: 1 for ``▲``, -1 for
-        ``▼``, 0 off the arrows."""
+        """An arrow's step direction: 1, -1 or 0.
+
+        :param column: Column in the box.
+        """
         return {self.rect.right - 2: -1, self.rect.right - 1: 1}.get(column, 0)
 
     def handle_mouse(self, event: MouseEvent, row: int, column: int) -> bool:
-        """The arrows step the number (repeating while held down), the mouse
-        wheel steps it, and everything else goes to the text box."""
+        """Step with the arrows or wheel.
+
+        :param event: The mouse event.
+        :param row: Row in the window's interior.
+        :param column: Column in the window's interior.
+        """
         self._place_field()
         if event.action == "scroll":
             self.step_by(self.step if event.button in ("up", "right") else -self.step)
@@ -227,7 +220,10 @@ class SpinBox(Widget):  # pylint: disable=too-many-instance-attributes
         return repeat if repeat is not None else self.field.wake_time()
 
     def on_timer(self, now: float) -> None:
-        """Repeat a held arrow, while the pointer stays on it."""
+        """Repeat a held arrow.
+
+        :param now: The current ``time.monotonic``.
+        """
         repeat = self._repeat
         if repeat.part is not None:
             on = self._arrow_at(repeat.column) if repeat.row == self.rect.row else 0

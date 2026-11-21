@@ -1,5 +1,4 @@
-"""The base class of check boxes and radio buttons, each of which is a
-group of options (a cluster)."""
+"""The base class of option groups."""
 
 from collections.abc import Callable, Iterable, Sequence
 from typing import TypedDict
@@ -20,102 +19,17 @@ from dasha.widgets.base import Widget
 
 
 class Cluster(Widget):  # pylint: disable=too-many-instance-attributes
-    """``CheckBoxes`` and ``RadioButtons`` are groups of options, known as
-    clusters. The difference between them is how many options can be marked:
-    any number of check boxes, but exactly one radio button.
+    """A group of options: check boxes or radio buttons.
 
-    ::
-
-        dialog.add(
-            widget=RadioButtons(
-                labels=["&Small", "&Medium", "&Large"],
-                row=2,
-                column=2,
-                selected=1,
-                name="size",
-            )
-        )
-        dialog.add(
-            widget=CheckBoxes(
-                labels=["&Bold", "&Italic", "&Underline"],
-                row=2,
-                column=20,
-                checked=[0],
-                name="style",
-            )
-        )
-        ...
-        dialog.values  # {"size": 1, "style": (0,)}
-
-    Each group is a single widget, so Tab moves to it, and past it, as a
-    whole. Its rows are drawn as ``" [X] Label"`` and ``" (•) Label"`` (``•`` is
-    code page 437 glyph 7) in black on cyan, at least as wide as the longest
-    label, or ``width`` if that is wider. While a group has the focus, its
-    current option is highlighted.
-
-    - Up / Down (``option_up`` / ``option_down``): for check boxes, move to
-      another option; for radio buttons, move to another option and select it
-    - Left / Right (``option_left`` / ``option_right``), with columns: for check
-      boxes, move to the next column; for radio buttons, move and select
-    - Space (``option_press``): for check boxes, check or uncheck the current
-      option; for radio buttons, select the current option
-    - An option's letter (Alt with the letter, or the letter alone in a dialog):
-      for check boxes, move to the option and check or uncheck it; for radio
-      buttons, move to the option and select it
-    - A click on an option: for check boxes, check or uncheck it; for radio
-      buttons, select it
-
-    Enter is left for the dialog's default button. Up and Down stop at the first
-    and last options.
-
-    **Columns.** ``columns=3`` lays the options out in three columns, filled
-    from top to bottom and then from left to right. ``rows`` is how many options
-    each column holds (the last column may hold fewer). Each column is as wide as
-    its own longest label, and ``width``, if it is wider, widens the last column.
-    Up and Down run on from the bottom of one column to the top of the next, and
-    Left and Right move to the next column, to the enabled option nearest the
-    same row. With a single column, Left and Right are left for the window.
-
-    ::
-
-        CheckBoxes(
-            labels=["&Windows", "M&enus", "Mo&use", "&Dialogs", "&Themes", "&Plugins"],
-            row=2,
-            column=22,
-            columns=2,
-            checked=[3],
-            disabled=[5],
-        )
-        #  [ ] Windows  [X] Dialogs
-        #  [ ] Menus    [ ] Themes
-        #  [ ] Mouse    [ ] Plugins   (greyed out)
-
-    **Disabled options.** The options whose indexes are given in
-    ``disabled=`` are greyed out (``cluster.disabled``). They cannot be pressed by
-    key, click or letter, their letters are free for other widgets to use, and
-    moving skips over them. ``disable(*indexes)`` and ``enable(*indexes)`` change
-    this later, and ``is_enabled(index)`` and the ``disabled`` set say which
-    options are which. Code can still ``press`` a disabled option. If the current
-    option is disabled, the next enabled one becomes current. A radio button can
-    stay selected while it is disabled, but cannot be chosen again. A group whose
-    options are all disabled cannot take the focus, so Tab skips over it. Whether
-    any widget can take the focus at the moment is given by its ``can_focus()``,
-    which is ``focusable`` unless the widget decides otherwise.
-
-    - **Check boxes.** ``value`` is a tuple of the indexes of the checked
-      options, ``checked`` is a list of ``True`` or ``False`` values (which code
-      can change), and ``checked_labels`` holds the checked options' labels
-      without their ``&``.
-    - **Radio buttons.** ``value`` and ``selected`` are the index of the selected
-      option, and ``selected_label`` is its label without the ``&``.
-
-    ``on_change(group)`` is called whenever an option is pressed, by the user
-    or by code calling ``press``; changing ``checked`` or ``selected``
-    directly notifies no one. Both kinds share
-    the base class ``Cluster``, whose ``marks`` (``("[ ]", "[X]")``) a subclass
-    can change.
-
-    The layout is worked out when the group is created.
+    :param labels: Option labels; ``&`` marks mnemonics.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param columns: Number of columns.
+    :param disabled: Indexes of greyed-out options.
+    :param width: Minimum width, if any.
+    :param on_change: Called with the group when an option is pressed.
+    :param name: Widget name.
+    :param status: Status bar text.
     """
 
     focusable = True
@@ -166,31 +80,44 @@ class Cluster(Widget):  # pylint: disable=too-many-instance-attributes
         )
         self.on_change = on_change
         self.current = 0
-        """The option the keys work on; an enabled one, if there is any."""
+        """The option the keys act on."""
         self.disable(*disabled)
 
     # Options
 
     def _column(self, number: int) -> list[str]:
-        """The labels in one column."""
+        """The labels in one column.
+
+        :param number: Column number.
+        """
         return self.labels[number * self.rows : (number + 1) * self.rows]
 
     def is_marked(self, index: int) -> bool:
-        """Whether an option is shown as checked or selected."""
+        """Whether an option is checked or selected.
+
+        :param index: Option index.
+        """
         raise NotImplementedError
 
     def press(self, index: int) -> None:
-        """Do to an option what Space does (check, uncheck or select it).
-        Code can press a disabled option, though the user cannot."""
+        """Press an option, as Space does.
+
+        :param index: Option index.
+        """
         raise NotImplementedError
 
     def is_enabled(self, index: int) -> bool:
-        """Whether the user can press an option."""
+        """Whether the user can press an option.
+
+        :param index: Option index.
+        """
         return index not in self.disabled
 
     def disable(self, *indexes: int) -> None:
-        """Grey out options, so that they cannot be chosen. If the current
-        option is one of them, the next enabled option becomes current."""
+        """Grey out options.
+
+        :param indexes: Option indexes.
+        """
         for index in indexes:
             if not 0 <= index < len(self.labels):
                 raise IndexError(f"there is no option {index}")
@@ -203,14 +130,16 @@ class Cluster(Widget):  # pylint: disable=too-many-instance-attributes
                 self.current = found
 
     def enable(self, *indexes: int) -> None:
-        """Allow options to be chosen again."""
+        """Re-enable options.
+
+        :param indexes: Option indexes.
+        """
         self.disabled.difference_update(indexes)
         if not self.is_enabled(self.current) and self.can_focus():
             self.disable()  # moves off the disabled current option
 
     def min_size(self) -> tuple[int, int]:
-        """The size of the columns as laid out, because the options are never
-        squeezed."""
+        """The laid-out size of the columns."""
         return sum(self._widths), self.rows
 
     def can_focus(self) -> bool:
@@ -223,12 +152,19 @@ class Cluster(Widget):  # pylint: disable=too-many-instance-attributes
     # Layout
 
     def _place(self, index: int) -> tuple[int, int, int]:
-        """Where an option is within the group: (row, column, width)."""
+        """An option's (row, column, width) in the group.
+
+        :param index: Option index.
+        """
         number, row = divmod(index, self.rows)
         return row, sum(self._widths[:number]), self._widths[number]
 
     def index_at(self, row: int, column: int) -> int | None:
-        """The option at a position within the group, if any."""
+        """The option at a position, if any.
+
+        :param row: Row in the group.
+        :param column: Column in the group.
+        """
         if not 0 <= row < self.rows:
             return None
         left = 0
@@ -242,8 +178,11 @@ class Cluster(Widget):  # pylint: disable=too-many-instance-attributes
     # Moving
 
     def _step(self, start: int, step: int) -> int | None:
-        """The first enabled option after ``start``, going ``step`` at a
-        time; ``None`` if there is none that way."""
+        """The next enabled option, or ``None``.
+
+        :param start: Option to start from.
+        :param step: Direction and stride.
+        """
         index = start + step
         while 0 <= index < len(self.labels):
             if self.is_enabled(index):
@@ -252,9 +191,10 @@ class Cluster(Widget):  # pylint: disable=too-many-instance-attributes
         return None
 
     def _sideways(self, direction: int) -> int | None:
-        """The enabled option in the next column to the left (-1) or right
-        (1) that is nearest the current row, the upper one if two are as
-        near; columns with nothing enabled are passed over."""
+        """The nearest enabled option in the next column.
+
+        :param direction: -1 for left, 1 for right.
+        """
         row = self.current % self.rows
         number = self.current // self.rows + direction
         while 0 <= number < self.columns:
@@ -267,7 +207,10 @@ class Cluster(Widget):  # pylint: disable=too-many-instance-attributes
         return None
 
     def move_to(self, index: int) -> None:
-        """Make an option the current one, as moving with the keys does."""
+        """Make an option current.
+
+        :param index: Option index.
+        """
         self.current = index
 
     # Drawing and input
@@ -313,7 +256,15 @@ class Cluster(Widget):  # pylint: disable=too-many-instance-attributes
         index: int,
         current: bool,
     ) -> None:
-        """One option: `` [X] Label``, its letter highlighted."""
+        """Draw one option.
+
+        :param canvas: Canvas to draw on.
+        :param origin: The window's interior on screen.
+        :param row: Option row.
+        :param column: Option column.
+        :param index: Option index.
+        :param current: Whether it is the current option.
+        """
         enabled = self.is_enabled(index)
         if not enabled:
             style = self.disabled_style
@@ -335,8 +286,11 @@ class Cluster(Widget):  # pylint: disable=too-many-instance-attributes
             canvas.write(row, at, text[letter], mnemonic, clip=origin)
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """Up and Down move, and Space presses; Left and Right move between
-        columns (with only one column, they are left for the window)."""
+        """Move or press with the keys.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         if shortcuts.matches("option_press", key):
             if self.is_enabled(self.current):
                 self.press(self.current)
@@ -358,7 +312,12 @@ class Cluster(Widget):  # pylint: disable=too-many-instance-attributes
         return False
 
     def handle_mouse(self, event: MouseEvent, row: int, column: int) -> bool:
-        """A press on an enabled option presses it."""
+        """Press the option clicked.
+
+        :param event: The mouse event.
+        :param row: Row in the window's interior.
+        :param column: Column in the window's interior.
+        """
         if event.button != "left":
             return False
         if event.action == "press":
@@ -370,8 +329,7 @@ class Cluster(Widget):  # pylint: disable=too-many-instance-attributes
 
 
 class ClusterOptions(TypedDict, total=False):
-    """The keyword options that every group accepts, for subclasses that add
-    options of their own and pass the rest on with ``**options``."""
+    """Keyword options every group accepts."""
 
     columns: int
     disabled: Iterable[int]

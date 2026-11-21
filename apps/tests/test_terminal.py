@@ -1,6 +1,4 @@
-"""Tests for Terminal: its windows, titles, endings and menus. The terminal
-itself (``dasha.widgets.TerminalView``) has tests of its own, with
-Dasha Framework's."""
+"""Tests for the Terminal application."""
 
 import sys
 import time
@@ -25,8 +23,7 @@ PATIENCE = 20.0
 
 
 class FakePty:  # pylint: disable=too-many-instance-attributes
-    """Stands in for a ``PseudoTerminal``, with no program: it records what
-    it is sent, and the test gives it output and its ending."""
+    """A pseudo-terminal stand-in with no program."""
 
     def __init__(self) -> None:
         self.on_output: Callable[[bytes], None] = lambda data: None
@@ -51,7 +48,13 @@ class FakePty:  # pylint: disable=too-many-instance-attributes
         env: Mapping[str, str] | None = None,
         size: tuple[int, int] = (80, 24),
     ) -> None:
-        """Start, or fail to, as the test says."""
+        """Start, or fail as the test says.
+
+        :param argv: The program and its arguments.
+        :param cwd: Working folder, if any.
+        :param env: Environment, if any.
+        :param size: Terminal (columns, lines).
+        """
         del cwd, env
         if self.fail is not None:
             raise self.fail
@@ -60,11 +63,18 @@ class FakePty:  # pylint: disable=too-many-instance-attributes
         self.pid = 1
 
     def write(self, data: bytes) -> None:
-        """Record input."""
+        """Record input.
+
+        :param data: The input.
+        """
         self.sent += data
 
     def resize(self, columns: int, lines: int) -> None:
-        """Record a size."""
+        """Record a size.
+
+        :param columns: Width.
+        :param lines: Height.
+        """
         self.sizes.append((columns, lines))
 
     def close(self) -> None:
@@ -76,18 +86,23 @@ class FakePty:  # pylint: disable=too-many-instance-attributes
         return False
 
     def output(self, text: str) -> None:
-        """The program writes ``text``."""
+        """The program writes text.
+
+        :param text: The output.
+        """
         self.on_output(text.encode())
 
     def end(self, code: int) -> None:
-        """The program ends."""
+        """The program ends.
+
+        :param code: Exit code.
+        """
         self.exit_code = code
         self.on_exit()
 
 
 def desktop() -> PresentationManager:
-    """A desktop, as though running (so that what other threads ask of it
-    is done), whose loop the tests turn by hand (``pump``)."""
+    """A running desktop pumped by hand."""
     manager = PresentationManager()
     manager.handle_resize(100, 30)
     manager._running = True  # pylint: disable=protected-access
@@ -97,7 +112,11 @@ def desktop() -> PresentationManager:
 def pump(
     manager: PresentationManager, until: Callable[[], bool] = lambda: True
 ) -> None:
-    """Call what other threads asked the desktop to, until ``until()``."""
+    """Run thread callbacks until a condition holds.
+
+    :param manager: The desktop.
+    :param until: The condition.
+    """
     deadline = time.monotonic() + PATIENCE
     while True:
         manager._call_from_threads()  # pylint: disable=protected-access
@@ -109,12 +128,20 @@ def pump(
 
 
 def item(menu: Menu, label: str) -> MenuItem:
-    """A menu's item, by its label."""
+    """A menu item by label.
+
+    :param menu: The menu.
+    :param label: The label.
+    """
     return next(entry for entry in menu.items if entry.label == label)
 
 
 def choose(menu: Menu, label: str) -> None:
-    """Choose a menu's item."""
+    """Choose a menu item.
+
+    :param menu: The menu.
+    :param label: The label.
+    """
     action = item(menu, label).action
     assert action is not None
     action()
@@ -139,7 +166,10 @@ class _Terminal(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
     def launch(self, command: Sequence[str] = ()) -> tuple[Terminal, TerminalWindow]:
-        """Terminal, and its first window."""
+        """Terminal and its first window.
+
+        :param command: Command to run, if any.
+        """
         app = self.manager.launch(Terminal(command=command))
         assert isinstance(app, Terminal)
         window = app.windows[-1]
@@ -147,12 +177,19 @@ class _Terminal(unittest.TestCase):
         return app, window
 
     def output(self, index: int, text: str) -> None:
-        """A window's program writes ``text``, and the desktop shows it."""
+        """A window's program writes text.
+
+        :param index: Window index.
+        :param text: The output.
+        """
         self.ptys[index].on_output(text.encode())
         pump(self.manager)
 
     def shown(self, window: TerminalWindow) -> list[str]:
-        """What the window shows inside its frame, row by row."""
+        """What the window shows, row by row.
+
+        :param window: The window.
+        """
         canvas = window.render_interior(active=True)
         return [canvas.text(row).rstrip() for row in range(canvas.height)]
 
@@ -161,8 +198,7 @@ class WindowTests(_Terminal):
     """Windows, titles and endings."""
 
     def test_runs_the_shell_in_a_window(self) -> None:
-        """The first window runs the user's shell, 80 by 25 where that
-        fits."""
+        """Runs the shell in a window."""
         app, window = self.launch()
         self.assertEqual([m.title for m in app.menus], ["&Terminal", "&Edit"])
         self.assertEqual(self.ptys[0].started, shell_command())
@@ -172,8 +208,7 @@ class WindowTests(_Terminal):
         self.assertEqual(window.footer_parts(), ["80x25"])
 
     def test_black_frame_and_inside(self) -> None:
-        """Frame and inside are black, and the window tells the desktop so,
-        which draws the frame of an application in its own process."""
+        """Black frame and inside."""
         _, window = self.launch()
         canvas = Canvas(window.rect.right, window.rect.bottom)
         window.paint(canvas, active=True)
@@ -184,8 +219,7 @@ class WindowTests(_Terminal):
         self.assertIn("frame_style", colours_of(window))
 
     def test_title_and_footer(self) -> None:
-        """The title is the one the program asks for; the footer shows how
-        far the view is scrolled back."""
+        """Title and footer."""
         _, window = self.launch()
         self.assertEqual(window.title, program_name(shell_command()))
         self.output(0, "\x1b]0;My shell\x07" + "\r\n" * 30)
@@ -196,8 +230,7 @@ class WindowTests(_Terminal):
         self.assertEqual(window.footer_parts(), ["80x25", "\N{UPWARDS ARROW}3"])
 
     def test_closes_when_the_shell_ends(self) -> None:
-        """The shell's window closes when it ends, and Terminal with the
-        last."""
+        """Closes when the shell ends."""
         app, window = self.launch()
         app.new_window()
         self.assertEqual(len(app.windows), 2)
@@ -208,8 +241,7 @@ class WindowTests(_Terminal):
         pump(self.manager, lambda: not app.is_running)
 
     def test_a_command_given_stays(self) -> None:
-        """A window running a command it was given stays, saying how it
-        ended."""
+        """A command given stays."""
         app, window = self.launch(command=["make"])
         self.assertEqual(self.ptys[0].started, ["make"])
         self.assertEqual(window.title, "make")
@@ -221,8 +253,7 @@ class WindowTests(_Terminal):
         self.assertEqual(self.shown(window)[:2], ["done", "[Ended: exit code 2]"])
 
     def test_cannot_start(self) -> None:
-        """A program that cannot start leaves no window, and says why
-        before Terminal ends."""
+        """Cannot start."""
         self.failure = FileNotFoundError(2, "No such program", "nope")
         told: list[str] = []
         with mock.patch.object(
@@ -249,16 +280,14 @@ class MenuTests(_Terminal):
     """Send key and the Edit menu."""
 
     def test_no_letter_is_repeated(self) -> None:
-        """No two menus on the bar, and no two items of a menu, share a
-        letter."""
+        """No letter is repeated."""
         self.launch()
         menu_bar = MenuBar()
         menu_bar.set_menus(self.manager.bar_menus())
         menu_bar.check_mnemonics()
 
     def test_alt_and_a_letter(self) -> None:
-        """Alt+T and Alt+E open the menus, rather than reaching the shell,
-        as Alt and any other letter still does."""
+        """Alt and a letter."""
         self.launch()
         for key in ("alt+t", "alt+e"):
             self.manager.handle_event(key)
@@ -270,9 +299,7 @@ class MenuTests(_Terminal):
         self.assertEqual(bytes(self.ptys[0].sent), b"\x1bb")
 
     def test_mouse_to_programs(self) -> None:
-        """Terminal > Mouse to programs turns the mouse going to programs
-        off and on, in every window, new ones too; the footer says while it
-        goes to one."""
+        """Mouse to programs."""
         app, window = self.launch()
         self.output(0, "\x1b[?1000h")
         self.assertEqual(window.footer_parts(), ["80x25", "Mouse"])
@@ -299,8 +326,7 @@ class MenuTests(_Terminal):
         self.assertEqual(bytes(self.ptys[0].sent), b"\x11")
 
     def test_menus_follow_the_shortcuts(self) -> None:
-        """Remapped shortcuts change what Send key offers, and the Edit
-        menu's hints."""
+        """Menus follow the shortcuts."""
         app, _ = self.launch()
         self.assertEqual(item(app.menus[1], "&Copy").shortcut, "")
         self.manager.set_shortcuts(
@@ -312,8 +338,7 @@ class MenuTests(_Terminal):
         self.assertEqual(item(app.menus[1], "&Copy").shortcut, "F7")
 
     def test_edit_menu(self) -> None:
-        """Select all and Copy put the text on the clipboard; Paste sends
-        the clipboard's text."""
+        """The Edit menu."""
         app, _ = self.launch()
         self.output(0, "hello")
         edit = app.menus[1]
@@ -331,8 +356,7 @@ class RealProgramTests(unittest.TestCase):
     """Terminal with a real program in a real pseudo-terminal."""
 
     def test_runs_a_real_program(self) -> None:
-        """A program's output is shown, and the window says when it
-        ended."""
+        """Runs a real program."""
         manager = desktop()
         code = "print('\\x1b[32mreal output\\x1b[0m')"
         app = manager.launch(Terminal(command=[sys.executable, "-c", code]))

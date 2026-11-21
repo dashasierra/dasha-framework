@@ -12,19 +12,35 @@ from dasha.window import Window
 
 
 def keys(area: TextArea, *names: str, shortcuts: Shortcuts | None = None) -> list[bool]:
-    """Offer keys to a text area."""
+    """Offer keys to a text area.
+
+    :param area: The text area.
+    :param names: The keys.
+    :param shortcuts: Key bindings, or ``None`` for the defaults.
+    """
     shortcuts = shortcuts if shortcuts is not None else Shortcuts()
     return [area.handle_key(name, shortcuts) for name in names]
 
 
 def press(area: TextArea, row: int, column: int, **options: object) -> None:
-    """A left press at a place in the window's interior (the content)."""
+    """A left press in the window's interior.
+
+    :param area: The text area.
+    :param row: Content row.
+    :param column: Content column.
+    :param options: Mouse event options.
+    """
     event = MouseEvent("press", "left", row, column, **options)  # type: ignore[arg-type]
     area.handle_mouse(event, row, column)
 
 
 def editor(text: str = "", width: int = 20, height: int = 6) -> tuple[Window, TextArea]:
-    """A window of the given interior size holding just a text area."""
+    """A window holding just a text area.
+
+    :param text: The text.
+    :param width: Interior width.
+    :param height: Interior height.
+    """
     window = Window("E", Rect(1, 0, height + 2, width + 2), resizable=True)
     area = window.add(TextArea(0, 0, text=text))
     area.clipboard = Clipboard()
@@ -35,8 +51,7 @@ class EditingTests(unittest.TestCase):
     """Typing, new lines and deleting."""
 
     def test_text_is_cleaned(self) -> None:
-        """Line breaks become \\n; tabs and other control characters stay,
-        as a file had them; surrogates, which no file can hold, go."""
+        """Text is cleaned."""
         area = TextArea(0, 0, text="a\r\nb\tc\rd\x07e\x1b[2J\udcff")
         self.assertEqual(area.lines, ["a", "b\tc", "d\x07e\x1b[2J"])
         self.assertEqual(area.value, "a\nb\tc\nd\x07e\x1b[2J")
@@ -49,8 +64,7 @@ class EditingTests(unittest.TestCase):
         self.assertEqual(area.cursor, (1, 0))
 
     def test_backspace_and_delete_join_lines(self) -> None:
-        """At the start of a line Backspace joins it to the one above; at
-        the end Delete joins the next one up."""
+        """Backspace and Delete join lines."""
         area = TextArea(0, 0, text="one\ntwo\nthree")
         area.cursor = (1, 0)
         keys(area, "backspace")
@@ -86,8 +100,7 @@ class MovingTests(unittest.TestCase):
         self.area = TextArea(0, 0, text="a long line\nshort\nanother long line")
 
     def test_left_and_right_wrap(self) -> None:
-        """Left at a line's start goes to the end of the one above; Right at
-        the end goes to the start of the next."""
+        """Left and Right wrap."""
         self.area.cursor = (1, 0)
         keys(self.area, "left")
         self.assertEqual(self.area.cursor, (0, 11))
@@ -138,7 +151,7 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(self.area.selected_text, "line\nsecond ")
 
     def test_typing_replaces_the_selection(self) -> None:
-        """A letter typed over a selection replaces it, as in a text box."""
+        """Typing replaces the selection."""
         self.area.select((0, 6), (1, 6))
         keys(self.area, "a")
         self.assertEqual(self.area.lines, ["first a line", "third"])
@@ -152,8 +165,7 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(self.area.lines, ["x"])
 
     def test_cut_copy_paste(self) -> None:
-        """Cut and copy keep line breaks; a paste replaces the selection and
-        may have lines of its own; anything but text is not pasted."""
+        """Cut, copy and paste."""
         self.area.select((0, 0), (1, 6))
         keys(self.area, "ctrl+c")
         self.assertEqual(self.area.clipboard.text, "first line\nsecond")
@@ -181,8 +193,7 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(self.area.lines, ["first line", "a", "third"])
 
     def test_click_drag_and_shift_click(self) -> None:
-        """A click places the cursor (past the end of a line, at its end),
-        a drag selects, and Shift+click selects to the click."""
+        """Click, drag and Shift+click."""
         press(self.area, 2, 15)
         self.assertEqual(self.area.cursor, (2, 5))
         press(self.area, 0, 2)
@@ -193,8 +204,7 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(self.area.selected_text, "first")
 
     def test_selection_is_drawn(self) -> None:
-        """Selected text is highlighted, with a cell for each line break it
-        goes past; the terminal cursor sits at the cursor."""
+        """The selection is drawn."""
         self.area.select((0, 6), (1, 2))
         canvas = Canvas(30, 10)
         self.window.paint(canvas, active=True)
@@ -211,8 +221,7 @@ class WindowTests(unittest.TestCase):
     """Filling the window, and its scroll bars."""
 
     def test_fills_the_window(self) -> None:
-        """A text area is as big as the window's interior, whatever its
-        text, and follows the window's size."""
+        """Fills the window."""
         window, area = editor("hi", width=20, height=6)
         self.assertEqual((area.rect.width, area.rect.height), (20, 6))
         self.assertEqual(window.scroll_bars, (None, None))
@@ -220,8 +229,7 @@ class WindowTests(unittest.TestCase):
         self.assertEqual((area.rect.width, area.rect.height), (38, 10))
 
     def test_bigger_text_brings_the_window_scroll_bars(self) -> None:
-        """Text longer or wider than the window gives the window scroll
-        bars; deleting it takes them away again."""
+        """Bigger text brings scroll bars."""
         window, area = editor("x" * 30 + "\n" * 10, width=20, height=6)
         vertical, horizontal = window.scroll_bars
         self.assertIsNotNone(vertical)
@@ -230,8 +238,7 @@ class WindowTests(unittest.TestCase):
         self.assertEqual(window.scroll_bars, (None, None))
 
     def test_window_scrolls_to_the_cursor(self) -> None:
-        """Moving past what shows scrolls the window; coming back to where
-        the lines fit scrolls back to their start."""
+        """The window scrolls to the cursor."""
         window, area = editor("\n".join(f"line {n} {'y' * 30}" for n in range(20)))
         keys(area, "ctrl+end")
         self.assertEqual(window.scroll_row, 14)  # 20 lines, 6 showing
@@ -250,8 +257,7 @@ class WindowTests(unittest.TestCase):
         self.assertEqual((area.rect.width, area.rect.height), (78, 20))
 
     def test_keys_left_for_the_window(self) -> None:
-        """Ctrl+Tab, Ctrl+Shift+Tab, Shift+Tab and Escape pass through; Tab
-        types a tab and Enter starts a new line."""
+        """Keys left for the window."""
         area = TextArea(0, 0)
         passed = keys(area, "ctrl+tab", "shift+ctrl+tab", "shift+tab", "escape")
         self.assertEqual(passed, [False] * 4)
@@ -267,8 +273,7 @@ class WindowTests(unittest.TestCase):
 
 
 class WheelThenClickTests(unittest.TestCase):
-    """Scrolling with the wheel, then clicking in the text: the click goes
-    where it was made, and the view stays where the wheel left it."""
+    """Clicking after scrolling with the wheel."""
 
     def setUp(self) -> None:
         self.manager = PresentationManager()
@@ -282,7 +287,12 @@ class WheelThenClickTests(unittest.TestCase):
         self.scrolled = self.window.scroll_row
 
     def mouse(self, action: str, row: int, column: int) -> None:
-        """A left button event at a screen position."""
+        """A left button event.
+
+        :param action: Mouse action.
+        :param row: Screen row.
+        :param column: Screen column.
+        """
         self.manager.handle_event(MouseEvent(action, "left", row, column))
 
     def test_the_click_lands_where_it_was_made(self) -> None:
@@ -296,8 +306,7 @@ class WheelThenClickTests(unittest.TestCase):
         self.assertIsNone(self.area.selection)
 
     def test_a_shaky_click_selects_nothing(self) -> None:
-        """A drag event at the same place, as a click can send, does not
-        select from somewhere else."""
+        """A shaky click selects nothing."""
         self.mouse("press", 8, 6)
         self.mouse("drag", 8, 6)
         self.mouse("release", 8, 6)
@@ -305,8 +314,7 @@ class WheelThenClickTests(unittest.TestCase):
         self.assertEqual(self.window.scroll_row, self.scrolled)
 
     def test_tab_into_it_keeps_the_view(self) -> None:
-        """Tabbing into a text area bigger than the window, part of it
-        showing, does not scroll it either."""
+        """Tabbing in keeps the view."""
         other = Window("Two", Rect(2, 2, 15, 60))
         area = other.add(TextArea(0, 0, text="\n".join("x" * 100)))
         box = other.add(TextBox(0, 0, 5))

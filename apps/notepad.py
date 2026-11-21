@@ -1,12 +1,4 @@
-"""Notepad: a plain text editor, a window per file.
-
-Run it on its own with ``python apps/notepad.py [FILE ...]``, or install it
-on the desktop with ``dasha install-app apps/notepad.py``.
-
-Like the other example applications, it passes arguments by name (``Rect(row=2,
-column=4, height=15, width=60)`` rather than ``Rect(2, 4, 15, 60)``), so it
-reads as a guide to the framework.
-"""
+"""Notepad: a plain text editor, a window per file."""
 
 import os
 import sys
@@ -36,31 +28,39 @@ DOUBLE_BOX = (
     "\N{BOX DRAWINGS DOUBLE DOWN AND LEFT}\N{BOX DRAWINGS DOUBLE VERTICAL}"
     "\N{BOX DRAWINGS DOUBLE UP AND RIGHT}\N{BOX DRAWINGS DOUBLE UP AND LEFT}"
 )
-"""The Insert > Box shapes, in the order a box is drawn from: the top left
-corner, the top and bottom, the top right corner, the sides, then the bottom
-corners (``┌─┐│└┘`` and ``╔═╗║╚╝``, code page 437 glyphs 218, 196, 191, 179,
-192, 217 and 201, 205, 187, 186, 200, 188)."""
+"""Insert > Box shapes."""
 
 
 MODIFIED = "\N{WHITE SUN WITH RAYS}"
-"""At the foot of a window whose file has changes to save: ``☼``, code
-page 437 glyph 15."""
+"""Footer mark for unsaved changes."""
 
 
 def line_ending(text: str) -> str:
-    """The line ending a file's text uses: ``"\\r\\n"`` if it has any (as
-    Windows files do), otherwise ``"\\n"``."""
+    """A text's line ending.
+
+    :param text: The text.
+    """
     return "\r\n" if "\r\n" in text else "\n"
 
 
 def marked(label: str, on: bool) -> str:
-    """A menu item's label, marked ``√`` while what it turns on is on."""
+    """A label marked while on.
+
+    :param label: The label.
+    :param on: Whether it is on.
+    """
     mark = "\N{SQUARE ROOT}" if on else " "
     return f"{mark} {label}"
 
 
 class NotepadWindow(Window):
-    """One file being edited: a window holding nothing but a text area."""
+    """One file being edited.
+
+    :param notepad: The application.
+    :param rect: Position and size.
+    :param path: The file, if any.
+    :param text: The file's text.
+    """
 
     def __init__(
         self,
@@ -81,8 +81,7 @@ class NotepadWindow(Window):
         self.path = path
         """The file it was opened from or saved to; ``None`` until saved."""
         self.newline = line_ending(text=text)
-        """The file's line ending, kept when it is saved: a text area's
-        lines always end in ``"\\n"``."""
+        """The file's line ending."""
         self.area = self.add(
             widget=TextArea(
                 row=0,
@@ -107,10 +106,7 @@ class NotepadWindow(Window):
         self.title = self.file_name
 
     def footer_parts(self) -> list[str]:
-        """At the foot of the frame: ``☼`` while there are changes to save,
-        then where the cursor is, as COL:ROW, both from 1: the character
-        along its line (a tab is one), and the line, however many rows word
-        wrap shows it on. The frame draws the line between them."""
+        """Unsaved mark and cursor position."""
         line, character = self.area.cursor
         place = f"{character + 1}:{line + 1}"
         return [MODIFIED, place] if self.modified else [place]
@@ -120,7 +116,11 @@ class NotepadWindow(Window):
         self.modified = True
 
     def load(self, path: str, text: str) -> None:
-        """Show a file's text in this window."""
+        """Show a file's text.
+
+        :param path: The file.
+        :param text: Its text.
+        """
         self.path = path
         self.newline = line_ending(text=text)
         self.area.text = text
@@ -130,8 +130,7 @@ class NotepadWindow(Window):
     # Saving
 
     def save(self) -> bool:
-        """Save to the file, asking for a name if it has none yet. Returns
-        whether it was saved."""
+        """Save; return whether saved."""
         if self.path is None:
             return self.save_as()
         try:
@@ -151,7 +150,7 @@ class NotepadWindow(Window):
         return True
 
     def save_as(self) -> bool:
-        """Ask for a file to save to, then save. Returns whether it was saved."""
+        """Save under a new name; return whether saved."""
         manager = self.notepad.manager
         if manager is None or not manager.is_running:
             return False
@@ -179,8 +178,7 @@ class NotepadWindow(Window):
         return True
 
     def offer_to_save(self) -> bool:
-        """With unsaved changes, ask whether to save them first. Returns
-        whether it is all right to go on (saved, or the changes dropped)."""
+        """Offer to save changes; return whether to go on."""
         manager = self.notepad.manager
         if not self.modified or manager is None or not manager.is_running:
             return True
@@ -215,17 +213,19 @@ class WindowAction(Protocol):  # pylint: disable=too-few-public-methods
 
 
 class Notepad(Application):
-    """Edit plain text files (UTF-8), each in a window of its own."""
+    """Edit plain text files, each in its own window.
+
+    :param paths: Files to open at start.
+    """
 
     name = "Notepad"
 
     def __init__(self, paths: Sequence[str] = ()) -> None:
         super().__init__()
         self.paths = list(paths)
-        """The files to open when it starts (a new, empty one if none)."""
+        """Files to open at start."""
         self.word_wrap = False
-        """Whether long lines wrap onto the rows below, in every window
-        (Format > Word wrap)."""
+        """Whether long lines wrap."""
         self.line_numbers = False
         """Whether every window numbers its lines (Format > Line numbers)."""
         self._wrap_item = MenuItem(
@@ -247,27 +247,34 @@ class Notepad(Application):
             self.new()
 
     def _place(self) -> Rect:
-        """Where the next window goes: each a little down and right of the
-        one before."""
+        """Where the next window goes."""
         step = len(self.windows) % 6
         return Rect(row=2 + step, column=4 + 2 * step, height=15, width=60)
 
     def new(self, path: str | None = None, text: str = "") -> NotepadWindow:
-        """Open a window for a new file (or for a file's text)."""
+        """Open a window for a new file.
+
+        :param path: The file, if any.
+        :param text: Initial text.
+        """
         window = NotepadWindow(notepad=self, rect=self._place(), path=path, text=text)
         self.open(window=window)
         return window
 
     def show(self, window: NotepadWindow) -> None:
-        """Bring one of its windows to the front (restoring it if it was
-        minimised)."""
+        """Bring a window to the front.
+
+        :param window: The window.
+        """
         if self.manager is not None:
             self.manager.show_window(window=window)
 
     def tell(self, title: str, message: str) -> None:
-        """Show a message: straight away, or, while Notepad is starting (a
-        file named on the command line that cannot be read), once the
-        desktop is running."""
+        """Show a message, once running.
+
+        :param title: Title text.
+        :param message: The message.
+        """
         manager = self.manager
         if manager is None:
             return
@@ -277,7 +284,10 @@ class Notepad(Application):
     # Opening
 
     def read(self, path: str) -> str | None:
-        """A file's text, or ``None`` after saying why it cannot be read."""
+        """A file's text, or ``None`` after saying why not.
+
+        :param path: The file.
+        """
         try:
             with open(path, encoding="utf-8", newline="") as file:
                 return file.read()
@@ -294,10 +304,10 @@ class Notepad(Application):
         return None
 
     def open_path(self, path: str) -> NotepadWindow | None:
-        """Open a file: in the front window if that is new and untouched,
-        otherwise in a new window. A file already open comes to the front.
-        A file that is not there yet opens empty, to be saved under that
-        name."""
+        """Open a file.
+
+        :param path: The file.
+        """
         path = os.path.abspath(path)
         for window in self.windows:
             if isinstance(window, NotepadWindow) and window.path == path:
@@ -334,14 +344,15 @@ class Notepad(Application):
             self.open_path(path=dialog.path)
 
     def _front(self) -> NotepadWindow | None:
-        """Its window nearest the front of the desktop: the file its menus
-        act on."""
+        """The front window."""
         window = self.active_window
         return window if isinstance(window, NotepadWindow) else None
 
     def _on_front(self, act: WindowAction) -> Callable[[], None]:
-        """A menu action: ``act(window=...)`` on the front window, if there
-        is one by the time the item is chosen."""
+        """Run an action on the front window.
+
+        :param act: The action.
+        """
 
         def action() -> None:
             window = self._front()
@@ -351,7 +362,10 @@ class Notepad(Application):
         return action
 
     def _insert(self, text: str) -> None:
-        """Type ``text`` into the front window."""
+        """Type text into the front window.
+
+        :param text: The text.
+        """
         window = self._front()
         if window is not None:
             window.area.insert(text=text)
@@ -368,8 +382,7 @@ class Notepad(Application):
     # Menus
 
     def _menus(self) -> list[Menu]:
-        """Notepad's menu bar. Items that need a file are greyed out while
-        no window is open."""
+        """Notepad's menu bar."""
         return [
             Menu(title="&File", items=self._file_items()),
             Menu(title="&Edit", items=self._edit_items()),
@@ -424,7 +437,10 @@ class Notepad(Application):
         hint = self.manager.shortcuts.hint
 
         def on_area(method: str) -> Callable[[], None]:
-            """Run one of the front window's text area's methods."""
+            """Run a text area method on the front window.
+
+            :param method: Method name.
+            """
             return self._on_front(act=lambda window: getattr(window.area, method)())
 
         # (label, text area method, shortcut action, status); None: a separator
@@ -466,10 +482,7 @@ class Notepad(Application):
         return items
 
     def _insert_menu(self) -> Menu:
-        """A submenu with a submenu of its own, whose items type text into
-        the front window. Its letters overlap the Edit menu's on purpose: D
-        is Delete line there, Date and time here, and Double in the Box
-        submenu, and the innermost open menu wins."""
+        """The Insert submenu."""
 
         def box(lines: str) -> None:
             top_left, across, top_right, down, bottom_left, bottom_right = tuple(lines)
@@ -530,16 +543,14 @@ class Notepad(Application):
         ]
 
     def toggle_word_wrap(self) -> None:
-        """Turn word wrap on in every window, or off (Format > Word wrap);
-        windows opened later wrap as these do."""
+        """Toggle word wrap in every window."""
         self.word_wrap = not self.word_wrap
         for area in self._areas():
             area.word_wrap = self.word_wrap
         self._wrap_item.label = marked(label="&Word wrap", on=self.word_wrap)
 
     def toggle_line_numbers(self) -> None:
-        """Number the lines in every window, or stop (Format > Line
-        numbers); windows opened later do as these do."""
+        """Toggle line numbers in every window."""
         self.line_numbers = not self.line_numbers
         for area in self._areas():
             area.line_numbers = self.line_numbers

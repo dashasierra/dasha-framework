@@ -1,6 +1,4 @@
-"""Tests for ``dasha.processes`` on any system: each platform's branches
-with the operating system calls stood in for, so neither a real process
-nor a real job is touched. (``test_robustness`` ends real processes.)"""
+"""Tests for ``dasha.processes`` with system calls stubbed."""
 
 import ctypes
 import os
@@ -18,7 +16,11 @@ from dasha.processes import ProcessTree, is_alive, watch_parent
 
 
 def fake_process(*, running: bool = True, hangs: bool = False) -> mock.Mock:
-    """A stand-in for a ``subprocess.Popen``."""
+    """A stand-in ``subprocess.Popen``.
+
+    :param running: Whether it is running.
+    :param hangs: Whether it ignores termination.
+    """
     process = mock.Mock(pid=4242, _handle=99)
     process.poll.return_value = None if running else 0
     if hangs:
@@ -41,8 +43,7 @@ class StartTests(unittest.TestCase):
         self.assertIs(tree.process, process)
 
     def test_windows_resume_fails(self) -> None:
-        """On Windows, if the suspended process cannot be resumed, it is
-        killed and the error passed on."""
+        """A failed resume on Windows kills the process."""
         process = fake_process()
         with (
             mock.patch.object(sys, "platform", "win32"),
@@ -59,7 +60,10 @@ class JobTests(unittest.TestCase):
     """Making a Windows job, when Windows will not."""
 
     def make_job(self, kernel32: mock.Mock) -> int | None:
-        """``_make_job`` with this kernel32."""
+        """``_make_job`` with a kernel32 stand-in.
+
+        :param kernel32: The stand-in.
+        """
         with mock.patch.object(processes, "_kernel32", return_value=kernel32):
             # pylint: disable-next=protected-access
             return ProcessTree._make_job(fake_process())
@@ -113,7 +117,14 @@ class KillTests(unittest.TestCase):
         """While processes in the job still run, it waits (a little)."""
 
         def query(job: int, kind: int, info: object, size: int, _: None) -> int:
-            """Windows says one process in the job is still running."""
+            """Report one process still in the job.
+
+            :param job: Job handle.
+            :param kind: Query kind.
+            :param info: Output structure.
+            :param size: Its size.
+            :param _: Unused.
+            """
             del job, kind, size
             getattr(info, "_obj").ActiveProcesses = 1  # what byref points at
             return 1
@@ -129,8 +140,7 @@ class KillTests(unittest.TestCase):
         self.assertTrue(sleep.called)
 
     def test_elsewhere_its_group(self) -> None:
-        """Not on Windows: the process group is killed, then the process if
-        it is still there; one that will not end is given up on."""
+        """Elsewhere, the group is killed."""
         process = fake_process(hangs=True)
         tree = ProcessTree(process)
         with (
@@ -182,9 +192,7 @@ class AliveTests(unittest.TestCase):
         kill.assert_called_with(12, 0)
 
     def test_on_macos(self) -> None:
-        """No /proc on macOS: the kernel's record of the process says, so a
-        zombie is gone though os.kill still finds it; if that cannot be
-        read, os.kill says."""
+        """On macOS, the kernel record decides."""
         with (
             mock.patch.object(Path, "read_text", side_effect=OSError),
             mock.patch.object(sys, "platform", "darwin"),
@@ -202,8 +210,7 @@ class AliveTests(unittest.TestCase):
 
     @unittest.skipUnless(sys.platform == "darwin", "sysctl's kinfo_proc is macOS's")
     def test_macos_kernel_record(self) -> None:
-        """On a real macOS: this process runs; a child that has ended is a
-        zombie until it is reaped, and then gone."""
+        """The real macOS kernel record."""
         # pylint: disable=protected-access
         self.assertTrue(processes._macos_running(os.getpid()))
         # pylint: disable-next=consider-using-with
@@ -223,8 +230,11 @@ class WatchParentTests(unittest.TestCase):
         self.watched: int | None = None  # the process id watched
 
     def watch(self, parent: int | None, lives: list[bool]) -> mock.Mock:
-        """Watch, with the watching thread run at once; whether the desktop
-        is alive at each look is ``lives``. Returns ``os._exit``."""
+        """Watch with scripted liveness; return ``os._exit``.
+
+        :param parent: Desktop process id, if any.
+        :param lives: Liveness at each check.
+        """
         with (
             mock.patch.object(os, "name", "posix"),
             mock.patch.object(os, "getppid", return_value=77),

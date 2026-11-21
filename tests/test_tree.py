@@ -10,8 +10,7 @@ from dasha.widgets import TreeNode, TreeView
 
 
 def outline() -> list[TreeNode]:
-    """src (open: dasha, with widgets and apps; README.md), then tests,
-    whose items are found only when it first opens."""
+    """A sample outline with lazy loading."""
     return [
         TreeNode(
             "src",
@@ -28,7 +27,10 @@ def outline() -> list[TreeNode]:
 
 
 def drawn(tree: TreeView) -> list[str]:
-    """The rows as drawn, without the spaces at their ends."""
+    """The rows as drawn, trimmed.
+
+    :param tree: The tree view.
+    """
     canvas = Canvas(tree.rect.width, tree.rect.height)
     tree.paint(canvas, canvas.bounds, True)
     return [canvas.text(row).rstrip() for row in range(tree.rect.height)]
@@ -54,13 +56,15 @@ class TreeTests(unittest.TestCase):
         )
 
     def keys(self, *names: str) -> None:
-        """Keys to the tree."""
+        """Send keys to the tree.
+
+        :param names: The keys.
+        """
         for name in names:
             self.tree.handle_key(name, Shortcuts())
 
     def test_drawn(self) -> None:
-        """Lines join each item to the one it is under; ► and ▼ mark items
-        that open."""
+        """Drawn."""
         self.assertEqual(
             drawn(self.tree)[:4],
             [f"{DOWN} src", f"├─{RIGHT} dasha", "└─  README.md", f"{RIGHT} tests"],
@@ -71,7 +75,7 @@ class TreeTests(unittest.TestCase):
         self.assertEqual(canvas.cell(0, 0)[1], TreeView.focused_style)
 
     def test_right_opens_then_goes_in(self) -> None:
-        """Right on a closed item opens it; again, goes to its first item."""
+        """Right opens, then goes in."""
         self.keys("down", "right")
         self.assertEqual(drawn(self.tree)[2], "│ ├─  widgets")
         self.assertEqual(self.opened, ["dasha"])
@@ -85,7 +89,7 @@ class TreeTests(unittest.TestCase):
         )
 
     def test_left_goes_out_then_closes(self) -> None:
-        """Left on an item goes to the one it is under; again, closes it."""
+        """Left goes out, then closes."""
         self.keys("down", "down")  # README.md
         self.keys("left")
         self.assertEqual(self.tree.value, self.tree.roots[0])
@@ -93,7 +97,7 @@ class TreeTests(unittest.TestCase):
         self.assertEqual(drawn(self.tree)[:2], [f"{RIGHT} src", f"{RIGHT} tests"])
 
     def test_closing_moves_the_highlight_out(self) -> None:
-        """Closing an item with the highlight under it puts it on the item."""
+        """Closing moves the highlight out."""
         self.keys("down", "down")  # README.md
         self.tree.collapse(self.tree.roots[0])
         self.assertEqual(self.tree.value, self.tree.roots[0])
@@ -116,8 +120,7 @@ class TreeTests(unittest.TestCase):
         self.assertEqual(self.tree.value, self.tree.roots[1])
 
     def test_enter(self) -> None:
-        """Enter opens and closes an item with items under it; with
-        on_choose, it chooses; on a leaf, it is left for the window."""
+        """Enter."""
         self.keys("down", "enter")
         self.assertTrue(self.tree.roots[0].children[0].expanded)
         self.keys("enter")
@@ -132,8 +135,7 @@ class TreeTests(unittest.TestCase):
         self.assertEqual(self.chosen, ["README.md"])
 
     def test_clicks(self) -> None:
-        """A click on ► opens the item; on a label, highlights it; a
-        double-click opens or closes it."""
+        """Clicks."""
         self.tree.handle_mouse(MouseEvent("press", "left", 1, 2), 1, 2)  # ►
         self.assertTrue(self.tree.roots[0].children[0].expanded)
         self.tree.handle_mouse(MouseEvent("press", "left", 5, 3), 5, 3)
@@ -166,8 +168,7 @@ class TreeTests(unittest.TestCase):
         self.assertFalse(tree.handle_key("right", Shortcuts()))
 
     def test_single_selection(self) -> None:
-        """With single selection, the highlighted item is the selected one,
-        and each move is a change."""
+        """Single selection."""
         self.keys("down", "down")
         self.assertEqual(self.tree.selected_nodes, [self.tree.roots[0].children[1]])
         self.assertEqual(self.changes, ["dasha", "README.md"])
@@ -177,8 +178,7 @@ class TreeTests(unittest.TestCase):
         self.assertEqual(self.tree.value, self.tree.roots[0].children[1])
 
     def test_selected_at_the_start(self) -> None:
-        """selected= highlights an item inside closed ones, opening the way
-        to it, without calling on_change."""
+        """Selected at the start."""
         roots = outline()
         dasha = roots[0].children[0]
         widgets = dasha.children[0]
@@ -203,9 +203,7 @@ class TreeTests(unittest.TestCase):
         self.assertFalse(self.tree.roots[0].children[0].expanded)
 
     def test_lazy_loading_waits(self) -> None:
-        """An item's load is called only when it is first expanded, with the
-        item, and not by moving over it; an item that turns out to have
-        nothing under it loses its ►."""
+        """Lazy loading waits."""
         calls: list[TreeNode] = []
 
         def load(node: TreeNode) -> list[TreeNode]:
@@ -224,8 +222,7 @@ class TreeTests(unittest.TestCase):
         self.assertFalse(empty.has_children)
 
     def test_scrolls_to_the_highlight(self) -> None:
-        """A tree taller than the box scrolls to keep the highlight in view,
-        with a scroll bar on the right."""
+        """Scrolls to the highlight."""
         tree = TreeView([TreeNode(f"item {n}") for n in range(10)], 0, 0, 12, 3)
         tree.handle_key("end", Shortcuts())
         self.assertEqual(tree.first_visible, 7)
@@ -233,8 +230,7 @@ class TreeTests(unittest.TestCase):
         self.assertEqual(len(drawn(tree)[0]), 12)  # the scroll bar
 
     def test_unfocused_highlight(self) -> None:
-        """Without the focus, the highlighted item is drawn in the selected
-        style, lines too."""
+        """The unfocused highlight."""
         canvas = Canvas(24, 8)
         self.tree.move_to(1)
         self.tree.paint(canvas, canvas.bounds, False)
@@ -262,7 +258,10 @@ class MultipleSelectionTests(unittest.TestCase):
         )
 
     def keys(self, *names: str) -> None:
-        """Keys to the tree."""
+        """Send keys to the tree.
+
+        :param names: The keys.
+        """
         for name in names:
             self.tree.handle_key(name, Shortcuts())
 
@@ -278,8 +277,7 @@ class MultipleSelectionTests(unittest.TestCase):
         self.assertEqual(self.tree.selected_node, self.tree.roots[0].children[1])
 
     def test_space_toggles(self) -> None:
-        """Space selects and deselects; value holds the items in the order of
-        the outline, whatever order they were selected in."""
+        """Space toggles."""
         self.keys("end", " ", "home", " ")
         self.assertEqual(self.labels(), ["src", "tests"])
         self.assertEqual(self.tree.value, (self.tree.roots[0], self.tree.roots[1]))
@@ -288,9 +286,7 @@ class MultipleSelectionTests(unittest.TestCase):
         self.assertEqual(self.changes, [["tests"], ["src", "tests"], ["tests"]])
 
     def test_kept_while_collapsed(self) -> None:
-        """An item stays selected while the item above it is collapsed and
-        expanded again, and the rows below follow the items, not the row
-        numbers."""
+        """Kept while collapsed."""
         self.keys("down", "right", "down", " ")  # widgets
         self.assertEqual(self.labels(), ["widgets"])
         self.tree.collapse(self.tree.roots[0])
@@ -311,8 +307,7 @@ class MultipleSelectionTests(unittest.TestCase):
         self.assertEqual(self.labels(), [])
 
     def test_clicks(self) -> None:
-        """A click on a label toggles it, Shift and a click selects a range,
-        and a click on ► only expands."""
+        """Clicks with multiple selection."""
         self.tree.handle_mouse(MouseEvent("press", "left", 0, 3), 0, 3)  # src
         self.assertEqual(self.labels(), ["src"])
         self.tree.handle_mouse(MouseEvent("press", "left", 1, 2), 1, 2)  # ►
@@ -326,8 +321,7 @@ class MultipleSelectionTests(unittest.TestCase):
         self.assertEqual(self.labels(), ["src", "dasha", "apps"])
 
     def test_set_selected_nodes(self) -> None:
-        """set_selected_nodes selects from code, items hidden too, calling
-        on_change once; the same again changes nothing."""
+        """``set_selected_nodes``."""
         widgets = self.tree.roots[0].children[0].children[0]
         self.tree.set_selected_nodes([widgets, self.tree.roots[1]])
         self.assertEqual(self.labels(), ["widgets", "tests"])
@@ -343,8 +337,7 @@ class MultipleSelectionTests(unittest.TestCase):
         self.assertEqual(tree.selected, {0, 3})
 
     def test_drawn(self) -> None:
-        """Selected items are drawn in the selected style, and the
-        highlighted one, selected, in the selection's colour on green."""
+        """Drawn with multiple selection."""
         self.keys(" ", "down", "down", "down", " ", "up")
         canvas = Canvas(24, 8)
         self.tree.paint(canvas, canvas.bounds, True)

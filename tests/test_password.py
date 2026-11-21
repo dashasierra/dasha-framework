@@ -37,8 +37,7 @@ class PasswordBoxTests(unittest.TestCase):
         self.assertEqual(self.drawn(), " secret     ")
 
     def test_never_copied_out(self) -> None:
-        """Copy and cut do nothing, by key or from code; the clipboard keeps
-        what it had."""
+        """Never copied out."""
         shortcuts = Shortcuts()
         self.box.handle_key("ctrl+a", shortcuts)
         self.box.handle_key("ctrl+c", shortcuts)

@@ -1,5 +1,4 @@
-"""Switches: a sliding on/off toggle for a setting that is either true or
-false."""
+"""On/off switches."""
 
 from collections.abc import Callable
 
@@ -14,47 +13,20 @@ from dasha.widgets.label import focus_style, paint_mnemonic_label
 
 KNOB = "\N{FULL BLOCK}"
 TRACK = "\N{LIGHT SHADE}"
-"""The knob ``█`` (code page 437 glyph 219) and the track ``░`` (176)."""
+"""Knob and track characters."""
 
 
 class Switch(Widget):  # pylint: disable=too-many-instance-attributes
-    """A ``Switch`` is a setting that is either true or false (On/Off, Yes/No,
-    True/False, Dark mode), shown as a knob that slides along a three-cell track:
-    on the left for off, and on the right for on. It takes up three columns, plus
-    a shadow:
+    """A sliding on/off toggle.
 
-    ::
-
-        █░░▄ Dark mode       off
-         ▀▀▀
-        ░░█▄ Dark mode       on
-         ▀▀▀
-
-    The knob (``█``, code page 437 glyph 219) and the track (``░``, 176) show
-    the state by the side the knob is on, so a switch reads the same without
-    colour. In colour, the track is grey when off and green when on
-    (``switch.off``, ``switch.on``). It casts the same shadow as a push button,
-    using the same ``button.shadow`` colours and ``button_shadow`` setting: solid
-    half blocks in colour, and the single-line outline in monochrome (``█░░┐``
-    above ``└──┘``), so that it looks raised in the same way. The label comes
-    after it, with an optional ``&`` letter, and is drawn in reverse video while
-    the switch has the focus.
-
-    - Space (``switch_toggle``): switch it the other way
-    - Left (``switch_off``): turn it off (the knob slides left)
-    - Right (``switch_on``): turn it on (the knob slides right)
-    - Its letter (Alt with the letter, or the letter alone in a dialog), or a
-      click on it: switch it the other way
-
-    ``on`` (and ``value``) is the setting. ``set(on)``, ``toggle()``,
-    ``turn_on()`` and ``turn_off()`` change it as the user does, and
-    ``on_change(switch)`` is called whenever the user changes it (setting ``on``
-    from code notifies no one). A ``disabled`` switch is greyed out
-    (``switch.disabled``), and can neither take the focus nor be changed. Enter
-    and Tab are left for the window.
-
-    The shadow is drawn by ``dasha.widgets.button.paint_shadow``, which any
-    widget can use to look raised like a button.
+    :param label: Label text; ``&`` marks the mnemonic.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param on: Whether it starts on.
+    :param disabled: Whether it is greyed out.
+    :param on_change: Called with the switch when the user changes it.
+    :param name: Widget name.
+    :param status: Status bar text.
     """
 
     focusable = True
@@ -63,8 +35,7 @@ class Switch(Widget):  # pylint: disable=too-many-instance-attributes
     on_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
     """The style of the track while the switch is on."""
     disabled_style: Style = Style(foreground=BRIGHT_BLACK, background=WHITE)
-    """The style of the track and label of a switch that cannot be
-    changed."""
+    """Style when disabled."""
 
     track_width = 3
 
@@ -103,8 +74,10 @@ class Switch(Widget):  # pylint: disable=too-many-instance-attributes
     # Changing it
 
     def set(self, on: bool) -> None:
-        """Turn the switch on or off as the user does, calling ``on_change``
-        if the setting changed. (Setting ``on`` from code notifies no one.)"""
+        """Turn on or off, as the user does.
+
+        :param on: Whether to turn it on.
+        """
         if on != self.on:
             self.on = on
             if self.on_change is not None:
@@ -161,8 +134,14 @@ class Switch(Widget):  # pylint: disable=too-many-instance-attributes
         body: Style,
         focused: bool,
     ) -> None:
-        """The label after the shadow: reversed while focused, so the focus
-        shows on any window's colours, its letter underlined."""
+        """Draw the label.
+
+        :param canvas: Canvas to draw on.
+        :param origin: The window's interior on screen.
+        :param at: Screen row and column.
+        :param body: The window's style.
+        :param focused: Whether the switch has the focus.
+        """
         style = self.disabled_style if self.disabled else focus_style(body, focused)
         paint_mnemonic_label(
             canvas, origin, at, self.label, style, underline=not self.disabled
@@ -171,8 +150,11 @@ class Switch(Widget):  # pylint: disable=too-many-instance-attributes
     # Input
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """Space switches it the other way, Left turns it off, and Right turns
-        it on."""
+        """Toggle, turn on or turn off with the keys.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         if self.disabled:
             return False
         actions: dict[str, Callable[[], object]] = {
@@ -183,7 +165,12 @@ class Switch(Widget):  # pylint: disable=too-many-instance-attributes
         return run_shortcut(shortcuts, key, actions)
 
     def handle_mouse(self, event: MouseEvent, row: int, column: int) -> bool:
-        """A press on the track or the label switches it the other way."""
+        """Toggle on a click.
+
+        :param event: The mouse event.
+        :param row: Row in the window's interior.
+        :param column: Column in the window's interior.
+        """
         del column
         if event.button != "left" or self.disabled:
             return False

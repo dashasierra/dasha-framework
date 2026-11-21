@@ -1,24 +1,4 @@
-"""A VT terminal emulator: a program's output turned into a grid of cells.
-
-``Screen`` is fed the text a program writes to its terminal, escape
-sequences and all, and keeps what a terminal would show: a grid of
-characters, each with a ``dasha.style.Style``, the cursor, the lines
-scrolled off the top, and the window title the program asked for. It does
-no input or output of its own, so it can be tested on its own; a
-``dasha.widgets.TerminalView`` feeds it a program's output (from a
-``dasha.pseudoterminal``) and draws it.
-
-It understands what everyday command-line programs and shells use, as an
-xterm would: cursor movement, erasing, inserting and deleting, colours (16,
-256 and 24-bit), scroll regions, line wrap, the alternate screen, and the
-DEC modes for the cursor, application cursor keys and bracketed paste.
-Anything else is read and ignored, never shown as text.
-
-``encode_key`` goes the other way: it turns a Dasha Framework key name (such as
-``"ctrl+c"`` or ``"shift+up"``) into the bytes a terminal sends for it.
-``encode_mouse`` does the same for the mouse, for a program that has asked
-for mouse reports (``Screen.is_tracking_mouse``).
-"""
+"""A VT terminal emulator."""
 
 import codecs
 import re
@@ -32,12 +12,10 @@ from dasha.style import DEFAULT, Colour, Rgb, Style
 # pylint: disable=too-many-lines
 
 type Cell = tuple[str, Style]
-"""A cell: its text and its style. The text is one character, a character
-with combining marks after it, or ``""`` for the right half of a wide
-character."""
+"""A cell's text and style."""
 
 SCROLLBACK = 1000
-"""How many lines scrolled off the top of the screen are kept, by default."""
+"""Default scrollback lines kept."""
 
 MAX_TITLE = 1000
 """The longest window title kept, in characters."""
@@ -46,7 +24,7 @@ _MAX_SEQUENCE = 256
 """A control sequence longer than this is garbage, and is dropped."""
 
 _MAX_STRING = 4096
-"""How much of an operating system command (such as a title) is kept."""
+"""Most characters kept of an OSC string."""
 
 _PRINTABLE = re.compile(r"[^\x00-\x1f\x7f-\x9f]+")
 
@@ -78,9 +56,7 @@ DEC_GRAPHICS = str.maketrans(
         "~": "\N{MIDDLE DOT}",
     }
 )
-"""The DEC special graphics character set (``ESC ( 0``), which programs
-such as tmux and dialog draw lines and boxes with: each letter as the code
-page 437 character it stands for."""
+"""DEC line-drawing characters."""
 
 PRIMARY_ATTRIBUTES = "\x1b[?62;22c"
 """The answer to "what are you?" (``CSI c``): a VT220 with colour."""
@@ -94,10 +70,10 @@ _width_cache: dict[str, int] = {}
 
 
 def char_width(char: str) -> int:
-    """How many columns a printable character takes: 2 for a wide one (most
-    CJK characters and emoji), 0 for a combining mark or other zero-width
-    character, and otherwise 1. These are the characters that
-    ``dasha.canvas.shown`` cannot draw as they are."""
+    """Columns a character takes.
+
+    :param char: The character.
+    """
     if char < "̀":
         return 1
     known = _width_cache.get(char)
@@ -114,22 +90,26 @@ def char_width(char: str) -> int:
 
 
 class Line(list[Cell]):
-    """One row of cells, which knows whether it carried on onto the next
-    (so that copying it joins the two)."""
+    """One row of cells, noting whether it wrapped."""
 
     wrapped: bool = False
     """Whether the text ran on into the next line, rather than ending."""
 
 
 def _number(part: str, default: int = 0) -> int:
-    """A parameter of a control sequence; ``default`` if it is empty or not
-    a number."""
+    """A sequence parameter, or a default.
+
+    :param part: The parameter text.
+    :param default: Value if empty or invalid.
+    """
     return int(part) if part.isdigit() and len(part) <= 9 else default
 
 
 def _colour(parts: list[str]) -> Colour | None:
-    """The colour that ``5;N`` or ``2;R;G;B`` (after a 38 or 48) gives, or
-    ``None`` if it is not one."""
+    """An extended colour, or ``None``.
+
+    :param parts: The parameters after 38 or 48.
+    """
     if not parts:
         return None
     if parts[0] == "5" and len(parts) >= 2:
@@ -156,14 +136,11 @@ class _Cursor:  # pylint: disable=too-few-public-methods,too-many-instance-attri
 
 
 class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-methods
-    """What a terminal of ``columns`` by ``lines`` shows, kept up to date by
-    ``feed``.
+    """What a terminal shows, kept up to date by ``feed``.
 
-    The rows on screen are ``rows``; the lines scrolled off the top of the
-    main screen are kept in ``scrollback``, up to as many as the
-    ``scrollback`` given. A full-screen program (an editor, say) uses the
-    alternate screen, which keeps nothing when it scrolls, and puts the main
-    screen back as it was when it leaves.
+    :param columns: Screen width.
+    :param lines: Screen height.
+    :param scrollback: Most lines kept off the top.
     """
 
     row: int
@@ -183,10 +160,7 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
     bracketed_paste: bool
     """Whether the program wants pastes marked (mode 2004)."""
     mouse_modes: set[int]
-    """The mouse reporting modes the program has turned on: 1000 (clicks
-    and the wheel), 1002 (dragging too), 1003 (any movement), and 1006
-    (reports in the SGR form). See ``is_tracking_mouse`` and
-    ``encode_mouse``."""
+    """Mouse reporting modes turned on."""
 
     def __init__(
         self, columns: int = 80, lines: int = 24, scrollback: int = SCROLLBACK
@@ -196,11 +170,9 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
         self.scrollback: deque[Line] = deque(maxlen=max(0, scrollback))
         """Lines scrolled off the top of the main screen, oldest first."""
         self.scrolled_off = 0
-        """How many lines have ever gone into ``scrollback``: a count that
-        only goes up, so that a view scrolled back can stay where it is."""
+        """Lines ever scrolled into the scrollback."""
         self.title = ""
-        """The window title the program last asked for (``OSC 0`` or
-        ``OSC 2``)."""
+        """The program's window title."""
         self.bells = 0
         """How many times the program has rung the bell."""
         self._replies: list[str] = []
@@ -244,13 +216,17 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
     # Feeding
 
     def feed_bytes(self, data: bytes) -> None:
-        """Take in output as it arrives: UTF-8, possibly with a character
-        split between one piece and the next."""
+        """Take in UTF-8 output.
+
+        :param data: The output.
+        """
         self.feed(self._decoder.decode(data))
 
     def feed(self, text: str) -> None:
-        """Take in output: text and control sequences, in any pieces (a
-        sequence split between two calls is put back together)."""
+        """Take in output.
+
+        :param text: The output.
+        """
         index, end = 0, len(text)
         while index < end:
             if self._state == _GROUND:
@@ -269,9 +245,7 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
             index += 1
 
     def take_replies(self) -> bytes:
-        """What the program asked the terminal to answer (where the cursor
-        is, what kind of terminal it is), to be sent to it as input; then
-        forget it."""
+        """Take the program's pending replies."""
         replies, self._replies = "".join(self._replies), []
         return replies.encode("utf-8")
 
@@ -282,7 +256,10 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
     # Controls
 
     def _control(self, char: str) -> None:
-        """A C0 control character (C1 ones are ignored)."""
+        """Handle a C0 control character.
+
+        :param char: The character.
+        """
         if char == "\x1b":
             self._state = _ESCAPE
             self._sequence = []
@@ -308,8 +285,10 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
             self._shift = 0
 
     def _escape(self, char: str) -> None:
-        """The character after an ESC (and any after that, up to the final
-        one, for ``ESC ( 0`` and the like)."""
+        """Handle the character after an ESC.
+
+        :param char: The character.
+        """
         sequence = self._sequence
         if char == "\x1b":
             self._sequence = []
@@ -336,7 +315,11 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
             self._simple_escape(char)
 
     def _designate(self, intermediates: str, final: str) -> None:
-        """``ESC ( 0``, ``ESC ) B`` and the like, and ``ESC # 8``."""
+        """Handle a character set designation.
+
+        :param intermediates: Intermediate characters.
+        :param final: The final character.
+        """
         if intermediates in ("(", ")"):
             self._charsets[intermediates == ")"] = "0" if final == "0" else "B"
         elif intermediates == "#" and final == "8":
@@ -371,9 +354,10 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
         self._string_escape = False
 
     def _in_string(self, char: str) -> None:
-        """A character of an operating system command (``OSC``), or of a
-        string to ignore (``DCS``, ``APC`` and so on), which end with BEL or
-        ``ESC \\``."""
+        """Handle a character of an OSC or ignored string.
+
+        :param char: The character.
+        """
         if self._string_escape:
             self._string_escape = False
             if char == "\\":
@@ -419,7 +403,11 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
             self._state = _GROUND  # garbage: dropped
 
     def _dispatch(self, body: str, final: str) -> None:
-        """Carry out ``CSI body final``."""
+        """Carry out a CSI sequence.
+
+        :param body: Its parameters and intermediates.
+        :param final: Its final character.
+        """
         private = body[:1] if body[:1] in "?>=<" else ""
         body = body[len(private) :]
         intermediates = ""
@@ -514,8 +502,10 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
                     self.newline = final == "h"
 
     def _report(self, number: int) -> None:
-        """Device status reports: ``CSI 5 n`` (all is well) and ``CSI 6 n``
-        (where the cursor is)."""
+        """Answer a device status report.
+
+        :param number: The report asked for.
+        """
         if number == 5:
             self._reply("\x1b[0n")
         elif number == 6:
@@ -558,9 +548,10 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
                 self.mouse_modes.discard(number)
 
     def _sgr(self, body: str) -> None:
-        """Select graphic rendition: colours and attributes (``CSI ... m``),
-        with 256 and 24-bit colours given either way (``38;5;N`` or
-        ``38:5:N``)."""
+        """Set colours and attributes.
+
+        :param body: The SGR parameters.
+        """
         groups = [group.split(":") for group in body.split(";")] if body else [["0"]]
         index = 0
         while index < len(groups):
@@ -638,14 +629,17 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
             self._last_printed = text[-1]
 
     def _wrap(self) -> None:
-        """Carry on at the start of the next line, as the last one is full."""
+        """Continue on the next line."""
         self._rows[self.row].wrapped = True
         self._index()
         self.column = 0
         self._pending_wrap = False
 
     def _print_ascii(self, text: str) -> None:
-        """Text of one cell to a character, quickly."""
+        """Print one-cell text quickly.
+
+        :param text: The text.
+        """
         style, columns = self.style, self.columns
         while text:
             if self._pending_wrap:
@@ -696,8 +690,10 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
             self.column = end
 
     def _combine(self, mark: str) -> None:
-        """A combining mark (or other zero-width character) joins the
-        character before it."""
+        """Join a combining mark to the previous character.
+
+        :param mark: The mark.
+        """
         row = self._rows[self.row]
         column = self.column if self._pending_wrap else self.column - 1
         if 0 < column and row[column][0] == "":
@@ -709,8 +705,12 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
             row[column] = (unicodedata.normalize("NFC", text + mark), style)
 
     def _clear_wide_at(self, row: Line, start: int, end: int) -> None:
-        """Before ``start`` to ``end`` is written over: blank the other half
-        of any wide character cut in two."""
+        """Blank the other half of cut wide characters.
+
+        :param row: The line.
+        :param start: First column overwritten.
+        :param end: Column after the last.
+        """
         if start > 0 and row[start][0] == "":
             row[start - 1] = (" ", row[start - 1][1])
         if end < self.columns and row[end][0] == "":
@@ -730,8 +730,11 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
         self._pending_wrap = False
 
     def _address(self, row: int, column: int) -> None:
-        """Move to a place given by a program, which in origin mode counts
-        from the scroll region's top, and stays inside it."""
+        """Move to a program-given place.
+
+        :param row: The row.
+        :param column: The column.
+        """
         if self.origin:
             row = min(self.top + row, self.bottom)
         self._move_to(row, column)
@@ -753,7 +756,10 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
         self._pending_wrap = False
 
     def _tab(self, count: int) -> None:
-        """To the next tab stop (or, for a negative count, back)."""
+        """Move between tab stops.
+
+        :param count: Stops forward; negative is back.
+        """
         column = self.column
         for _ in range(abs(count)):
             if count > 0:
@@ -889,9 +895,11 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
             self.column = 0
 
     def _scroll_up(self, count: int, top: int | None = None) -> None:
-        """Move the region's lines up (from ``top``, the region's top by
-        default), losing those at the top: into the scrollback, on the main
-        screen with the region at the top."""
+        """Scroll the region up.
+
+        :param count: Lines to scroll.
+        :param top: Top line, or ``None`` for the region's.
+        """
         top = self.top if top is None else top
         rows, bottom = self._rows, self.bottom
         count = min(count, bottom - top + 1)
@@ -930,14 +938,12 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
 
     @property
     def is_alternate(self) -> bool:
-        """Whether the alternate screen is in use (by a full-screen
-        program)."""
+        """Whether the alternate screen is in use."""
         return self._rows is self._alternate
 
     @property
     def is_tracking_mouse(self) -> bool:
-        """Whether the program has asked to be told of the mouse (mode 1000,
-        1002 or 1003), as editors and other full-screen programs do."""
+        """Whether the program tracks the mouse."""
         return bool(self.mouse_modes & TRACKING_MODES)
 
     @property
@@ -951,9 +957,10 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
         return self.row, self.column
 
     def shown_rows(self, back: int = 0) -> list[Line]:
-        """The rows to show when scrolled ``back`` lines into the
-        scrollback: the last of the scrollback, then the top of the
-        screen. Scrollback lines are as wide as the screen was then."""
+        """The rows shown when scrolled back.
+
+        :param back: Lines scrolled back.
+        """
         back = max(0, min(back, len(self.scrollback)))
         if back == 0:
             return list(self._rows)
@@ -965,16 +972,14 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
         self.scrollback.clear()
 
     def soft_reset(self) -> None:
-        """``CSI ! p``: the modes back to how they start, keeping what is on
-        the screen."""
+        """Reset the modes, keeping the screen."""
         row, column = self.row, self.column
         self._reset_modes()
         self._saved = [_Cursor(), _Cursor()]
         self.row, self.column = row, column
 
     def reset(self) -> None:
-        """``ESC c``: back to how a terminal starts, with both screens clear
-        (the scrollback is kept)."""
+        """Reset to the starting state."""
         self._main[:] = self._blank_lines(self.lines)
         self._alternate[:] = self._blank_lines(self.lines)
         self._rows = self._main
@@ -982,11 +987,11 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
         self._reset_modes()
 
     def resize(self, columns: int, lines: int) -> None:
-        """Change the size, keeping what is shown: lines are cut short or
-        padded (text is not rewrapped). On the main screen, a screen that
-        gets shorter puts its top lines into the scrollback, so that the
-        cursor's line stays on screen, and one that gets taller brings
-        lines back from the scrollback."""
+        """Change the size.
+
+        :param columns: New width.
+        :param lines: New height.
+        """
         columns, lines = max(1, columns), max(1, lines)
         if (columns, lines) == (self.columns, self.lines):
             return
@@ -1020,9 +1025,13 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
     def _resize_rows(
         self, rows: list[Line], lines: int, keep_cursor: bool, scroll: bool
     ) -> None:
-        """Make ``rows`` ``lines`` long. ``keep_cursor``: it is the screen
-        in use, whose cursor row moves with its lines. ``scroll``: lines
-        go to and come from the scrollback."""
+        """Resize a list of rows.
+
+        :param rows: The rows.
+        :param lines: New height.
+        :param keep_cursor: Whether the cursor moves with the lines.
+        :param scroll: Whether lines go to and from the scrollback.
+        """
         height = len(rows)
         if lines < height:
             cursor = self.row if keep_cursor else 0
@@ -1049,8 +1058,10 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
             rows.extend(self._blank_lines(lines - height - back))
 
     def text(self, lines: Iterable[Line]) -> str:
-        """Lines as plain text, for copying: trailing blanks dropped, and a
-        line that wrapped joined to the next."""
+        """Lines as plain text.
+
+        :param lines: The lines.
+        """
         parts: list[str] = []
         for line in lines:
             text = "".join(cell[0] for cell in line).rstrip(" ")
@@ -1059,8 +1070,7 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
 
 
 TRACKING_MODES = frozenset({1000, 1002, 1003})
-"""The DEC modes in which a program is told of the mouse: clicks and the
-wheel (1000), dragging as well (1002), and any movement (1003)."""
+"""DEC modes that report the mouse."""
 
 _MOUSE_BUTTONS = {"left": 0, "middle": 1, "right": 2}
 _WHEEL = {"up": 64, "down": 65, "left": 66, "right": 67}
@@ -1070,13 +1080,13 @@ _WHEEL = {"up": 64, "down": 65, "left": 66, "right": 67}
 def encode_mouse(
     event: MouseEvent, row: int, column: int, modes: set[int]
 ) -> bytes | None:
-    """The bytes an xterm sends a program for mouse activity at ``row``,
-    ``column`` (in the program's terminal, from 0), given the mouse modes
-    the program has turned on (``Screen.mouse_modes``): ``None`` for
-    activity it has not asked about. Reports are in the SGR form
-    (``ESC [ < b ; x ; y M``) when the program asked for that (1006), and
-    otherwise in the original form (``ESC [ M`` and three bytes), which
-    cannot reach beyond column or row 223."""
+    """The bytes reporting mouse activity, or ``None``.
+
+    :param event: The mouse event.
+    :param row: Row in the terminal.
+    :param column: Column in the terminal.
+    :param modes: The program's mouse modes.
+    """
     if not modes & TRACKING_MODES:
         return None
     action, button = event.action, event.button
@@ -1153,8 +1163,10 @@ _CTRL_PUNCTUATION = {
 
 
 def _split_key(key: str) -> tuple[set[str], str]:
-    """A key name's modifiers and the key itself: ``"ctrl++"`` is Ctrl and
-    ``"+"``."""
+    """A key name's modifiers and key.
+
+    :param key: The key name.
+    """
     if key.endswith("++"):
         return set(key[:-2].split("+")), "+"
     *modifiers, base = key.split("+")
@@ -1163,12 +1175,11 @@ def _split_key(key: str) -> tuple[set[str], str]:
 
 # pylint: disable-next=too-many-return-statements,too-many-branches
 def encode_key(key: str, app_cursor_keys: bool = False) -> bytes | None:
-    """The bytes a terminal sends a program for a key, given by its
-    Dasha Framework name (see ``dasha.events``), as an xterm would: ``"a"``
-    as ``a``, ``"ctrl+c"`` as ``\\x03``, ``"alt+b"`` as ``ESC b``,
-    ``"up"`` as ``ESC [ A`` (or ``ESC O A`` with ``app_cursor_keys``),
-    ``"shift+up"`` as ``ESC [ 1 ; 2 A``, ``"f5"`` as ``ESC [ 15 ~``.
-    ``None`` for a key it has no bytes for."""
+    """The bytes a terminal sends for a key, or ``None``.
+
+    :param key: The key name.
+    :param app_cursor_keys: Whether application cursor keys are on.
+    """
     if len(key) == 1:
         return key.encode("utf-8", "replace")
     if key.startswith("unknown("):

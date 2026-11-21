@@ -1,7 +1,4 @@
-"""Tests for a window's footer: a few words at the left of its frame's
-bottom edge, in parts with the frame's own line between them, the
-horizontal scroll bar after them, gone when the window is too narrow; and
-its way to the desktop from an application in a process of its own."""
+"""Tests for window footers."""
 
 import unittest
 
@@ -21,14 +18,22 @@ SUN = "\N{WHITE SUN WITH RAYS}"
 
 
 def bottom(window: Window, active: bool = True) -> str:
-    """The window's bottom edge, as drawn."""
+    """The window's bottom edge.
+
+    :param window: The window.
+    :param active: Whether it is drawn active.
+    """
     canvas = Canvas(window.rect.right, window.rect.bottom)
     window.paint(canvas, active)
     return canvas.text(window.rect.bottom - 1)[window.rect.column :]
 
 
 class _Footed(Window):
-    """A window whose footer is worked out as it is drawn."""
+    """A window with a computed footer.
+
+    :param rect: Position and size.
+    :param lines: Lines of text.
+    """
 
     def __init__(self, rect: Rect, lines: list[str]) -> None:
         super().__init__("W", rect, lines, resizable=True)
@@ -54,9 +59,7 @@ class FooterTests(unittest.TestCase):
         self.assertEqual(bottom(window), "╚═ 12:3 " + "═" * 10 + "─┘")
 
     def test_parts_parted_by_the_frame_line(self) -> None:
-        """Between each two parts, the frame's own line, as the frame is
-        drawn now: double while active, single while not, and the moving
-        frame's while being moved. Empty parts are left out."""
+        """Parts are separated by the frame line."""
         window = Window("W", Rect(0, 0, 4, 24), resizable=True)
         window.footer = [SUN, "", "1:1"]
         self.assertTrue(bottom(window).startswith(f"╚═ {SUN} ═ 1:1 ═"))
@@ -74,8 +77,7 @@ class FooterTests(unittest.TestCase):
         self.assertEqual(canvas.cell(3, 5)[1], window.adjusting_frame_style)
 
     def test_scroll_bar_after_it(self) -> None:
-        """A horizontal scroll bar starts after the footer, keeping clear
-        of it, and its arrows are where it is drawn."""
+        """The scroll bar follows the footer."""
         window = Window("W", Rect(0, 0, 4, 26), ["x" * 40], resizable=True)
         window.footer = [SUN, "1:1"]
         edge = bottom(window)
@@ -100,9 +102,7 @@ class FooterTests(unittest.TestCase):
         )
 
     def test_gone_when_too_narrow(self) -> None:
-        """With no room for every part and a scroll bar of two cells, the
-        footer goes and the bar has the edge; without a bar, it goes when
-        it would reach the corner."""
+        """The footer goes when too narrow."""
         window = Window("W", Rect(0, 0, 4, 18), ["x" * 40], resizable=True)
         window.footer = [SUN, "123:45"]  # 10 cells: needs 10 + 9 = 19 with a bar
         self.assertEqual(window.shown_footer, [])
@@ -134,9 +134,7 @@ class RemoteFooterTests(unittest.TestCase):
         self.assertEqual(of_type(drain(desktop), "window")[0]["footer"], [SUN, "1:1"])
 
     def test_shown_on_the_desktop(self) -> None:
-        """The desktop's frame shows the parts, each one line and not too
-        long, and not too many of them; a footer that is not a list of
-        parts is refused, ending the application."""
+        """A hosted footer on the desktop."""
         manager = PresentationManager()
         manager.handle_resize(80, 24)
         server = AppServer(manager)

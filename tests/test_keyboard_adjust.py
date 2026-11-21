@@ -21,7 +21,10 @@ class KeyboardAdjustTests(unittest.TestCase):
         self.manager.handle_resize(80, 24)
 
     def keys(self, *keys: str) -> None:
-        """Send keys through the manager."""
+        """Send keys through the manager.
+
+        :param keys: The keys.
+        """
         for key in keys:
             self.manager.handle_event(key)
 
@@ -44,8 +47,7 @@ class KeyboardAdjustTests(unittest.TestCase):
         self.assertIsNone(self.manager.adjusting)
 
     def test_resize_and_switch(self) -> None:
-        """Alt+F8 resizes; Tab switches to moving and back; the minimum
-        size still holds."""
+        """Resize and switch modes."""
         self.keys("alt+f8", "right", "down", "down")
         self.assertEqual(self.window.rect, Rect(5, 10, 8, 21))
         self.keys("tab", "left")
@@ -54,8 +56,7 @@ class KeyboardAdjustTests(unittest.TestCase):
         self.assertEqual(self.window.rect.width, self.window.min_width)
 
     def test_it_cannot_be_moved_off_screen(self) -> None:
-        """However far the arrows push it, four columns stay on screen, and
-        its title bar stays between the menu bar and the status bar."""
+        """It cannot be moved off screen."""
         self.keys("alt+f7", *["left"] * 200)
         self.assertEqual(self.window.rect.column, 4 - 20)
         self.keys(*["right"] * 300)
@@ -66,8 +67,7 @@ class KeyboardAdjustTests(unittest.TestCase):
         self.assertEqual(self.window.rect.row, 1)  # just below the menu bar
 
     def test_resizing_cannot_lose_it_either(self) -> None:
-        """Partly off the left edge, made narrower: it moves in, rather than
-        shrinking out of sight."""
+        """Resizing cannot lose it."""
         self.window.move_to(5, -14)  # six columns showing
         self.keys("alt+f8", *["left"] * 30, "enter")
         rect = self.window.rect
@@ -75,8 +75,7 @@ class KeyboardAdjustTests(unittest.TestCase):
         self.assertGreaterEqual(rect.column + rect.width, min(4, rect.width))
 
     def test_a_window_put_off_screen_is_brought_back(self) -> None:
-        """Added where none of it would show (by an application, say), a
-        window is put where it can be reached, once the screen size is known."""
+        """A window put off screen is brought back."""
         lost = Window("Lost", Rect(40, 500, 6, 20))
         self.manager.add(lost)
         self.assertEqual((lost.rect.row, lost.rect.column), (22, 76))
@@ -92,8 +91,7 @@ class KeyboardAdjustTests(unittest.TestCase):
         self.assertEqual(self.window.rect.row, 6)
 
     def test_not_resizable(self) -> None:
-        """Alt+F8 does nothing to a fixed-size window, and Tab cannot switch
-        to resizing it."""
+        """Not resizable."""
         self.manager.bring_to_front(self.back)
         self.keys("alt+f8")
         self.assertIsNone(self.manager.adjusting)
@@ -101,8 +99,7 @@ class KeyboardAdjustTests(unittest.TestCase):
         self.assertEqual(self.back.rect, Rect(10, 31, 5, 20))
 
     def test_title_bar_stays_between_the_bars(self) -> None:
-        """As with dragging, the title bar cannot go under the menu bar or
-        the status bar."""
+        """The title bar stays between the bars."""
         self.keys("alt+f7", *["up"] * 10)
         self.assertEqual(self.window.rect.row, 1)
         self.keys(*["down"] * 40)
@@ -116,8 +113,7 @@ class KeyboardAdjustTests(unittest.TestCase):
         self.assertEqual(self.window.rect, Rect(5, 11, 6, 20))
 
     def test_keys_go_to_the_mode_not_the_window(self) -> None:
-        """While adjusting, arrows do not reach a focused text box, keys do
-        not open menus, and pastes are ignored."""
+        """Keys go to the mode, not the window."""
         box = self.window.add(TextBox(0, 0, 10, text="abc"))
         self.keys("alt+f7", "left", "f10", "x")
         self.manager.handle_event(PasteEvent("pasted"))
@@ -158,8 +154,7 @@ class KeyboardAdjustTests(unittest.TestCase):
         return canvas.cell(self.window.rect.row, self.window.rect.column)[1]
 
     def test_mouse_move_shows_the_same_frame(self) -> None:
-        """Dragging the title bar shows the frame as moving from the
-        keyboard does, until the button is let go of."""
+        """A mouse move shows the same frame."""
         title = (self.window.rect.row, self.window.rect.column + 8)
         self.manager.handle_event(MouseEvent("press", "left", *title))
         self.assertEqual(self.corner_style(), self.window.adjusting_frame_style)
@@ -170,8 +165,7 @@ class KeyboardAdjustTests(unittest.TestCase):
         self.assertFalse(self.window.adjusting)
 
     def test_single_lines_while_moving(self) -> None:
-        """The active window's double frame turns single while it moves,
-        by keyboard or mouse, and double again after."""
+        """Single lines while moving."""
         canvas = Canvas(80, 24)
         corner = (self.window.rect.row, self.window.rect.column)
         self.manager.compose(canvas)
@@ -189,8 +183,7 @@ class KeyboardAdjustTests(unittest.TestCase):
         self.assertEqual(canvas.cell(*corner)[0], DOUBLE.top_left)
 
     def test_dialog_keeps_its_background(self) -> None:
-        """A dialog dragged by its title turns green on its own white, not
-        on a window's blue."""
+        """A dialog keeps its background."""
         dialog = Dialog("Q", 30, 8)
         dialog.move_to(5, 5)
         manager = PresentationManager(windows=[dialog])

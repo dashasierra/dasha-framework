@@ -1,5 +1,4 @@
-"""Tests for containers of mixed kinds nested in each other: what shows,
-and where things go."""
+"""Tests for nested containers of mixed kinds."""
 
 import unittest
 
@@ -10,8 +9,10 @@ from dasha.window import Window
 
 
 class Bare(Container):
-    """A container that is not a widget, anchored to one (as a tab page
-    is), showing its widgets or not as it is told."""
+    """A non-widget container showing on request.
+
+    :param owner: The widget it belongs to.
+    """
 
     def __init__(self, owner: Widget) -> None:
         super().__init__()
@@ -31,8 +32,7 @@ class Bare(Container):
 
 
 class NestingTests(unittest.TestCase):
-    """A collapsible area holding a group box, and a group box holding an
-    area, then a label below both."""
+    """Areas and group boxes nested both ways."""
 
     def setUp(self) -> None:
         self.window = Window("W", Rect(0, 0, 20, 50))
@@ -50,8 +50,7 @@ class NestingTests(unittest.TestCase):
         self.assertEqual((self.inner.rect.row, self.deep.rect.row), (3, 4))
 
     def test_shown_through_each(self) -> None:
-        """Collapsed, nothing inside shows; expanded, the group and what is
-        directly in it; the inner area's widgets only once it is open too."""
+        """Widgets show through each container."""
         hidden = (self.group, self.inside, self.inner, self.deep)
         self.assertFalse(any(widget.is_shown for widget in hidden))
         self.area.expand()
@@ -63,8 +62,7 @@ class NestingTests(unittest.TestCase):
         self.assertTrue(self.deep.is_shown)
 
     def test_the_group_moves_with_the_area(self) -> None:
-        """Expanding moves what is below by the group's height; the inner
-        area's opening, inside the group's frame, does not."""
+        """The group moves with the area."""
         self.area.expand()
         self.assertEqual(self.below.rect.row, 5)  # header, then a 4-row group
         self.inner.expand()

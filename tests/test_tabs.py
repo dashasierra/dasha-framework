@@ -13,8 +13,7 @@ from tests.support import painted
 
 
 class TabsTests(unittest.TestCase):
-    """Tabs with General and Advanced pages, a text box on each, in a
-    window with a button below the tabs."""
+    """Two tab pages in a window."""
 
     def setUp(self) -> None:
         self.changes: list[int] = []
@@ -29,7 +28,10 @@ class TabsTests(unittest.TestCase):
         self.ok = self.window.add(Button("&OK", 7, 1))
 
     def keys(self, *names: str) -> None:
-        """Keys to the window."""
+        """Send keys to the window.
+
+        :param names: The keys.
+        """
         for name in names:
             self.window.handle_key(name, Shortcuts())
 
@@ -75,9 +77,7 @@ class TabsTests(unittest.TestCase):
         self.assertEqual(self.changes, [1, 0])
 
     def test_ctrl_pagedown_anywhere(self) -> None:
-        """From a widget on the page, Ctrl+PgDn and Ctrl+PgUp change page,
-        round from the last to the first; the focus, left on a page that no
-        longer shows, goes to the tabs."""
+        """Ctrl+PgDn from anywhere."""
         self.window.focus(self.name)
         self.keys("ctrl+pagedown")
         self.assertEqual(self.tabs.selected, 1)
@@ -119,8 +119,7 @@ class TabsTests(unittest.TestCase):
         self.assertEqual(set(self.window.values), {"name", "level"})
 
     def test_a_disabled_page(self) -> None:
-        """Greyed out, without its letter: it cannot be chosen by key,
-        letter, click or code, and moving passes over it."""
+        """A disabled page."""
         third = self.tabs.add_page("&Third")
         self.tabs.disable(1)
         self.assertFalse(self.tabs.is_enabled(1))
@@ -152,8 +151,7 @@ class TabsTests(unittest.TestCase):
         self.assertEqual(self.tabs.selected, 1)
 
     def test_disabling_the_page_shown(self) -> None:
-        """The next page that is not disabled shows instead, with the focus
-        on the tabs; with every page disabled, the tabs cannot be focused."""
+        """Disabling the page shown."""
         self.window.focus(self.name)
         self.tabs.disable(0)
         self.assertEqual(self.tabs.selected, 1)
@@ -184,8 +182,7 @@ class NestingTests(unittest.TestCase):
     """Tabs in a dialog, holding a group box and a splitter."""
 
     def test_nested(self) -> None:
-        """A group box on one page, a splitter on another: what each holds
-        shows with its page."""
+        """Nested containers."""
         dialog = Dialog("D", 50, 16)
         tabs = dialog.add(Tabs(0, 1, 46, 10))
         one, two = tabs.add_page("&One"), tabs.add_page("&Two")

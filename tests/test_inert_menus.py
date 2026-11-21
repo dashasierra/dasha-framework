@@ -1,5 +1,4 @@
-"""Tests for inert menus: an application's menu bar stays, but cannot be
-used, while one of its dialogs waits."""
+"""Tests for inert menus."""
 
 import unittest
 from typing import cast
@@ -40,8 +39,7 @@ class MenuBarTests(unittest.TestCase):
         )
 
     def test_keys_do_not_open_them(self) -> None:
-        """F10 opens the first that is not inert; Alt+letter and their
-        shortcuts do nothing; Right and Left step past them."""
+        """Keys do not open inert menus."""
         self.assertFalse(self.menu_bar.handle_key(key="alt+f"))
         self.assertFalse(self.menu_bar.handle_key(key="f2"))
         self.assertEqual(self.chosen, [])
@@ -55,8 +53,7 @@ class MenuBarTests(unittest.TestCase):
         self.assertIs(self.menu_bar.open_menu, self.first)
 
     def test_right_and_left_keep_the_highlight(self) -> None:
-        """With every other menu inert, Right and Left leave the open menu
-        as it is, rather than opening it again at its first item."""
+        """Right and Left keep the highlight."""
         say = self.chosen.append
         self.first.items.append(MenuItem(label="&Stop", action=lambda: say("stop")))
         self.menu_bar.handle_key(key="f10")
@@ -145,8 +142,7 @@ class BehindADialogTests(unittest.TestCase):
         self.assertEqual(self.manager.inert_menus(), [])
 
     def test_while_execute_waits(self) -> None:
-        """Drawn behind a real, waiting dialog, and F10 opens nothing of the
-        application's."""
+        """Inert behind a waiting dialog."""
         manager = Scripted()
         manager.launch(application=Notes)
         answers: list[object] = []

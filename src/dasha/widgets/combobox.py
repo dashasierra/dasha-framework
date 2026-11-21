@@ -1,5 +1,4 @@
-"""Combo boxes: a field showing the current choice, which drops down a list
-to choose another."""
+"""Combo boxes."""
 
 from collections.abc import Callable, Iterable
 
@@ -10,39 +9,20 @@ from dasha.style import BLUE, BRIGHT_WHITE, CYAN, GREEN, Style
 from dasha.widgets.base import Widget
 
 DROP_DOWN = "\N{BLACK DOWN-POINTING TRIANGLE}"
-"""``▼`` (code page 437 glyph 31), the button that drops down the list."""
+"""The drop-down button."""
 
 
 class ComboBox(Widget):  # pylint: disable=too-many-instance-attributes
-    """A ``ComboBox`` shows the current choice in a one-row field, with ``▼``
-    (code page 437 glyph 31) on its right, and drops down the whole list to
-    choose another, as the Type box in a file dialog does:
+    """A field that drops down a list of choices.
 
-    ::
-
-         Text files (*.txt)  ▼
-
-    - Alt+Down or F4 (``combo_open``): drop down the list
-    - Up / Down (``combo_previous`` / ``combo_next``): choose the previous /
-      next item, without opening the list
-    - A letter: choose the first item starting with that letter
-    - A click on the field: drop down the list
-
-    The list drops down below the field, as wide as the field and up to
-    ``PresentationManager.pick_rows`` (8) rows tall, scrolling beyond that. If
-    there is no room below, it goes above instead, and it always stays on the
-    screen horizontally. It is a popup above everything else, so it can extend
-    past the edge of its own window. Enter or a click on an item chooses that
-    item; Escape or a click anywhere else leaves the choice as it was. Enter, Tab
-    and Escape on the closed field are left for the window, so Enter presses a
-    dialog's default button.
-
-    ``value`` is the index of the chosen item, and ``selected_item`` is its
-    text. ``choose(index)`` changes the choice as the user does, and
-    ``on_change(box)`` is called for every change the user makes;
-    ``set_items(items, selected)`` offers other items from code, without
-    notifying anyone. The colours are ``combobox``, ``combobox.focused`` and
-    ``combobox.button``, and the list uses the list box's colours.
+    :param items: The choices.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param width: Width in columns.
+    :param selected: Index of the initial choice.
+    :param on_change: Called with the box when the choice changes.
+    :param name: Widget name.
+    :param status: Status bar text.
     """
 
     focusable = True
@@ -84,14 +64,19 @@ class ComboBox(Widget):  # pylint: disable=too-many-instance-attributes
         return self.items[self.selected] if self.items else ""
 
     def set_items(self, items: Iterable[str], selected: int = 0) -> None:
-        """Offer other items, choosing one of them, from code (without calling
-        ``on_change``)."""
+        """Replace the items without notifying.
+
+        :param items: The new choices.
+        :param selected: Index of the choice.
+        """
         self.items = list(items)
         self.selected = max(0, min(selected, len(self.items) - 1))
 
     def choose(self, index: int) -> None:
-        """Choose an item as the user does, calling ``on_change`` if the choice
-        changed."""
+        """Choose an item, as the user does.
+
+        :param index: Item index.
+        """
         if not self.items:
             return
         index = max(0, min(index, len(self.items) - 1))
@@ -106,9 +91,7 @@ class ComboBox(Widget):  # pylint: disable=too-many-instance-attributes
     # Dropping the list down
 
     def drop_down(self) -> None:
-        """Show the whole list below the field, and take the user's choice.
-        Nothing happens unless the window is on a running presentation
-        manager."""
+        """Drop down the list and take the choice."""
         window = self.window
         manager = window.manager if window is not None else None
         if window is None or manager is None or not self.items:
@@ -129,8 +112,11 @@ class ComboBox(Widget):  # pylint: disable=too-many-instance-attributes
         canvas.write(row, column + width - 1, DROP_DOWN, self.button_style, clip=origin)
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """Open the list, step through it, or jump to an item by its first
-        letter."""
+        """Open, step through or jump in the list.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         if shortcuts.matches("combo_open", key):
             self.drop_down()
             return True
@@ -150,7 +136,12 @@ class ComboBox(Widget):  # pylint: disable=too-many-instance-attributes
         return False
 
     def handle_mouse(self, event: MouseEvent, row: int, column: int) -> bool:
-        """A press anywhere on the field drops down the list."""
+        """Drop down the list on a click.
+
+        :param event: The mouse event.
+        :param row: Row in the window's interior.
+        :param column: Column in the window's interior.
+        """
         del row, column
         if event.button != "left":
             return False

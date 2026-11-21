@@ -8,7 +8,10 @@ from dasha.widgets import Label
 
 
 def starts(dialog_lines: list[tuple[int, str]]) -> list[int]:
-    """Where each line starts."""
+    """Where each line starts.
+
+    :param dialog_lines: Aligned (start, text) lines.
+    """
     return [offset for offset, _ in dialog_lines]
 
 
@@ -24,14 +27,12 @@ class AlignLinesTests(unittest.TestCase):
         )
 
     def test_centre_and_right(self) -> None:
-        """Centre puts the spare room either side (the odd column after);
-        right puts it all before."""
+        """Centre and right alignment."""
         self.assertEqual(starts(align_lines(["abcd", "ab"], 10, "centre")), [3, 4])
         self.assertEqual(starts(align_lines(["abcd", "ab"], 10, "right")), [6, 8])
 
     def test_justify(self) -> None:
-        """Lines are spread to the full width, extra spaces in the first
-        gaps; a paragraph's last line and one-word lines are left alone."""
+        """Justification and its exceptions."""
         placed = align_lines(self.LINES, 20, "justify")
         self.assertEqual(placed[0], (0, "one     two    three"))
         self.assertEqual(len(placed[0][1]), 20)
@@ -40,7 +41,7 @@ class AlignLinesTests(unittest.TestCase):
         self.assertEqual(placed[4], (0, "seven"))  # the very last line
 
     def test_lines_wider_than_the_width(self) -> None:
-        """A line that does not fit is not moved off the left edge."""
+        """Over-wide lines stay put."""
         self.assertEqual(starts(align_lines(["much too long"], 5, "right")), [0])
 
     def test_unknown(self) -> None:
@@ -53,7 +54,10 @@ class DialogAlignmentTests(unittest.TestCase):
     """``confirm`` and ``information`` with ``align``."""
 
     def label_columns(self, dialog_widgets: Sequence[object]) -> list[int]:
-        """Where the message labels start, within the dialog."""
+        """Where the message labels start.
+
+        :param dialog_widgets: The dialog's widgets.
+        """
         return [w.rect.column for w in dialog_widgets if isinstance(w, Label)]
 
     def test_default_is_left(self) -> None:
@@ -62,8 +66,7 @@ class DialogAlignmentTests(unittest.TestCase):
         self.assertEqual(self.label_columns(dialog.widgets), [2, 2])
 
     def test_centre_right_and_justify(self) -> None:
-        """The message is lined up across the room between the frame's
-        margins, which may be the buttons' width if that is wider."""
+        """Message alignment in dialogs."""
         message = "A longer first line\nShort"
         centred = confirm("T", message, align="centre")
         self.assertEqual(self.label_columns(centred.widgets), [4, 11])  # 24 wide

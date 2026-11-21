@@ -1,9 +1,4 @@
-"""Tests for the widgets' edge cases: arguments that are refused, empty
-lists, mouse buttons other than the left one, a widget used before it is
-in a window, and drawing in less room than a widget would like.
-
-Each widget's ordinary behaviour is tested in its own file
-(``test_listbox.py`` and so on); these are the corners those leave out."""
+"""Tests for widget edge cases."""
 
 # pylint: disable=protected-access
 
@@ -48,12 +43,23 @@ KEYS = Shortcuts()
 
 
 def mouse(action: str, row: int, column: int, button: str = "left") -> MouseEvent:
-    """A mouse event at a position."""
+    """A mouse event at a position.
+
+    :param action: Mouse action.
+    :param row: Row.
+    :param column: Column.
+    :param button: Mouse button.
+    """
     return MouseEvent(action, button, row, column)
 
 
 def window(*widgets: Widget, height: int = 20, width: int = 60) -> Window:
-    """A window holding these widgets."""
+    """A window holding these widgets.
+
+    :param widgets: The widgets.
+    :param height: Window height.
+    :param width: Window width.
+    """
     holder = Window("W", Rect(0, 0, height, width))
     for widget in widgets:
         holder.add(widget)
@@ -61,7 +67,13 @@ def window(*widgets: Widget, height: int = 20, width: int = 60) -> Window:
 
 
 def paint(widget: Widget, width: int, height: int, focused: bool = False) -> Canvas:
-    """The widget painted on a canvas of its own."""
+    """The widget painted on its own canvas.
+
+    :param widget: The widget.
+    :param width: Canvas width.
+    :param height: Canvas height.
+    :param focused: Whether it has the focus.
+    """
     canvas = Canvas(width, height)
     widget.paint(canvas, canvas.bounds, focused)
     return canvas
@@ -78,7 +90,7 @@ class WidgetTests(unittest.TestCase):
     """What every widget does unless it says otherwise."""
 
     def test_defaults(self) -> None:
-        """No value, the mouse not used, and nothing to do on a timer."""
+        """Defaults."""
         widget = Plain(0, 0, 4)
         self.assertIsNone(widget.value)
         self.assertFalse(widget.handle_mouse(mouse("press", 0, 0), 0, 0))
@@ -89,8 +101,7 @@ class AutoCompleteTests(unittest.TestCase):
     """Suggestions taken, and pasting."""
 
     def test_a_suggestion_too_long(self) -> None:
-        """A suggestion longer than the box allows leaves the text as it was,
-        with the cursor at its end."""
+        """A suggestion too long."""
         box = AutoCompleteBox(0, 0, 20, text="ab", max_length=3)
 
         class Suggesting(PresentationManager):
@@ -106,8 +117,7 @@ class AutoCompleteTests(unittest.TestCase):
         self.assertEqual((box.text, box.cursor), ("ab", 2))
 
     def test_paste(self) -> None:
-        """Pasting adds the text, and (with no desktop to show them) suggests
-        nothing."""
+        """Paste."""
         box = window(AutoCompleteBox(0, 0, 20, suggestions=["abc"])).widgets[0]
         assert isinstance(box, AutoCompleteBox)
         self.assertTrue(box.handle_paste("ab"))
@@ -120,8 +130,7 @@ class ButtonTests(unittest.TestCase):
     """The mouse on a button."""
 
     def test_mouse(self) -> None:
-        """Only the left button pushes it; a drag while pushed is used up;
-        a release that was never pressed is not."""
+        """Mouse buttons."""
         pressed: list[str] = []
         button = Button("OK", 0, 0, action=lambda b: pressed.append("ok"))
         self.assertFalse(button.handle_mouse(mouse("press", 0, 1, "right"), 0, 1))
@@ -149,8 +158,7 @@ class ClusterTests(unittest.TestCase):
         self.assertEqual(self.boxes.current, 1)
 
     def test_size_and_positions(self) -> None:
-        """The size it is laid out in; nothing outside its rows or columns,
-        or in an empty place in the last column."""
+        """Size and positions."""
         rect = self.boxes.rect
         self.assertEqual(self.boxes.min_size(), (rect.width, rect.height))
         self.assertIsNone(self.boxes.index_at(-1, 0))
@@ -174,8 +182,7 @@ class CollapsibleTests(unittest.TestCase):
     """An area that opens and closes."""
 
     def test_without_a_window(self) -> None:
-        """It opens and closes before it is in a window; the same state
-        again changes nothing."""
+        """Without a window."""
         area = Collapsible("&More", 0, 0, 20)
         area.expanded = True
         area.expanded = True
@@ -250,8 +257,7 @@ class ListBoxTests(unittest.TestCase):
         self.assertEqual(len(changes), 1)
 
     def test_empty(self) -> None:
-        """Nothing to move to, select or scroll; choosing with no window
-        does nothing."""
+        """Empty."""
         box = ListBox([], 0, 0, 10, 3, multiple=True)
         box.toggle_all()
         box.move_to(2)
@@ -261,16 +267,14 @@ class ListBoxTests(unittest.TestCase):
         self.assertFalse(box.handle_mouse(wheel, 0, 0))
 
     def test_positions(self) -> None:
-        """Nothing above or below its rows; past the last column, the last
-        column."""
+        """Positions."""
         box = ListBox(["a", "b", "c", "d"], 0, 0, 10, 2, columns=2)
         self.assertIsNone(box.index_at(-1, 0))
         self.assertIsNone(box.index_at(5, 0))
         self.assertEqual(box._shown_column(500), box.columns - 1)
 
     def test_mouse(self) -> None:
-        """Only the left button; a press below the items, or a drag, chooses
-        nothing."""
+        """Mouse use."""
         box = ListBox(["a"], 0, 0, 10, 3)
         self.assertFalse(box.handle_mouse(mouse("press", 0, 0, "right"), 0, 0))
         self.assertTrue(box.handle_mouse(mouse("press", 2, 0), 2, 0))
@@ -305,7 +309,7 @@ class ScrollBarTests(unittest.TestCase):
     """A bar on its own."""
 
     def test_size_and_range(self) -> None:
-        """Two cells at least; a new range without a page keeps the page."""
+        """Size and range."""
         scroll = ScrollBar(0, 0, 10, maximum=20, page=5)
         self.assertEqual(scroll.min_size(), (1, 2))
         self.assertEqual(ScrollBar(0, 0, 10, vertical=False).min_size(), (2, 1))
@@ -371,8 +375,7 @@ class SplitterTests(unittest.TestCase):
         self.assertEqual(splitter.position, 8)
 
     def test_a_pane_left_as_it_was(self) -> None:
-        """The window made only wider: the first pane, and its widgets, stay
-        as they were; the second pane takes the room."""
+        """A pane left as it was."""
         holder = window(height=12, width=44)
         splitter = holder.add(Splitter(0, 0, 40, 8, position=15), grow=Grow.ALL)
         label = splitter.first.add(Label("left", 1, 2))
@@ -382,8 +385,7 @@ class SplitterTests(unittest.TestCase):
         self.assertEqual(splitter.pane_rect(True).width, 30)
 
     def test_a_splitter_in_a_pane(self) -> None:
-        """Widgets in an inner splitter's panes are sized by that splitter,
-        not by the outer one."""
+        """A splitter in a pane."""
         outer = window(Splitter(0, 0, 40, 8, position=20), height=12, width=44)
         splitter = outer.widgets[0]
         assert isinstance(splitter, Splitter)
@@ -395,8 +397,7 @@ class SplitterTests(unittest.TestCase):
         self.assertEqual(label.rect.width, width)
 
     def test_other_actions_while_dragging(self) -> None:
-        """While the divider is held, anything but a drag or a release is
-        not used up."""
+        """Other actions while dragging."""
         splitter = Splitter(0, 0, 20, 5, position=5)
         window(splitter)
         self.assertTrue(splitter.handle_mouse(mouse("press", 0, 5), 0, 5))
@@ -443,8 +444,7 @@ class TableTests(unittest.TestCase):
         self.assertIsNone(self.table.sorted_by)
 
     def test_the_side_bar_held(self) -> None:
-        """Held on its arrow, the bottom scroll scrolls on its timer; other keys
-        are left for the window."""
+        """The side bar held."""
         columns = [Column("Name", 10), Column("Kind", 10), Column("Size", 10)]
         rows = [[f"file{n}", "text", str(n)] for n in range(20)]
         table = Table(columns, 0, 0, 20, 6, rows=rows)
@@ -509,8 +509,7 @@ class TextAreaTests(unittest.TestCase):
         self.assertEqual(canvas.text(0)[:3], "one")
 
     def test_the_cursor_under_the_numbers(self) -> None:
-        """Scrolled sideways so that the cursor is under the line numbers,
-        the cursor is not shown."""
+        """The cursor under the line numbers."""
         area = TextArea(0, 0, 60, 3, text="x" * 80, line_numbers=True)
         holder = window(area, height=6, width=20)
         area.cursor = (0, 0)
@@ -548,8 +547,7 @@ class TextBoxTests(unittest.TestCase):
         self.assertEqual(canvas.cell(0, 1)[1], box.focused_style)
 
     def test_mouse(self) -> None:
-        """A plain move is not used; there is no scrolling to do on a
-        timer."""
+        """Mouse use."""
         box = TextBox(0, 0, 6, text="abc")
         self.assertFalse(box.handle_mouse(mouse("move", 0, 1, "none"), 0, 1))
         self.assertFalse(box.handle_mouse(mouse("move", 0, 1), 0, 1))
@@ -591,8 +589,7 @@ class TreeViewTests(unittest.TestCase):
         self.assertNotEqual(canvas.text(0)[-1], " ")
 
     def test_keys_with_nowhere_to_go(self) -> None:
-        """Right on an open item with no children, and Left on a closed top
-        item, are used up but go nowhere."""
+        """Keys with nowhere to go."""
         self.tree.select(self.empty)
         self.assertTrue(self.tree.handle_key("right", KEYS))
         self.assertIs(self.tree.selected_node, self.empty)

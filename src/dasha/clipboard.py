@@ -1,26 +1,4 @@
-"""The clipboard, which holds one item at a time and is shared by
-everything in Dasha Framework.
-
-Each item has a type, written in the same way as a MIME type
-(``"text/plain"``), so that the clipboard can also hold other things, such
-as binary data or files. Code that pastes asks only for the types it
-understands, and ignores anything else; a text box, for example, accepts
-``TEXT`` and nothing more.
-
-``CLIPBOARD`` is the clipboard everything uses unless told otherwise::
-
-    from dasha.clipboard import CLIPBOARD, ClipboardItem
-
-    CLIPBOARD.copy_text(text="hello")
-    CLIPBOARD.text                        # "hello"
-    CLIPBOARD.copy(
-        item=ClipboardItem(type="application/octet-stream", data=b"\\x00\\x01")
-    )
-    CLIPBOARD.text                        # None: not text any more
-
-This is Dasha Framework's own clipboard, not the operating system's, which a
-program running over SSH could not reach in any case.
-"""
+"""The shared clipboard."""
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -32,9 +10,7 @@ TEXT = "text/plain"
 
 @dataclass(frozen=True)
 class ClipboardItem:
-    """An item on the clipboard: its ``type``, its ``data``, and any other
-    ``metadata`` that the code pasting it might want to know (such as where
-    it came from)."""
+    """A clipboard item."""
 
     type: str
     data: object
@@ -59,12 +35,19 @@ class Clipboard:
         return self._item
 
     def copy(self, item: ClipboardItem) -> None:
-        """Put an item on the clipboard, replacing what was there."""
+        """Put an item on the clipboard.
+
+        :param item: The item.
+        """
         self._item = item
         self._changed()
 
     def copy_text(self, text: str, **metadata: object) -> None:
-        """Put text on the clipboard."""
+        """Put text on the clipboard.
+
+        :param text: The text.
+        :param metadata: Extra details.
+        """
         self.copy(ClipboardItem(TEXT, text, MappingProxyType(dict(metadata))))
 
     def clear(self) -> None:
@@ -73,8 +56,10 @@ class Clipboard:
         self._changed()
 
     def get(self, *types: str) -> ClipboardItem | None:
-        """The item on the clipboard, if it is one of the given types (or of
-        any type, if none are given); otherwise ``None``."""
+        """The item, if it is one of the types.
+
+        :param types: Accepted types; none means any.
+        """
         item = self._item
         if item is None or (types and item.type not in types):
             return None
@@ -82,8 +67,7 @@ class Clipboard:
 
     @property
     def text(self) -> str | None:
-        """The text on the clipboard, or ``None`` if it holds something else,
-        or nothing."""
+        """The clipboard's text, or ``None``."""
         item = self.get(TEXT)
         return None if item is None else str(item.data)
 

@@ -19,7 +19,7 @@ class DecodingTests(unittest.TestCase):
     """The kitty keyboard protocol's event types."""
 
     def test_release(self) -> None:
-        """Event 3 is a release; 1 and 2 (press, repeat) are the key."""
+        """Event 3 is a release."""
         self.assertEqual(decode(ansi.SPACE_RELEASED), [KeyReleaseEvent(" ")])
         self.assertEqual(decode("\x1b[97;5:3u"), [KeyReleaseEvent("ctrl+a")])
         self.assertEqual(decode("\x1b[97;5:1u\x1b[97;5:2u"), ["ctrl+a", "ctrl+a"])
@@ -51,8 +51,7 @@ class ButtonTests(unittest.TestCase):
         Widget.key_releases = False
 
     def test_held_until_released(self) -> None:
-        """Space pushes the button in (drawn pushed, not yet pressed), the
-        key's repeats change nothing, and letting go presses it once."""
+        """Held until released."""
         Widget.key_releases = True
         for _ in range(3):  # the press, and two repeats while held
             self.window.handle_key(" ", self.shortcuts)
@@ -67,8 +66,7 @@ class ButtonTests(unittest.TestCase):
         self.assertEqual(self.pressed, ["ok"])
 
     def test_focus_moved_away_cancels(self) -> None:
-        """If the focus moves on while Space is held, letting go just lets
-        the button spring back."""
+        """Moving the focus cancels."""
         Widget.key_releases = True
         self.window.handle_key(" ", self.shortcuts)
         self.window.handle_key("tab", self.shortcuts)
@@ -76,8 +74,7 @@ class ButtonTests(unittest.TestCase):
         self.assertEqual(self.pressed, [])
 
     def test_without_releases_it_presses_at_once(self) -> None:
-        """Where releases are not reported, Space presses straight away,
-        exactly as before."""
+        """Without releases it presses at once."""
         self.window.handle_key(" ", self.shortcuts)
         self.assertEqual(self.pressed, ["ok"])
 

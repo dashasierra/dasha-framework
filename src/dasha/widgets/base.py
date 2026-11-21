@@ -1,11 +1,4 @@
-"""The base class of every widget.
-
-A widget is positioned relative to its window's interior, so row 0, column 0
-is the first cell inside the frame. Every widget can have a ``name``, by
-which the code that showed a dialog can find it again (``Dialog.widget``,
-``Dialog.values``), and optional ``status`` text, which is shown on the
-status bar while the widget has the focus.
-"""
+"""The base widget class."""
 
 from collections.abc import Callable
 from enum import Flag, auto
@@ -24,9 +17,12 @@ if TYPE_CHECKING:
 def run_shortcut(
     shortcuts: Shortcuts, key: str, actions: dict[str, Callable[[], object]]
 ) -> bool:
-    """Run the command of the first entry in ``actions`` (a mapping of
-    shortcut actions to commands) for which ``key`` is a shortcut, and
-    return whether there was one."""
+    """Run the command bound to a key; return whether there was one.
+
+    :param shortcuts: Key bindings in effect.
+    :param key: The key pressed.
+    :param actions: Commands by shortcut action.
+    """
     for action, command in actions.items():
         if shortcuts.matches(action, key):
             command()
@@ -35,14 +31,7 @@ def run_shortcut(
 
 
 class Grow(Flag):
-    """Which of a widget's edges follow its window's right and bottom edges
-    when the window changes size. With none (the default), a widget stays as
-    it was laid out.
-
-    ``RIGHT`` and ``BOTTOM`` stretch the widget; combined with ``LEFT`` or
-    ``TOP`` as well, they move the whole widget instead, keeping its size.
-    The useful combinations have names of their own.
-    """
+    """Edges that follow the window when it resizes."""
 
     NONE = 0
     LEFT = auto()
@@ -54,8 +43,7 @@ class Grow(Flag):
     HEIGHT = BOTTOM
     """Stretch vertically with the window."""
     ALL = RIGHT | BOTTOM
-    """Stretch in both directions, filling whatever room the window
-    gains."""
+    """Stretch both ways."""
     STICK_RIGHT = LEFT | RIGHT
     """Keep the same distance from the window's right edge."""
     STICK_BOTTOM = TOP | BOTTOM
@@ -63,46 +51,36 @@ class Grow(Flag):
 
 
 class Widget:
-    """Something drawn inside a window, which may take the keyboard
-    focus.
+    """Something drawn in a window.
 
-    Subclasses override ``paint``, and as needed ``handle_key``,
-    ``handle_mouse``, ``handle_paste`` and ``value``.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param width: Width in columns.
+    :param height: Height in rows.
+    :param name: Widget name.
+    :param status: Status bar text.
     """
 
     focusable: bool = False
     """Whether Tab can move the keyboard focus to this widget."""
 
     key_releases: bool = False
-    """Whether the terminal reports keys being released (the Windows
-    console does, for Space). The presentation manager sets this when it
-    starts running, and a button uses it to stay pushed in while Space is
-    held down."""
+    """Whether the terminal reports key releases."""
 
     grow: Grow = Grow.NONE
-    """How the widget follows its window's size (see ``Grow``). Set it on
-    the widget, or with ``Window.add(widget, grow=...)``."""
+    """How the widget follows its window's size."""
 
     parent: "Container | None" = None
-    """The container the widget is in, if any (such as a collapsible area,
-    a group box or a tab page), set by the container's ``add``."""
+    """The containing widget, if any."""
 
     context_menu: "Menu | None" = None
-    """The menu, if any, that pops up for a right-click on the widget (or
-    for Shift+F10 while it has the focus). Set it on a widget. Text boxes and
-    text areas have a menu of their own unless they are given another (see
-    ``popup_menu``)."""
+    """The right-click menu, if any."""
 
     help: str | None = None
-    """The help topic for the widget, which F1 goes to while it has the focus
-    (see ``dasha.help``): the name of a page in its application's
-    ``help_folder``, without ``.md``. Set it on a widget. Without one, F1 goes
-    to the topic of a container it is in, or its window, or else the index."""
+    """Help topic for F1."""
 
     area_shift: int = 0
-    """How many rows the expanded collapsible areas above the widget have
-    moved it down (kept up to date by
-    ``dasha.widgets.container.lay_out``)."""
+    """Rows moved down by expanded areas above."""
 
     def __init__(
         self,
@@ -117,8 +95,7 @@ class Widget:
         self.rect = Rect(row, column, height, width)
         """Position and size, relative to the window's interior."""
         self.name = name
-        """The widget's name, by which code can find it again
-        (``Window.widget``, ``Dialog.values``); ``None`` for none."""
+        """Widget name, or ``None``."""
         self.status = status
         """Help shown on the status bar while the widget has the focus."""
         self.window: "Window | None" = None
@@ -134,11 +111,7 @@ class Widget:
 
     @property
     def is_shown(self) -> bool:
-        """Whether the widget is shown, which it is when every container it
-        is in (and every container those are in, and so on) is showing its
-        widgets. A widget in a collapsed area is not shown, for example, nor
-        is one on a tab page that is not selected. A widget that is not shown
-        is not drawn and receives no input, but it keeps its value."""
+        """Whether every container shows the widget."""
         container = self.parent
         while container is not None:
             if not container.is_showing_children:
@@ -155,19 +128,14 @@ class Widget:
         return None
 
     def min_size(self) -> tuple[int, int]:
-        """The smallest (width, height) the widget can have, which limits how
-        far ``grow`` can shrink it."""
+        """Smallest (width, height)."""
         return 1, 1
 
     def follow_resize(self, before: tuple[int, int], after: tuple[int, int]) -> None:
-        """Handle the window's interior changing size from ``before`` to
-        ``after`` (each a width and height), by moving or stretching the
-        widget as ``grow`` says.
+        """Move or stretch with the window.
 
-        The new position is worked out from where the widget was originally
-        laid out, not from where it was most recently, so shrinking a window
-        and growing it again puts everything back. If code has moved the
-        widget since then, its new position becomes its layout.
+        :param before: Old interior width and height.
+        :param after: New interior width and height.
         """
         if not self.grow:
             return
@@ -180,8 +148,12 @@ class Widget:
         self.on_resize()
 
     def _grown(self, base: Rect, across: int, down: int) -> Rect:
-        """``base`` with the edges ``grow`` names moved ``across`` and
-        ``down``, kept to at least ``min_size()``."""
+        """A rect with ``grow``'s edges moved.
+
+        :param base: The original layout.
+        :param across: Columns gained.
+        :param down: Rows gained.
+        """
         grow = self.grow
         left = base.column + (across if Grow.LEFT in grow else 0)
         right = base.right + (across if Grow.RIGHT in grow else 0)
@@ -193,94 +165,107 @@ class Widget:
         )
 
     def on_add(self) -> None:
-        """Called once ``Window.add`` has put the widget in its window, when
-        ``self.window`` has been set."""
+        """Called once added to a window."""
 
     def on_resize(self) -> None:
         """Called after ``grow`` has changed the widget's size or position."""
 
     def focus_changed(self, focused: bool) -> None:
-        """Called when the keyboard focus arrives at this widget
-        (``focused`` is true), or leaves it for another widget in its window.
-        Does nothing by default; a spin box uses this to check what was typed
-        in it when the focus leaves."""
+        """Called when the focus arrives or leaves.
+
+        :param focused: Whether the widget now has the focus.
+        """
         del focused
 
     def can_focus(self) -> bool:
-        """Whether the widget can take the keyboard focus at the moment. This
-        is ``focusable``, unless the widget decides otherwise (a group whose
-        options are all disabled cannot take the focus, for example)."""
+        """Whether the widget can take the focus now."""
         return self.focusable
 
     def mnemonics(self) -> set[str]:
-        """Every letter this widget responds to: just ``mnemonic()`` for most
-        widgets, or one for each item in a group of check boxes."""
+        """Every mnemonic letter."""
         return set(filter(None, [self.mnemonic()]))
 
     def activate_mnemonic(self, letter: str) -> None:
-        """Respond to one of ``mnemonics()``; by default, by calling
-        ``activate``."""
+        """Respond to a mnemonic letter.
+
+        :param letter: The letter pressed.
+        """
         del letter
         self.activate()
 
     def paint(self, canvas: Canvas, origin: Rect, focused: bool) -> None:
-        """Draw the widget. ``origin`` is the window's interior on the screen,
-        and drawing is clipped to it."""
+        """Draw the widget.
+
+        :param canvas: Canvas to draw on.
+        :param origin: The window's interior on screen.
+        :param focused: Whether the widget has the focus.
+        """
 
     def handle_key_release(self, key: str, focused: bool) -> None:
-        """Called when a key is released (only where ``key_releases`` is
-        true). ``focused`` is whether this widget has the focus. Does nothing
-        by default."""
+        """Called when a key is released.
+
+        :param key: The key released.
+        :param focused: Whether the widget has the focus.
+        """
         del key, focused
 
     def key_help(self, shortcuts: Shortcuts) -> list[tuple[str, str]]:
-        """The most useful keys while the widget has the focus, as (key,
-        description) pairs such as ``("Ctrl+Tab", "Next")``, which the status
-        bar shows. They are built from ``shortcuts``, so that they follow the
-        user's own bindings. Keys that only edit text (cut, copy, paste,
-        select all, undo, redo, clear, delete line) are left out. There are
-        none by default."""
+        """Keys for the status bar, as (key, description) pairs.
+
+        :param shortcuts: Key bindings in effect.
+        """
         del shortcuts
         return []
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """Handle a key while the widget has the focus, and return whether
-        the key was used. ``shortcuts`` holds the bindings in effect, for
-        widgets with keys of their own."""
+        """Handle a key; return whether it was used.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         del key, shortcuts
         return False
 
     def popup_menu(self, shortcuts: Shortcuts) -> "Menu | None":
-        """The context menu to pop up for the widget now: ``context_menu`` by
-        default. ``shortcuts`` gives the keys to show beside its items."""
+        """The context menu to show.
+
+        :param shortcuts: Key bindings shown in the menu.
+        """
         del shortcuts
         return self.context_menu
 
     def point_at(self, row: int, column: int) -> None:
-        """Called for a right-click at a place in the widget (in window
-        content coordinates), just before its context menu pops up. A list
-        moves its highlight there, so that the menu acts on what was clicked.
-        Does nothing by default."""
+        """Called before a right-click menu pops up.
+
+        :param row: Row clicked.
+        :param column: Column clicked.
+        """
         del row, column
 
     def window_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """Handle a key that no widget has used, wherever the focus is in the
-        window (tabs use this to choose a page with Ctrl+PgDn), and return
-        whether it was used. The widgets that contain the focus are asked
-        first. Does nothing by default."""
+        """Handle a key unused by any widget; return whether it was used.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         del key, shortcuts
         return False
 
     def handle_mouse(self, event: MouseEvent, row: int, column: int) -> bool:
-        """Handle a mouse event at ``row``, ``column``, relative to the
-        window's interior, and return whether the event was used."""
+        """Handle a mouse event; return whether it was used.
+
+        :param event: The mouse event.
+        :param row: Row in the window's interior.
+        :param column: Column in the window's interior.
+        """
         del event, row, column
         return False
 
     def handle_paste(self, text: str) -> bool:
-        """Handle text pasted through the terminal while the widget has the
-        focus (with the terminal's own Ctrl+V, for example, rather than
-        Dasha Framework's), and return whether it was used."""
+        """Handle terminal-pasted text; return whether it was used.
+
+        :param text: The pasted text.
+        """
         del text
         return False
 
@@ -288,14 +273,12 @@ class Widget:
         """Carry out the widget's action (pressing a button, for example)."""
 
     def wake_time(self) -> float | None:
-        """When (by ``time.monotonic``) this widget next wants ``on_timer``
-        to be called, or ``None`` if it does not. The presentation manager
-        waits for input only until then, so that a widget can act while
-        nothing else is happening, such as scrolling while the mouse is held
-        still."""
+        """When ``on_timer`` is next wanted, or ``None``."""
         return None
 
     def on_timer(self, now: float) -> None:
-        """Called once ``wake_time`` has come; ``now`` is the current
-        ``time.monotonic``."""
+        """Called at ``wake_time``.
+
+        :param now: The current ``time.monotonic``.
+        """
         del now

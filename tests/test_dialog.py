@@ -17,7 +17,11 @@ from tests.test_manager import FakeTerminal
 
 
 class AskingManager(PresentationManager):
-    """Opens a dialog when "x" is pressed and remembers the answer."""
+    """Opens a dialog on "x" and keeps the answer.
+
+    :param dialog: The dialog.
+    :param windows: Windows to start with, if any.
+    """
 
     def __init__(self, dialog: Dialog, windows: list[Window] | None = None) -> None:
         super().__init__(windows=windows or [])
@@ -32,8 +36,11 @@ class AskingManager(PresentationManager):
 
 
 def ask(inputs: list[str], dialog: Dialog | None = None) -> AskingManager:
-    """Run a manager: press "x" to open the dialog, then the given input,
-    then quit with Ctrl+Q and OK."""
+    """Run a manager that opens a dialog.
+
+    :param inputs: Input after "x".
+    :param dialog: The dialog, if not the default.
+    """
     manager = AskingManager(dialog or confirm("Question", "Really?"))
     manager.handle_resize(60, 20)
     terminal = FakeTerminal(["x", *inputs, "\x11", "\r"], sizes=[(60, 20)])
@@ -143,7 +150,11 @@ class ExitConfirmationTests(unittest.TestCase):
     """Leaving Dasha Framework asks first."""
 
     def run_manager(self, inputs: list[str], confirm_exit: bool = True) -> FakeTerminal:
-        """Run a manager on scripted input."""
+        """Run a manager on scripted input.
+
+        :param inputs: Input to read.
+        :param confirm_exit: Whether exit asks first.
+        """
         manager = PresentationManager()
         manager.confirm_exit = confirm_exit
         terminal = FakeTerminal(inputs, sizes=[(60, 20)])
@@ -152,20 +163,17 @@ class ExitConfirmationTests(unittest.TestCase):
         return terminal
 
     def test_ok_leaves(self) -> None:
-        """Ctrl+Q asks; Shutdown (the default) leaves, and later input is
-        not read."""
+        """OK leaves."""
         terminal = self.run_manager(["\x11", "\r", "never read"])
         self.assertEqual(terminal.inputs, ["never read"])
 
     def test_cancel_stays(self) -> None:
-        """Cancel stays in Dasha Framework; asking again and choosing Shutdown (by its
-        letter) then leaves."""
+        """Cancel stays."""
         terminal = self.run_manager(["\x11", "c", "\x11", "s", "never read"])
         self.assertEqual(terminal.inputs, ["never read"])
 
     def test_exit_dialog_shows_on_screen(self) -> None:
-        """The dialog is drawn with its title, both lines of its message,
-        and its buttons."""
+        """The exit dialog is drawn."""
         terminal = self.run_manager(["\x11", "\r"])
         output = terminal.output.getvalue()
         assert_lines_shown(self, PresentationManager.exit_message, output)
@@ -216,8 +224,7 @@ class AboutTests(unittest.TestCase):
         self.assertEqual(terminal.inputs, [])
 
     def test_about_outside_a_run_does_nothing(self) -> None:
-        """Called before Dasha Framework runs, About shows nothing and raises
-        nothing, as Exit does."""
+        """About outside a run does nothing."""
         PresentationManager().about_box()
 
 

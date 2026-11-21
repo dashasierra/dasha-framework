@@ -1,15 +1,4 @@
-"""Installing applications: ``dasha install-app``, ``uninstall-app``
-and ``list-apps``.
-
-Installing an application writes a manifest (see ``dasha.registry``)
-and, if asked, creates a virtual environment and installs packages into it
-with pip, so that the application can have libraries of its own without
-sharing Dasha Framework's::
-
-    dasha install-app games/snake.py --name Snake --group Games
-    dasha install-app textstats.app:TextStats --create-venv --pip nltk==3.8.1
-    dasha uninstall-app textstats --remove-venv
-"""
+"""Installing and uninstalling applications."""
 
 import argparse
 import importlib.util
@@ -38,15 +27,16 @@ COMMANDS = ("install-app", "uninstall-app", "list-apps")
 
 
 def known_applications() -> tuple[dict[str, AppEntry], list[str]]:
-    """Every application that the desktop can start (the installed ones),
-    keyed by id, together with the problems with any manifests that could
-    not be read."""
+    """Installed applications by id, and manifest problems."""
     installed, problems = load_manifests(registry.MANIFEST_FOLDER)
     return {entry.id: entry for entry in installed}, problems
 
 
 def run(argv: Sequence[str]) -> int:
-    """Run one of ``COMMANDS``, and return a process exit code."""
+    """Run a command; return an exit code.
+
+    :param argv: The command and its arguments.
+    """
     command, *rest = argv
     if command == "install-app":
         return install(rest)
@@ -112,7 +102,10 @@ def _install_parser() -> argparse.ArgumentParser:
 
 
 def _target(args: argparse.Namespace) -> tuple[str, str] | str:
-    """(target, default name), or what is wrong."""
+    """(target, default name), or what is wrong.
+
+    :param args: Parsed arguments.
+    """
     source, class_name = str(args.source), args.class_name
     if source.endswith(".py") or is_script(source):
         path_text, from_source = split_script(source)
@@ -132,16 +125,14 @@ def _target(args: argparse.Namespace) -> tuple[str, str] | str:
 
 
 MINIMUM_PYTHON = (3, 12)
-"""The oldest Python that a virtual environment can have and still run a
-lent copy of Dasha Framework."""
+"""Oldest Python a virtual environment may have."""
 
 
 def base_python(explicit: str | None = None) -> list[str] | str:
-    """The command for a Python with which to create virtual environments,
-    or a description of what is wrong. This is the Python given with
-    ``--python``, if any; otherwise the current Python, or, in a build of dasha
-    (which has no Python of its own), one found on ``PATH``. It must be at
-    least ``MINIMUM_PYTHON``."""
+    """A Python command for making virtual environments, or what is wrong.
+
+    :param explicit: The ``--python`` given, if any.
+    """
     if explicit:
         candidates = [[explicit]]
     elif not getattr(sys, "frozen", False):
@@ -169,8 +160,12 @@ def base_python(explicit: str | None = None) -> list[str] | str:
 
 
 def _make_venv(path: Path, with_pip: bool, python: list[str]) -> str | None:
-    """Make a virtual environment with ``python``; what went wrong, if
-    anything."""
+    """Make a virtual environment; return any problem.
+
+    :param path: Where to make it.
+    :param with_pip: Whether to include pip.
+    :param python: The Python command.
+    """
     say(f"Making a virtual environment in {path} ...")
     options = [] if with_pip else ["--without-pip"]
     try:
@@ -183,7 +178,11 @@ def _make_venv(path: Path, with_pip: bool, python: list[str]) -> str | None:
 
 
 def _pip(python: Path, args: argparse.Namespace) -> str | None:
-    """pip install what was asked; what went wrong, if anything."""
+    """Install packages with pip; return any problem.
+
+    :param python: The environment's Python.
+    :param args: Parsed arguments.
+    """
     requirements = list(args.pip)
     if args.requirements:
         requirements += ["-r", str(Path(args.requirements).expanduser().resolve())]
@@ -197,7 +196,11 @@ def _pip(python: Path, args: argparse.Namespace) -> str | None:
 
 
 def module_found(module: str, python: Path | None) -> bool:
-    """Whether a module can be imported, here or by a venv's Python."""
+    """Whether a module can be imported.
+
+    :param module: The module name.
+    :param python: A virtual environment's Python, or ``None`` for this one.
+    """
     if python is None:
         try:
             return importlib.util.find_spec(module) is not None
@@ -215,8 +218,11 @@ class _InstallError(Exception):
 
 
 def _venv_for(args: argparse.Namespace, app_id: str) -> Path | None:
-    """The virtual environment to run it with, made (and given its
-    packages) if asked; ``None`` for Dasha Framework's own Python."""
+    """The virtual environment to use, or ``None``.
+
+    :param args: Parsed arguments.
+    :param app_id: The application id.
+    """
     venv_path: Path | None = None
     if args.create_venv:
         venv_path = Path(args.venv or registry.VENV_FOLDER / app_id)
@@ -242,7 +248,10 @@ def _venv_for(args: argparse.Namespace, app_id: str) -> Path | None:
 
 
 def _entry(args: argparse.Namespace) -> AppEntry:
-    """The application to install, checked; raises ``_InstallError``."""
+    """The checked application entry.
+
+    :param args: Parsed arguments.
+    """
     found = _target(args)
     if isinstance(found, str):
         raise _InstallError(found)
@@ -272,7 +281,10 @@ def _entry(args: argparse.Namespace) -> AppEntry:
 
 
 def install(argv: Sequence[str]) -> int:
-    """``dasha install-app``."""
+    """``dasha install-app``.
+
+    :param argv: Command-line arguments.
+    """
     args = _install_parser().parse_args(argv)
     try:
         entry = _entry(args)
@@ -288,7 +300,10 @@ def install(argv: Sequence[str]) -> int:
 
 
 def uninstall(argv: Sequence[str]) -> int:
-    """``dasha uninstall-app``."""
+    """``dasha uninstall-app``.
+
+    :param argv: Command-line arguments.
+    """
     parser = argparse.ArgumentParser(
         prog="dasha uninstall-app", description="Remove an installed application."
     )
@@ -310,9 +325,10 @@ def uninstall(argv: Sequence[str]) -> int:
 
 
 def made_venv(entry: AppEntry) -> Path | None:
-    """The virtual environment that install-app made for an application (in
-    ``registry.VENV_FOLDER``), if it has one; ``None`` for one it did not
-    make, which is never deleted."""
+    """The virtual environment install-app made, if any.
+
+    :param entry: The application entry.
+    """
     if not entry.venv:
         return None
     venv_path = Path(entry.venv).resolve()
@@ -320,10 +336,11 @@ def made_venv(entry: AppEntry) -> Path | None:
 
 
 def remove_application(app_id: str, *, remove_venv: bool = False) -> list[str]:
-    """Uninstall an application: delete its manifest, and with
-    ``remove_venv``, the virtual environment that install-app made for it.
-    Returns what was done, a line each. Raises ``ManifestError`` if no
-    application of that id is installed."""
+    """Uninstall an application; return what was done.
+
+    :param app_id: The application id.
+    :param remove_venv: Whether to delete its virtual environment.
+    """
     path = registry.MANIFEST_FOLDER / f"{app_id}.toml"
     # Installed ids are always slugs: anything else ("../x") is not one, and
     # must not reach a file outside the folder.
@@ -348,7 +365,10 @@ def remove_application(app_id: str, *, remove_venv: bool = False) -> list[str]:
 
 
 def list_apps(argv: Sequence[str]) -> int:
-    """``dasha list-apps``."""
+    """``dasha list-apps``.
+
+    :param argv: Command-line arguments.
+    """
     parser = argparse.ArgumentParser(
         prog="dasha list-apps",
         description="List the applications Dasha Framework knows.",

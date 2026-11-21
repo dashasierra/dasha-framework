@@ -15,12 +15,22 @@ NAMES = [f"file{number:02}.txt" for number in range(20)]
 
 
 def press(row: int, column: int, *, shift: bool = False, clicks: int = 1) -> MouseEvent:
-    """A left-button press."""
+    """A left-button press.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    :param shift: Whether Shift is held.
+    :param clicks: Click count.
+    """
     return MouseEvent("press", "left", row, column, shift=shift, clicks=clicks)
 
 
 def release(row: int, column: int) -> MouseEvent:
-    """A left-button release."""
+    """A left-button release.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    """
     return MouseEvent("release", "left", row, column)
 
 
@@ -45,7 +55,11 @@ class ClickCountTests(unittest.TestCase):
         self.manager.handle_resize(40, 12)
 
     def clicks_at(self, times: list[float], cells: list[tuple[int, int]]) -> list[int]:
-        """Press at each cell at each time; the click counts seen."""
+        """Press at cells and times; return click counts.
+
+        :param times: Press times.
+        :param cells: Press positions.
+        """
         with mock.patch("dasha.manager.time.monotonic", side_effect=times):
             for row, column in cells:
                 self.manager.handle_event(press(row, column))
@@ -158,7 +172,7 @@ class AutoRepeatTests(unittest.TestCase):
         self.assertLess(scroll_bar.value, 100)
 
     def test_list_box_bar_repeats(self) -> None:
-        """A list box passes its bar's repeats on, so the manager wakes it."""
+        """A list box bar repeats."""
         box = ListBox(NAMES, 0, 0, 14, 5)
         box.handle_mouse(press(4, 13), 4, 13)  # its bar's ▼
         wake = box.wake_time()
@@ -167,8 +181,7 @@ class AutoRepeatTests(unittest.TestCase):
         self.assertEqual((box.first_visible, box.cursor), (2, 0))
 
     def test_window_frame_bar(self) -> None:
-        """A held arrow on a window's frame repeats through the manager's
-        timers, and stops on release or when the pointer leaves it."""
+        """A window frame bar repeats."""
         window = Window("W", Rect(1, 0, 8, 20), [str(n) for n in range(30)])
         manager = PresentationManager(windows=[window])
         manager.handle_resize(40, 20)

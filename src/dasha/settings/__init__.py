@@ -1,21 +1,4 @@
-"""Settings...: everything that the command line and the settings files
-configure, changed from within Dasha Framework.
-
-``SettingsDialog`` (Settings... in the system menu) has a page each for the
-appearance (the theme, and every part of the screen's colours), the
-keyboard shortcuts, the desktop (animations, how colours are drawn,
-showing the mouse, and the applications that start with it) and the
-installed applications. Changes show at once. OK keeps them, saving them to
-the usual files (the colours file, the shortcuts file and
-``settings.toml``, so the desktop starts with them next time); Apply does
-the same without closing; and Cancel puts back everything as it was when
-the dialog opened, or when Apply was last pressed.
-Installing and uninstalling applications happen at once, and are not put
-back.
-
-The files and command-line options still work as before: these are the
-same settings, kept in the same files.
-"""
+"""The Settings dialog."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -58,14 +41,15 @@ __all__ = [
 ]
 
 DEPTH_NAMES = ["Automatic", "16 colours (CGA)", "256 colours", "24-bit colour"]
-"""How the colour depths (``style.COLOUR_DEPTHS``, in the same order) are
-offered."""
+"""Colour depth labels."""
 
 
 class DesktopPage:
-    """Animations, how colours are drawn, showing the mouse, how long Escape
-    waits for the rest of a key, and the applications that start with the
-    desktop."""
+    """The Desktop settings page.
+
+    :param dialog: The settings dialog.
+    :param page: Its tab page.
+    """
 
     def __init__(self, dialog: "SettingsDialog", page: TabPage) -> None:
         self.dialog = dialog
@@ -165,8 +149,10 @@ class DesktopPage:
         return [self.ids[index] for index in sorted(self.autostart.selected)]
 
     def refresh(self, chosen: list[str] | None = None) -> None:
-        """Offer the applications the desktop knows now, keeping those
-        chosen (or choosing ``chosen``)."""
+        """Offer the known applications.
+
+        :param chosen: Applications to choose, or ``None`` to keep.
+        """
         chosen = self.chosen if chosen is None else chosen
         entries = sorted(self.manager.registry.values(), key=lambda e: e.name.lower())
         self.ids = [entry.id for entry in entries]
@@ -178,10 +164,7 @@ class DesktopPage:
         self.empty.text = "" if entries else "(None installed)"
 
     def save(self) -> bool:
-        """Keep the settings for animations, the colour depth, showing the
-        mouse and how long Escape waits, and the applications to start with
-        the desktop, in ``settings.toml``, if they have changed. Returns
-        whether all went well."""
+        """Save the desktop settings; return whether all went well."""
         path = self.manager.settings_path
         try:
             if self.animations.on != self._saved_animations:
@@ -208,9 +191,10 @@ class DesktopPage:
 
 
 class SettingsDialog(Dialog):  # pylint: disable=too-many-instance-attributes
-    """Settings...: tabs for the Appearance, Shortcuts, Desktop and
-    Applications pages, above OK, Cancel and Apply. See the module's
-    description for what each does."""
+    """Tabs of settings with OK, Cancel and Apply.
+
+    :param manager: The presentation manager.
+    """
 
     WIDTH = 76
     HEIGHT = 22
@@ -254,9 +238,7 @@ class SettingsDialog(Dialog):  # pylint: disable=too-many-instance-attributes
     def _now(
         self,
     ) -> tuple[theme.Theme, str | None, Shortcuts, bool, str, bool, float]:
-        """What Cancel puts back: the colours and theme's name, the
-        shortcuts, whether animations are on, the colour depth, whether the
-        mouse is shown, and how long Escape waits for a key."""
+        """The state Cancel restores."""
         manager = self.desktop_manager
         return (
             theme.current_theme(),
@@ -271,17 +253,28 @@ class SettingsDialog(Dialog):  # pylint: disable=too-many-instance-attributes
     # Asking and telling
 
     def ask(self, dialog: Dialog) -> str | None:
-        """Show another dialog over this one, and return its answer."""
+        """Show a dialog over this one; return its answer.
+
+        :param dialog: The dialog.
+        """
         return self.desktop_manager.execute(dialog)
 
     def problem(self, title: str, message: str) -> None:
-        """Say what went wrong."""
+        """Report a problem.
+
+        :param title: Title text.
+        :param message: The message.
+        """
         self.ask(information(title, message))
 
     def write(self, path: Path, text: str, title: str, *, ask: bool = True) -> bool:
-        """Write a settings file, making its folder if need be. With ``ask``,
-        a file that is already there is replaced only once the user agrees.
-        Returns whether it was written (a problem has been shown if not)."""
+        """Write a settings file; return whether written.
+
+        :param path: The file.
+        :param text: Its contents.
+        :param title: Title for problems.
+        :param ask: Whether to ask before replacing.
+        """
         if ask and path.exists():
             replacing = confirm(title, f"{path.name} is there already.\nReplace it?")
             if self.ask(replacing) != "ok":
@@ -297,15 +290,16 @@ class SettingsDialog(Dialog):  # pylint: disable=too-many-instance-attributes
     # Answering
 
     def save(self) -> bool:
-        """Keep every page's settings for next time. Returns whether all
-        went well; Cancel then puts back only what has changed since."""
+        """Save every page; return whether all went well."""
         kept = all([self.appearance.save(), self.shortcuts.save(), self.desktop.save()])
         self._snapshot = self._now()
         return kept
 
     def button_pressed(self, button: Widget) -> None:
-        """OK keeps the settings and closes, Apply keeps them, and Cancel
-        puts them back and closes."""
+        """Handle OK, Apply and Cancel.
+
+        :param button: The button pressed.
+        """
         if button.name == "ok":
             if self.save():
                 self.result = "ok"

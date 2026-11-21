@@ -122,7 +122,10 @@ class ShadowLayeringTests(unittest.TestCase):
 
 
 def shadow_map(canvas: Canvas) -> list[str]:
-    """The canvas as a map: '#' for shadow cells, '.' otherwise."""
+    """The canvas as a map of shadow cells.
+
+    :param canvas: The canvas.
+    """
     return [
         "".join(
             "#" if canvas.cell(row, column)[1] == SHADOW else "."

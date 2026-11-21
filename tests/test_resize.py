@@ -15,23 +15,40 @@ GRIP = "\N{BOX DRAWINGS LIGHT HORIZONTAL}\N{BOX DRAWINGS LIGHT UP AND LEFT}"
 
 
 def grip_cells(canvas: Canvas, row: int, right: int) -> tuple[str, set[object]]:
-    """The two grip cells ending at column ``right``: text and styles."""
+    """The two grip cells' text and styles.
+
+    :param canvas: The canvas.
+    :param row: Grip row.
+    :param right: Grip's right column.
+    """
     cells = [canvas.cell(row, column) for column in (right - 1, right)]
     return "".join(char for char, _ in cells), {style for _, style in cells}
 
 
 def press(row: int, column: int) -> MouseEvent:
-    """A left-button press."""
+    """A left-button press.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    """
     return MouseEvent("press", "left", row, column)
 
 
 def drag(row: int, column: int) -> MouseEvent:
-    """Moving with the left button held."""
+    """A left-button drag.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    """
     return MouseEvent("drag", "left", row, column)
 
 
 def release(row: int, column: int) -> MouseEvent:
-    """A left-button release."""
+    """A left-button release.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    """
     return MouseEvent("release", "left", row, column)
 
 
@@ -39,7 +56,11 @@ class GripTests(unittest.TestCase):
     """How a resizable window shows that it can be resized."""
 
     def paint(self, window: Window, active: bool) -> Canvas:
-        """Paint one window on a fresh canvas."""
+        """Paint one window on a fresh canvas.
+
+        :param window: The window.
+        :param active: Whether it is drawn active.
+        """
         canvas = Canvas(20, 8)
         window.paint(canvas, active)
         return canvas
@@ -94,7 +115,10 @@ class DragGripTests(unittest.TestCase):
         self.manager.handle_resize(60, 20)
 
     def send(self, *events: MouseEvent) -> None:
-        """Send mouse events to the manager."""
+        """Send mouse events.
+
+        :param events: The events.
+        """
         for event in events:
             self.manager.handle_event(event)
 
@@ -110,7 +134,7 @@ class DragGripTests(unittest.TestCase):
         self.assertEqual(self.front.rect, Rect(3, 22, 10, 19))
 
     def test_left_grip_cell_resizes_without_a_jump(self) -> None:
-        """Grabbed by its left cell, the corner keeps its place under the pointer."""
+        """The left grip cell resizes without a jump."""
         self.front.resizable = True  # grip cells (7, 34) and (7, 35)
         self.send(press(7, 34), drag(7, 34))
         self.assertTrue(self.manager.is_resizing)

@@ -1,11 +1,4 @@
-"""``dasha --key-test``: show the name of each key as it is pressed.
-
-Over SSH, or in some terminals, keys such as Alt and a letter, or F10,
-may never reach Dasha Framework, or may arrive as something else. This screen
-shows exactly what arrives, using the same names as a shortcuts file, so
-that users can choose keys that work for them. Press Ctrl+C, which every
-terminal can send, to end it.
-"""
+"""A screen showing each key's name as pressed."""
 
 from dasha.canvas import Canvas
 from dasha.events import (
@@ -30,7 +23,10 @@ _HEADER = (
 
 
 def describe(event: Event) -> str:
-    """One line describing an input event."""
+    """One line describing an event.
+
+    :param event: The input event.
+    """
     if isinstance(event, KeyReleaseEvent):
         return f"release  {'space' if event.key == ' ' else event.key}"
     if isinstance(event, PasteEvent):
@@ -59,8 +55,10 @@ def describe(event: Event) -> str:
 
 
 def run(terminal: Terminal) -> None:
-    """Show the names of keys as they are pressed, until Ctrl+C is
-    pressed."""
+    """Show key names until Ctrl+C.
+
+    :param terminal: The terminal.
+    """
     decoder = InputDecoder()
     seen: list[str] = []
     on_screen: Canvas | None = None

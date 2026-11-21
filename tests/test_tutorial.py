@@ -1,7 +1,4 @@
-"""Tests for the tutorial (docs/tutorial.md, and a page per step in
-docs/tutorial/): its steps are up to date with Notepad, the screens it
-shows are what the steps really draw, and its pages highlight what each
-step adds."""
+"""Tests for the tutorial."""
 
 import difflib
 import importlib.util
@@ -17,7 +14,10 @@ TUTORIAL = Path(__file__).resolve().parents[1] / "docs" / "tutorial"
 
 
 def tool(name: str) -> ModuleType:
-    """One of the tutorial's scripts, imported."""
+    """Import one of the tutorial's scripts.
+
+    :param name: Script name.
+    """
     spec = importlib.util.spec_from_file_location(name, TUTORIAL / f"{name}.py")
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -48,10 +48,7 @@ class ScreensTests(unittest.TestCase):
     """The pictures in the tutorial are what each step draws."""
 
     def test_screens_are_up_to_date(self) -> None:
-        """What make_screens.py draws is what is there (run it if not):
-        each PNG holds what it shows, its characters and their colours, so
-        this needs no Pillow. The file dialogs differ off Windows, so they
-        are checked there only."""
+        """The screens are up to date."""
         make_screens = tool("make_screens")
         windows_only = {"open-dialog", "save-as-dialog"}
         for name, canvas in make_screens.screens().items():
@@ -65,8 +62,7 @@ class ScreensTests(unittest.TestCase):
                 )
 
     def test_every_screen_is_shown(self) -> None:
-        """The tutorial's pages show every screen, and no other files are
-        left."""
+        """Every screen is shown."""
         make_screens = tool("make_screens")
         pages = "".join(page.read_text(encoding="utf-8") for page in pages_of())
         for name in make_screens.SHOTS:
@@ -82,7 +78,10 @@ def pages_of() -> list[Path]:
 
 
 def line_numbers(spec: str) -> set[int]:
-    """The lines an ``:emphasize-lines:`` option names (``4,6,27-35``)."""
+    """The lines an ``:emphasize-lines:`` option names.
+
+    :param spec: The option's value.
+    """
     numbers: set[int] = set()
     for part in spec.split(","):
         first, _, last = part.strip().partition("-")
@@ -94,9 +93,7 @@ class PagesTests(unittest.TestCase):
     """The pages that show a whole step highlight what it adds."""
 
     def test_highlights_are_what_each_step_adds(self) -> None:
-        """A step shown whole highlights exactly the lines it adds to the
-        step before (its first line, the docstring naming the step,
-        aside)."""
+        """Highlights are what each step adds."""
         include = re.compile(
             r"```\{literalinclude\} notepad(\d)\.py\n(?::[^\n]*\n)*?"
             r":emphasize-lines: ([\d,\- ]+)\n"

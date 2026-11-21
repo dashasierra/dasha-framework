@@ -13,12 +13,20 @@ CLOSE = "[\N{BLACK SQUARE}]"
 
 
 def press(row: int, column: int) -> MouseEvent:
-    """A left-button press."""
+    """A left-button press.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    """
     return MouseEvent("press", "left", row, column)
 
 
 def release(row: int, column: int) -> MouseEvent:
-    """A left-button release."""
+    """A left-button release.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    """
     return MouseEvent("release", "left", row, column)
 
 
@@ -102,11 +110,17 @@ class ButtonTests(unittest.TestCase):
         self.shortcuts = Shortcuts()
 
     def record(self, button: Button) -> None:
-        """Remember which button was pressed."""
+        """Remember the pressed button.
+
+        :param button: The button.
+        """
         self.pressed.append(str(button.name))
 
     def key(self, key: str) -> bool:
-        """Offer a key to the window."""
+        """Offer a key to the window.
+
+        :param key: The key.
+        """
         return self.window.handle_key(key, self.shortcuts)
 
     def test_face_and_shadow(self) -> None:
@@ -144,8 +158,7 @@ class ButtonTests(unittest.TestCase):
         self.assertFalse(self.key("o"))  # plain letters only in dialogs
 
     def test_enter_presses_default_when_focus_elsewhere(self) -> None:
-        """With the focus on something that is not a button, Enter presses
-        the default button."""
+        """Enter presses the default from elsewhere."""
         self.window.focus(self.no)
         self.window._focus = None  # pylint: disable=protected-access
         self.key("enter")
@@ -186,7 +199,10 @@ class ManagerWidgetTests(unittest.TestCase):
         self.manager = PresentationManager(windows=[self.other, self.window])
 
     def record(self, button: Button) -> None:
-        """Remember which button was pressed."""
+        """Remember the pressed button.
+
+        :param button: The button.
+        """
         self.pressed.append(str(button.name))
 
     def test_tab_moves_focus_not_windows(self) -> None:

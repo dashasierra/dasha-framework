@@ -1,5 +1,4 @@
-"""Tests for running the user's shell for the command prompt
-(``dasha.shell``)."""
+"""Tests for running the user's shell."""
 
 # pylint: disable=protected-access  # its signal handling is the point
 
@@ -49,8 +48,7 @@ class RunTests(unittest.TestCase):
     """Running it."""
 
     def test_runs_and_says_how_to_come_back(self) -> None:
-        """The shell runs with DASHA_SUSPENDED set, after the user is
-        told how to come back; its exit code is returned."""
+        """Runs and says how to come back."""
         stream = StringIO()
         code = shell.run_shell(
             [
@@ -70,9 +68,7 @@ class RunTests(unittest.TestCase):
         self.assertNotIn(shell.SUSPENDED_VARIABLE, os.environ)
 
     def test_signals_are_caught_meanwhile(self) -> None:
-        """While the shell runs, the signals its keys send are caught and do
-        nothing (caught, not ignored, so the shell gets them as usual); the
-        handlers before are put back afterwards, even when it fails."""
+        """Signals are caught meanwhile."""
 
         def handler(number: int, frame: object) -> None:
             del number, frame
@@ -102,8 +98,7 @@ class RunTests(unittest.TestCase):
         shell._do_nothing(signal.SIGINT, None)  # and it does nothing
 
     def test_not_on_the_main_thread(self) -> None:
-        """Signal handlers can only be set on the main thread; elsewhere
-        they are left alone."""
+        """Not on the main thread."""
         seen: list[object] = []
 
         def run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
@@ -123,8 +118,10 @@ class TakeBackTests(unittest.TestCase):
     """Taking the terminal back from a shell that kept it."""
 
     def take_back(self, owner: int | Exception) -> MagicMock:
-        """Take it back from ``owner`` (or with reading the owner failing);
-        what was asked of ``tcsetpgrp``."""
+        """Take the terminal back; return ``tcsetpgrp`` calls.
+
+        :param owner: Current owner, or an error reading it.
+        """
         stdin = MagicMock()
         stdin.fileno.return_value = 0
         before = signal.getsignal(SIGTTOU)

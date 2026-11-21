@@ -1,8 +1,4 @@
-"""Tests that text from outside (a file's contents, a file's name, an
-application's title, a manifest) can never send an escape sequence, or any
-other control character, to the terminal: on the screen, every widget,
-title, menu and bar shows control characters as their code page 437
-pictures, and the messages printed on the terminal itself do the same."""
+"""Outside text never sends control characters."""
 
 import re
 import unittest
@@ -38,22 +34,22 @@ from dasha.window import Window
 from tests.support import isolated_home
 
 PAYLOAD = "a\x1b]0;pwned\x07\x1b[2J\x9b31m\r\x08\x00\u202eb"
-"""Hostile text: sets the terminal's title (OSC), clears the screen, a C1
-CSI, a carriage return, backspace, NUL and a right-to-left override."""
+"""Hostile text."""
 
 SHOWN = "a\N{LEFTWARDS ARROW}]0;pwned\N{BULLET}\N{LEFTWARDS ARROW}[2J?31m"
-"""How the screen shows the start of it: its pictures, in its place."""
+"""How the screen shows the payload."""
 
 _OWN = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
-"""The sequences Dasha Framework itself sends: cursor moves, styles, showing and
-hiding the cursor."""
+"""Dasha Framework's own sequences."""
 
 _CONTROL = re.compile("[\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]")
 
 
 def without_own_sequences(output: str) -> str:
-    """Terminal output with Dasha Framework's own sequences taken out: what is
-    left must be text alone."""
+    """Output without Dasha Framework's own sequences.
+
+    :param output: The output.
+    """
     return _OWN.sub("", output)
 
 
@@ -61,15 +57,21 @@ class ScreenTests(unittest.TestCase):
     """Nothing on the screen sends a control character."""
 
     def assert_safe(self, output: str, *, shows: bool = True) -> None:
-        """No control character but Dasha Framework's own sequences, and (with
-        ``shows``) the payload shown as pictures."""
+        """Check output holds no stray control characters.
+
+        :param output: The output.
+        :param shows: Whether the payload must show as pictures.
+        """
         text = without_own_sequences(output)
         self.assertIsNone(_CONTROL.search(text), repr(_CONTROL.findall(text)))
         if shows:
             self.assertIn(SHOWN, text)
 
     def render(self, manager: PresentationManager) -> str:
-        """The whole screen, as the terminal is sent it."""
+        """The whole screen's output.
+
+        :param manager: The desktop.
+        """
         manager.handle_resize(100, 40)
         canvas = Canvas(100, 40)
         manager.compose(canvas)
@@ -130,8 +132,7 @@ class ScreenTests(unittest.TestCase):
         self.assert_safe(self.render(manager))
 
     def test_text_typed_and_pasted(self) -> None:
-        """Pasted into a text box or a text area, the payload stays as it
-        is, and is shown as pictures."""
+        """Typed and pasted text."""
         box = TextBox(0, 0, 40)
         self.assertTrue(box.handle_paste(PAYLOAD.replace("\r", "")))
         self.assertIn("\x1b", box.text)
@@ -145,8 +146,7 @@ class ConsoleTests(unittest.TestCase):
     """Messages printed on the terminal itself."""
 
     def test_printable(self) -> None:
-        """Control characters become pictures; line breaks and tabs stay;
-        what would print as nothing, or reorder the line, becomes ?."""
+        """``printable`` makes text safe."""
         self.assertEqual(printable("plain text"), "plain text")
         self.assertEqual(printable("a\nb\tc"), "a\nb\tc")
         self.assertEqual(
@@ -166,8 +166,7 @@ class ConsoleTests(unittest.TestCase):
         self.assertIn(SHOWN, err.getvalue())
 
     def test_crash_reported_after_the_screen(self) -> None:
-        """What the desktop could not say before it ended, such as an
-        application's last words in its log, is printed made safe."""
+        """A crash report is printed safely."""
         manager = PresentationManager()
         server = AppServer(manager)
         self.addCleanup(server.stop_all, 0)
@@ -180,8 +179,7 @@ class ConsoleTests(unittest.TestCase):
         server.stop_all()
 
     def test_manifest_listed(self) -> None:
-        """An installed application's name from its manifest, as list-apps
-        prints it."""
+        """A manifest name is listed safely."""
         home = isolated_home(self)
         (home / "apps").mkdir()
         (home / "apps" / "evil.toml").write_text(

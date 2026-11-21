@@ -1,6 +1,4 @@
-"""What every pseudo-terminal has in common (see ``dasha.pseudoterminal``):
-the threads that read the program's output and write its input, and the
-hooks each system fills in."""
+"""Common pseudo-terminal behaviour."""
 
 import os
 import queue
@@ -13,26 +11,21 @@ READ_SIZE = 65536
 """The most bytes read from the program at once."""
 
 KILL_DELAY = 2.0
-"""How many seconds a program has, once asked to end (``close``), before
-it is made to."""
+"""Seconds before a closing program is killed."""
 
 
 class PseudoTerminal(ABC):
-    """A program running in a pseudo-terminal: what is common to every
-    system. Use ``open_pty`` for the one for this system."""
+    """A program in a pseudo-terminal."""
 
     def __init__(self) -> None:
         self.on_output: Callable[[bytes], None] = lambda data: None
-        """Called with each piece of the program's output, from the thread
-        that reads it."""
+        """Called with each piece of output."""
         self.on_exit: Callable[[], None] = lambda: None
-        """Called once the program has ended and all its output has been
-        given to ``on_output``, from the same thread."""
+        """Called once the program ends."""
         self.pid: int | None = None
         """The program's process id, once it has started."""
         self.exit_code: int | None = None
-        """How the program ended, once it has: its exit code (on POSIX,
-        minus the signal number, if a signal ended it)."""
+        """Exit code, once ended."""
         self._writes: queue.SimpleQueue[bytes | None] = queue.SimpleQueue()
         self._lock = threading.Lock()
         self._finished = threading.Event()
@@ -49,11 +42,13 @@ class PseudoTerminal(ABC):
         env: Mapping[str, str] | None = None,
         size: tuple[int, int] = (80, 24),
     ) -> None:
-        """Start ``argv`` (a program, found on ``PATH``, and its arguments)
-        in a pseudo-terminal of ``size`` (columns, lines), in the folder
-        ``cwd`` (this one, if ``None``) with the environment ``env`` (this
-        process's, if ``None``). Raises ``OSError`` if it cannot be
-        started."""
+        """Start a program.
+
+        :param argv: The program and its arguments.
+        :param cwd: Working folder, or ``None`` for this one.
+        :param env: Environment, or ``None`` for this process's.
+        :param size: Terminal (columns, lines).
+        """
         if not argv:
             raise ValueError("no program to run")
         if self.pid is not None:
@@ -64,20 +59,22 @@ class PseudoTerminal(ABC):
         threading.Thread(target=self._write_all, daemon=True).start()
 
     def write(self, data: bytes) -> None:
-        """Send input to the program, as though typed. It goes in the order
-        given, from another thread; once the program has ended, it is
-        dropped."""
+        """Send input to the program.
+
+        :param data: The input.
+        """
         if data and self.is_running:
             self._writes.put(data)
 
     def wait(self, timeout: float | None = None) -> bool:
-        """Wait for the program to end and its output to be read (forever,
-        or up to ``timeout`` seconds); returns whether it has."""
+        """Wait for the program to end; return whether it has.
+
+        :param timeout: Seconds to wait, or ``None`` for ever.
+        """
         return self._finished.wait(timeout)
 
     def _read_all(self) -> None:
-        """The reading thread: output to ``on_output`` until there is no
-        more, then the ending."""
+        """Read output until the program ends."""
         try:
             while data := self._read():
                 self.on_output(data)
@@ -107,7 +104,13 @@ class PseudoTerminal(ABC):
         env: Mapping[str, str] | None,
         size: tuple[int, int],
     ) -> None:
-        """Start the program (see ``start``)."""
+        """Start the program.
+
+        :param argv: The program and its arguments.
+        :param cwd: Working folder, or ``None`` for this one.
+        :param env: Environment, or ``None`` for this process's.
+        :param size: Terminal (columns, lines).
+        """
 
     @abstractmethod
     def _read(self) -> bytes:
@@ -115,7 +118,10 @@ class PseudoTerminal(ABC):
 
     @abstractmethod
     def _write(self, data: bytes) -> None:
-        """Write input to the program, all of it."""
+        """Write all input to the program.
+
+        :param data: The input.
+        """
 
     @abstractmethod
     def _reap(self) -> int | None:
@@ -127,25 +133,27 @@ class PseudoTerminal(ABC):
 
     @abstractmethod
     def resize(self, columns: int, lines: int) -> None:
-        """Tell the program its terminal is now ``columns`` by ``lines``."""
+        """Resize the terminal.
+
+        :param columns: New width.
+        :param lines: New height.
+        """
 
     @abstractmethod
     def close(self) -> None:
-        """End the program, if it is still running: ask it to end, and force
-        it to if it has not ended after ``KILL_DELAY`` seconds. Its ending
-        is reported as usual."""
+        """End the program."""
 
     def foreground_busy(self) -> bool:
-        """Whether the program has started another that is running in the
-        foreground (a shell running a command, say), as far as can be
-        told."""
+        """Whether a foreground child is running."""
         return False
 
 
 def find_program(argv: Sequence[str], env: Mapping[str, str] | None) -> None:
-    """Raise ``FileNotFoundError`` if the program ``argv`` starts with is
-    not there (found as the program would be: on ``PATH``, if it is a bare
-    name)."""
+    """Raise ``FileNotFoundError`` if the program is missing.
+
+    :param argv: The program and its arguments.
+    :param env: Environment, or ``None`` for this process's.
+    """
     path = (os.environ if env is None else env).get("PATH")
     if shutil.which(argv[0], path=path) is None:
         raise FileNotFoundError(2, "No such program", argv[0])

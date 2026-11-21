@@ -1,6 +1,4 @@
-"""Tests for shutting down and staying up: hangs, ending applications,
-process trees, signals, and a desktop that never waits on an
-application."""
+"""Tests for shutting down and staying up."""
 
 import ctypes
 import os
@@ -31,7 +29,10 @@ ALT_F4 = "\x1b[1;3S"
 
 
 def is_alive(pid: int) -> bool:
-    """Whether a process is still running (not merely waiting to be reaped)."""
+    """Whether a process is running.
+
+    :param pid: Process id.
+    """
     if os.name == "nt":
         kernel32 = getattr(ctypes, "WinDLL")("kernel32")
         handle = kernel32.OpenProcess(0x1000, False, pid)  # QUERY_LIMITED_INFORMATION
@@ -55,7 +56,11 @@ def is_alive(pid: int) -> bool:
 
 
 def eventually(condition: Callable[[], bool], seconds: float = 30) -> bool:
-    """Whether ``condition`` comes true within ``seconds``."""
+    """Whether a condition comes true in time.
+
+    :param condition: The condition.
+    :param seconds: Time allowed.
+    """
     deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
         if condition():
@@ -65,14 +70,15 @@ def eventually(condition: Callable[[], bool], seconds: float = 30) -> bool:
 
 
 STEP_TIMEOUT = 30.0
-"""How many seconds a step may take, as long as an application has to connect
-(``AppServer.start_timeout``). A busy machine can take seconds just to start
-a process, and only a test that is failing waits this long."""
+"""Seconds a step may take."""
 
 
 class StepTerminal(FakeTerminal):
-    """Waits for each step's condition, then types its keys; quits the
-    manager after the last step, or a step that takes ``STEP_TIMEOUT``."""
+    """Runs steps: waits for each condition, then types.
+
+    :param manager: The desktop.
+    :param steps: (condition, keys) pairs.
+    """
 
     def __init__(
         self,
@@ -86,7 +92,10 @@ class StepTerminal(FakeTerminal):
         self.timed_out = False
 
     def read(self, timeout: float | None = None) -> str:
-        """Raise SIGTERM while waiting for input."""
+        """Raise SIGTERM while waiting.
+
+        :param timeout: Ignored.
+        """
         if self.inputs:
             return self.inputs.pop(0)
         if time.monotonic() > self.deadline:
@@ -126,7 +135,10 @@ class Desktop(unittest.TestCase):
         return [window.title for window in self.manager.windows]
 
     def run_steps(self, *steps: tuple[Callable[[], bool], list[str]]) -> None:
-        """Run the desktop through ``steps``; fail if it times out."""
+        """Run the desktop through steps.
+
+        :param steps: (condition, keys) pairs.
+        """
         terminal = StepTerminal(self.manager, list(steps))
         self.manager.run(cast(Terminal, terminal))
         self.assertFalse(terminal.timed_out, f"timed out with {self.titles()}")
@@ -167,8 +179,7 @@ class HangTests(Desktop):
         )
 
     def test_shutting_down_with_a_hung_application(self) -> None:
-        """Exit waits for applications; one that is not responding is
-        offered to be ended, and then the desktop leaves."""
+        """Shutting down with a hung application."""
         self.manager.start(Hello)
 
         def start_hangs() -> bool:
@@ -236,8 +247,7 @@ class HangTests(Desktop):
         )
 
     def test_hung_application_never_blocks_the_desktop(self) -> None:
-        """Sending to an application that has stopped reading returns at
-        once: its messages wait in its outbox."""
+        """A hung application never blocks the desktop."""
         host = AppHost(self.server, "x:Y", "Deaf")
         _, desktop_end = pipe()  # nobody reads the other end
         host.connected(desktop_end)
@@ -334,9 +344,7 @@ class ProcessTreeTests(unittest.TestCase):
 
     @unittest.skipIf(os.name == "nt", "Windows ends applications with their job")
     def test_watch_the_desktop_not_the_parent(self) -> None:
-        """Watching the desktop's process itself: in a one-file build a
-        launcher stands between the desktop and the application, so the
-        application's parent is not the desktop."""
+        """Watch the desktop, not the parent."""
         # pylint: disable-next=consider-using-with
         desktop = subprocess.Popen(
             [sys.executable, "-c", "import time; time.sleep(60)"]

@@ -1,12 +1,4 @@
-"""Scroll bars: the drawing and hit-testing shared by window frames and
-the ``ScrollBar`` widget (``dasha.widgets.scrollbar``).
-
-A vertical bar runs down the right edge of the frame, with ``▲`` at the top
-and ``▼`` at the bottom; a horizontal bar runs along the bottom edge,
-between ``◄`` and ``►``. Between the arrows is a ``▒`` track, with a ``■``
-thumb showing where the view is. All of these are code page 437
-characters.
-"""
+"""Scroll bar drawing and hit-testing."""
 
 from dataclasses import dataclass, field
 
@@ -19,24 +11,28 @@ LEFT = "\N{BLACK LEFT-POINTING POINTER}"
 RIGHT = "\N{BLACK RIGHT-POINTING POINTER}"
 TRACK = "\N{MEDIUM SHADE}"
 THUMB = "\N{BLACK SQUARE}"
-"""▲ ▼ ◄ ► (code page 437 glyphs 30, 31, 17, 16), ▒ (177) and ■ (254)."""
+"""Scroll bar characters."""
 
 
 def track_position(value: int, maximum: int, cells: int) -> int:
-    """Which of a track's ``cells`` stands for ``value`` (from 0 to
-    ``maximum``): cell 0 for 0, the last cell for ``maximum``, and evenly
-    spaced in between. A scroll bar's thumb and a slider's knob are placed in
-    this way."""
+    """The track cell for a value.
+
+    :param value: The value.
+    :param maximum: Largest value.
+    :param cells: Track length.
+    """
     if maximum <= 0 or cells <= 1:
         return 0
     return round(min(max(value, 0), maximum) / maximum * (cells - 1))
 
 
 def track_value(along: int, maximum: int, cells: int) -> int:
-    """The value (from 0 to ``maximum``) that cell ``along`` of a track of
-    ``cells`` cells stands for: the reverse of ``track_position``, used when
-    a thumb or knob is dragged there. Cells beyond either end give 0 or
-    ``maximum``."""
+    """The value for a track cell.
+
+    :param along: Cell index.
+    :param maximum: Largest value.
+    :param cells: Track length.
+    """
     if cells <= 1:
         return 0
     return round(min(max(along, 0), cells - 1) / (cells - 1) * maximum)
@@ -44,14 +40,7 @@ def track_value(along: int, maximum: int, cells: int) -> int:
 
 @dataclass(frozen=True)
 class ScrollBarLayout:
-    """A single scroll bar in its current state: where it is on the screen,
-    and what it shows. It draws the bar, and reports which part is where and
-    what a click on each part does.
-
-    ``length`` counts every cell, including the arrows. ``value`` is the
-    scroll offset, from 0 to ``maximum``, and ``page`` is how much is visible
-    at once.
-    """
+    """A scroll bar's position and state."""
 
     vertical: bool
     row: int
@@ -75,23 +64,24 @@ class ScrollBarLayout:
 
     @property
     def thumb(self) -> int:
-        """Where the thumb is along the track (0 is next to the first
-        arrow)."""
+        """Thumb position along the track."""
         return track_position(self.value, self.maximum, self.track_length)
 
     def _index(self, row: int, column: int) -> int | None:
-        """How far along the bar a position is, if it is on the bar."""
+        """Distance along the bar, if on it.
+
+        :param row: Screen row.
+        :param column: Screen column.
+        """
         if not self.rect.contains(row, column):
             return None
         return row - self.row if self.vertical else column - self.column
 
     def part_at(self, row: int, column: int) -> str | None:
-        """Which part of the bar is at a position.
+        """The bar part at a position, or ``None``.
 
-        ``"back"`` and ``"forward"`` are the arrows (up or left, and down or
-        right), ``"page_back"`` and ``"page_forward"`` are the track before
-        and after the thumb, and ``"thumb"`` is the thumb. Returns ``None``
-        for a position that is not on the bar.
+        :param row: Screen row.
+        :param column: Screen column.
         """
         index = self._index(row, column)
         if index is None:
@@ -108,10 +98,11 @@ class ScrollBarLayout:
         return "thumb"
 
     def step(self, part: str | None, line: int = 1) -> int:
-        """How far a click on a part scrolls: ``line`` for an arrow, a page
-        (less one line, so that a line stays in view) for the track, and 0
-        for the thumb or for no part. Negative values scroll back (up or
-        left)."""
+        """How far a click on a part scrolls.
+
+        :param part: The part, or ``None``.
+        :param line: One line's amount.
+        """
         page = max(1, self.page - 1)
         return {
             "back": -line,
@@ -121,13 +112,20 @@ class ScrollBarLayout:
         }.get(part or "", 0)
 
     def value_at(self, row: int, column: int) -> int:
-        """The scroll offset that would put the thumb at a position, used for
-        dragging it. Positions beyond the ends give 0 or ``maximum``."""
+        """The value for a thumb at a position.
+
+        :param row: Screen row.
+        :param column: Screen column.
+        """
         along = (row - self.row if self.vertical else column - self.column) - 1
         return track_value(along, self.maximum, self.track_length)
 
     def paint(self, canvas: Canvas, style: Style) -> None:
-        """Draw the arrows, the track and the thumb."""
+        """Draw the bar.
+
+        :param canvas: Canvas to draw on.
+        :param style: Bar style.
+        """
         back, forward = (UP, DOWN) if self.vertical else (LEFT, RIGHT)
         cells = [back] + [TRACK] * self.track_length + [forward]
         if self.track_length:
@@ -141,17 +139,7 @@ class ScrollBarLayout:
 
 @dataclass
 class AutoRepeat:
-    """Repeats a click on a scroll bar's arrow or track while the mouse
-    button is held down: first after ``delay`` seconds, then every
-    ``interval`` seconds, but only while the pointer is still on the part
-    first pressed. On the track, the repeating stops once the thumb reaches
-    the pointer.
-
-    The two timings are class attributes, shared by every scroll bar (both
-    window frames and ``ScrollBar`` widgets), so setting
-    ``AutoRepeat.delay`` or ``AutoRepeat.interval`` once changes them for a
-    whole project.
-    """
+    """Repeats a held scroll bar click."""
 
     delay = 0.4
     """How many seconds a click is held before it first repeats."""
@@ -161,22 +149,29 @@ class AutoRepeat:
     part: str | None = None
     """The part being held down, or ``None`` when nothing is."""
     row: int = 0
-    """The row the pointer is on now, in the coordinates of whatever owns
-    this object."""
+    """Pointer row."""
     column: int = 0
-    """The column the pointer is on now, in the same coordinates as
-    ``row``."""
+    """Pointer column."""
     next_time: float = field(default=0.0, repr=False)
 
     def start(self, part: str | None, row: int, column: int, now: float) -> None:
-        """Record a press on ``part``, which has already been acted on once,
-        so that it is repeated later."""
+        """Record a press.
+
+        :param part: The part pressed.
+        :param row: Pointer row.
+        :param column: Pointer column.
+        :param now: The current ``time.monotonic``.
+        """
         self.part = part if part not in (None, "thumb") else None
         self.row, self.column = row, column
         self.next_time = now + self.delay
 
     def move(self, row: int, column: int) -> None:
-        """Record that the pointer moved while the button is held down."""
+        """Record pointer movement.
+
+        :param row: Pointer row.
+        :param column: Pointer column.
+        """
         self.row, self.column = row, column
 
     def stop(self) -> None:
@@ -184,13 +179,15 @@ class AutoRepeat:
         self.part = None
 
     def wake_time(self) -> float | None:
-        """When the next repeat is due, while a part is being held down."""
+        """When the next repeat is due."""
         return self.next_time if self.part is not None else None
 
     def due(self, now: float, part_now: str | None) -> bool:
-        """Whether to repeat now: the time has come, and the pointer is on
-        ``part_now``, the same part that was pressed. Also schedules the next
-        repeat."""
+        """Whether to repeat now.
+
+        :param now: The current ``time.monotonic``.
+        :param part_now: The part under the pointer.
+        """
         if self.part is None or now < self.next_time:
             return False
         self.next_time = now + self.interval

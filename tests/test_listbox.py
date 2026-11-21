@@ -16,7 +16,12 @@ NAMES = [f"file{number:02}.txt" for number in range(20)]
 
 
 def keys(box: ListBox, *names: str, shortcuts: Shortcuts | None = None) -> list[bool]:
-    """Offer keys to a list box."""
+    """Offer keys to a list box.
+
+    :param box: The list box.
+    :param names: The keys.
+    :param shortcuts: Key bindings, or ``None`` for the defaults.
+    """
     shortcuts = shortcuts if shortcuts is not None else Shortcuts()
     return [box.handle_key(name, shortcuts) for name in names]
 
@@ -24,12 +29,23 @@ def keys(box: ListBox, *names: str, shortcuts: Shortcuts | None = None) -> list[
 def mouse(
     box: ListBox, action: str, row: int, column: int, button: str = "left"
 ) -> bool:
-    """A mouse event at a position in the window's interior."""
+    """A mouse event in the window's interior.
+
+    :param box: The list box.
+    :param action: Mouse action.
+    :param row: Interior row.
+    :param column: Interior column.
+    :param button: Mouse button.
+    """
     return box.handle_mouse(MouseEvent(action, button, row, column), row, column)
 
 
 def paint(box: ListBox, focused: bool = True) -> Canvas:
-    """Paint a box placed at the top left of a canvas just big enough."""
+    """Paint a box on a canvas of its size.
+
+    :param box: The list box.
+    :param focused: Whether it has the focus.
+    """
     canvas = Canvas(box.rect.right, box.rect.bottom)
     box.paint(canvas, canvas.bounds, focused)
     return canvas
@@ -75,8 +91,7 @@ class SingleColumnTests(unittest.TestCase):
         self.assertIsNone(canvas.cursor)  # the highlight is enough
 
     def test_scroll_bar_only_when_needed(self) -> None:
-        """A vertical bar on the right edge with too many items; none when
-        they fit, and then the items have the whole width."""
+        """A scroll bar only when needed."""
         canvas = paint(self.box)
         self.assertEqual(canvas.cell(0, 13)[0], UP)
         self.assertEqual(canvas.cell(4, 13)[0], DOWN)
@@ -112,14 +127,17 @@ class SingleColumnTests(unittest.TestCase):
         self.assertEqual(paint(box).text(0), "a very lon")
 
     def test_space_is_taken_and_tab_enter_pass(self) -> None:
-        """Space does nothing with single selection, but is not passed on
-        to press a button; Tab, Escape and Enter are."""
+        """Space is taken; Tab, Escape and Enter pass."""
         self.assertEqual(keys(self.box, " "), [True])
         self.assertEqual(keys(self.box, "tab", "escape", "enter"), [False] * 3)
         self.assertEqual(keys(self.box, "left", "right"), [False, False])
 
     def typing(self, box: ListBox, timed: list[tuple[float, str]]) -> list[int]:
-        """Type characters at given times; where the highlight is after each."""
+        """Type at given times; return the highlights.
+
+        :param box: The list box.
+        :param timed: (time, character) pairs.
+        """
         cursors = []
         for when, character in timed:
             with mock.patch("dasha.widgets.listbox.time.monotonic", return_value=when):
@@ -128,15 +146,13 @@ class SingleColumnTests(unittest.TestCase):
         return cursors
 
     def test_typing_finds_the_first_item_starting_with_it(self) -> None:
-        """Each character typed narrows the search; the highlight goes to
-        the first item that starts with what has been typed."""
+        """Typing finds the first match."""
         box = ListBox(["tea", "toast", "turtle.exe", "turnip"], 0, 0, 12, 4)
         typed = [(10.0, "t"), (10.2, "u"), (10.4, "r"), (10.6, "n")]
         self.assertEqual(self.typing(box, typed), [0, 2, 2, 3])
 
     def test_typing_resets_after_a_pause(self) -> None:
-        """After type_ahead_timeout without typing, a new search starts, so
-        a wrong key can be got over by waiting."""
+        """Typing resets after a pause."""
         box = ListBox(["apple", "banana", "cherry"], 0, 0, 12, 3)
         self.assertEqual(self.typing(box, [(5.0, "c"), (5.3, "x")]), [2, 2])
         self.assertEqual(self.typing(box, [(6.4, "b")]), [1])  # a new search
@@ -148,8 +164,7 @@ class SingleColumnTests(unittest.TestCase):
         self.assertEqual(self.typing(box, [(1.0, "b"), (1.1, "z")]), [1, 1])
 
     def test_same_letter_steps_through(self) -> None:
-        """Typing one letter again and again steps through the items that
-        start with it, wrapping round."""
+        """The same letter steps through."""
         box = ListBox(["apple", "banana", "avocado", "apricot"], 0, 0, 12, 4)
         typed = [(1.0, "a"), (1.1, "a"), (1.2, "a"), (1.3, "a")]
         self.assertEqual(self.typing(box, typed), [0, 2, 3, 0])
@@ -193,8 +208,7 @@ class MultipleSelectionTests(unittest.TestCase):
         )
 
     def test_space_toggles(self) -> None:
-        """Space selects the highlighted item, moves keep selections, and
-        Space again deselects."""
+        """Space toggles."""
         self.assertEqual(self.box.value, (4,))
         keys(self.box, " ", "down", "down", " ", "up", "up", " ")
         self.assertEqual(self.box.value, (2, 4))
@@ -209,8 +223,7 @@ class MultipleSelectionTests(unittest.TestCase):
         self.assertEqual(self.box.value, (4,))
 
     def test_drawing(self) -> None:
-        """Selected items show in selected_style; the highlight in
-        focused_style, keeping the selection's colour when it is selected."""
+        """Drawing selections."""
         canvas = paint(self.box)
         self.assertEqual(canvas.cell(4, 0)[1], self.box.selected_style)
         self.assertEqual(canvas.cell(0, 0)[1], self.box.focused_style)
@@ -220,8 +233,7 @@ class MultipleSelectionTests(unittest.TestCase):
         self.assertEqual(style.foreground, self.box.selected_style.foreground)
 
     def test_ctrl_a_selects_all_or_none(self) -> None:
-        """Ctrl+A selects everything while anything is unselected, and
-        deselects everything once all are selected."""
+        """Ctrl+A selects all or none."""
         self.assertEqual(keys(self.box, "ctrl+a"), [True])
         self.assertEqual(self.box.value, tuple(range(20)))
         keys(self.box, "ctrl+a")
@@ -231,8 +243,7 @@ class MultipleSelectionTests(unittest.TestCase):
         self.assertEqual(len(self.changes), 5)
 
     def test_ctrl_a_remapped_and_single_selection(self) -> None:
-        """Ctrl+A is a shortcut like any other; with single selection the
-        list box leaves it for the window."""
+        """Ctrl+A remapped and with single selection."""
         shortcuts = Shortcuts({"list_select_all": ["alt+a"]})
         keys(self.box, "alt+a", shortcuts=shortcuts)
         self.assertEqual(len(self.box.selected_items), 20)
@@ -258,8 +269,7 @@ class ColumnTests(unittest.TestCase):
         self.box = ListBox(NAMES, 0, 0, 25, 5, columns=2)
 
     def test_layout(self) -> None:
-        """Column-major order, a divider between the columns, and a
-        horizontal scroll bar along the bottom."""
+        """Column layout."""
         self.assertEqual(self.box.rows, 4)
         canvas = paint(self.box, focused=False)
         self.assertEqual(
@@ -270,8 +280,7 @@ class ColumnTests(unittest.TestCase):
         self.assertEqual(canvas.cell(4, 24)[0], RIGHT)
 
     def test_no_bar_when_the_columns_fit(self) -> None:
-        """With every column of items showing, there is no bar and all the
-        rows hold items."""
+        """No bar when the columns fit."""
         box = ListBox(NAMES[:8], 0, 0, 25, 4, columns=2)
         self.assertEqual(box.rows, 4)
         self.assertNotIn(LEFT, paint(box).text(3))
@@ -299,8 +308,7 @@ class ColumnTests(unittest.TestCase):
         self.assertIsNone(self.box.index_at(0, 12))  # on the divider
 
     def test_bar_scrolls_a_column(self) -> None:
-        """The bar's right arrow scrolls a column without moving the
-        highlight."""
+        """The bar scrolls a column."""
         mouse(self.box, "press", 4, 24)
         self.assertEqual((self.box.first_visible, self.box.cursor), (1, 0))
 
@@ -318,8 +326,7 @@ class InWindowTests(unittest.TestCase):
     """List boxes in windows and dialogs."""
 
     def test_mouse_wheel(self) -> None:
-        """The wheel over a list box scrolls it; with nothing to scroll the
-        window gets the wheel instead."""
+        """The mouse wheel."""
         window = Window("W", Rect(1, 0, 8, 30), [""] * 20)
         box = window.add(ListBox(NAMES, 0, 0, 14, 5))
         manager = PresentationManager(windows=[window])
@@ -332,8 +339,7 @@ class InWindowTests(unittest.TestCase):
         self.assertEqual(window.scroll_row, 3)
 
     def test_dialog(self) -> None:
-        """Tab moves past the list, Enter presses the default button, and
-        the caller reads the selection."""
+        """In a dialog."""
         dialog = Dialog("Open", 30, 14)
         box = dialog.add(ListBox(NAMES, 0, 1, 20, 6, multiple=True, name="files"))
         ok = dialog.add(Button("&OK", 8, 1, result="ok", default=True))

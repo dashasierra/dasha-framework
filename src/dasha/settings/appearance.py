@@ -1,13 +1,4 @@
-"""The Appearance page of Settings...: the theme, and the colours of each
-part of the screen.
-
-Choosing a theme, or changing a colour, shows on the screen at once.
-Colours changed here are saved to the colours file when the settings are
-kept, so that the desktop starts with them; a theme chosen unchanged is
-remembered by name instead, as the system menu's Themes does. Load... and
-Save as... read and write theme files, such as those in
-``~/.dasha/themes/``, which the Themes menu offers.
-"""
+"""The Appearance settings page."""
 
 import textwrap
 from pathlib import Path
@@ -26,22 +17,22 @@ if TYPE_CHECKING:
     from dasha.settings import SettingsDialog
 
 COLOUR_CHOICES = ["default", *theme.COLOUR_NAMES]
-"""The colours offered for a foreground or background: the terminal's own
-(``default``), then the sixteen with names."""
+"""Colours offered."""
 
 CUSTOM = "Custom..."
 """The last colour offered, which asks for an RGB colour."""
 
 COLOURS_FILE = "Colours file"
-"""How the theme box shows the colours file, as the Themes menu does."""
+"""How the colours file is listed."""
 
 THEME_FILES = [("Themes", "*.json")]
 
 
 def colour_items(colour: Colour | None) -> tuple[list[str], int]:
-    """The colours to offer for one that is in use, and which of them it
-    is: a colour numbered above 15, which has no name, or an RGB colour, is
-    added after the named ones. ``CUSTOM`` always comes last."""
+    """Colours to offer and which is in use.
+
+    :param colour: The colour in use.
+    """
     items = list(COLOUR_CHOICES)
     if colour is None:
         index = 0
@@ -54,14 +45,20 @@ def colour_items(colour: Colour | None) -> tuple[list[str], int]:
 
 
 def chosen_colour(box: ComboBox) -> Colour | None:
-    """The colour chosen in a box offering ``colour_items``."""
+    """The colour chosen in a box.
+
+    :param box: The combo box.
+    """
     text = box.selected_item
     return theme.parse_colour(int(text) if text.isdigit() else text)
 
 
 class AppearancePage:  # pylint: disable=too-many-instance-attributes
-    """The theme, with Load... and Save as..., above the roles (each part of
-    the screen) and the colours and attributes of the one highlighted."""
+    """The theme and role colour settings.
+
+    :param dialog: The settings dialog.
+    :param page: Its tab page.
+    """
 
     def __init__(self, dialog: "SettingsDialog", page: TabPage) -> None:
         self.dialog = dialog
@@ -219,8 +216,10 @@ class AppearancePage:  # pylint: disable=too-many-instance-attributes
         self._changed()
 
     def _loaded_from(self, path: Path) -> None:
-        """The colours shown are a theme file's: one the Themes menu offers
-        is chosen by its name, and any other's are changed colours."""
+        """Show colours loaded from a theme file.
+
+        :param path: The theme file.
+        """
         folder = self.manager.themes_folder
         offered = path.suffix == ".json" and path.stem not in theme.BASES
         if offered and path.resolve().parent == folder.resolve():
@@ -264,8 +263,7 @@ class AppearancePage:  # pylint: disable=too-many-instance-attributes
         return self.roles.items[self.roles.cursor]
 
     def _show_role(self) -> None:
-        """Show the highlighted role's description, colours and
-        attributes."""
+        """Show the highlighted role."""
         role = self.role
         style = self.colours[role]
         shown = style if isinstance(style, Style) else Style()
@@ -287,7 +285,10 @@ class AppearancePage:  # pylint: disable=too-many-instance-attributes
         )
 
     def _edit(self, widget: object) -> None:
-        """A colour or attribute changed: the highlighted role takes it."""
+        """Apply an edit to the highlighted role.
+
+        :param widget: The widget changed.
+        """
         del widget
         role = self.role
         style: Style | None = None
@@ -306,8 +307,10 @@ class AppearancePage:  # pylint: disable=too-many-instance-attributes
             self._changed()
 
     def _colour_chosen(self, box: ComboBox) -> None:
-        """A colour was chosen for the foreground or background; Custom...
-        asks which, and Cancel there leaves the colour as it was."""
+        """Apply a chosen colour.
+
+        :param box: The combo box.
+        """
         if box.selected_item != CUSTOM:
             self._edit(box)
             return
@@ -329,9 +332,7 @@ class AppearancePage:  # pylint: disable=too-many-instance-attributes
     # Keeping the settings
 
     def save(self) -> bool:
-        """Keep the colours for next time: changed colours in the colours
-        file, or else the theme chosen, by name. Returns whether all went
-        well (a problem has been shown if not)."""
+        """Save the colours or theme; return whether all went well."""
         manager = self.manager
         if self.edited:
             path = manager.colours_path or theme.DEFAULT_PATH

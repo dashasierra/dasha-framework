@@ -1,5 +1,4 @@
-"""Tests for turning Dasha Framework's key names, and the mouse, into the bytes a
-terminal sends (``dasha.vt.encode_key`` and ``encode_mouse``)."""
+"""Tests for encoding keys and the mouse for programs."""
 
 import unittest
 
@@ -92,8 +91,7 @@ class EncodeMouseTests(unittest.TestCase):
     SGR = {1000, 1002, 1006}
 
     def test_sgr_reports(self) -> None:
-        """Presses, releases, drags and the wheel, in the SGR form, with the
-        place counted from 1."""
+        """SGR reports."""
         table = [
             (MouseEvent("press", "left", 0, 0), b"\x1b[<0;6;3M"),
             (MouseEvent("release", "left", 0, 0), b"\x1b[<0;6;3m"),
@@ -111,8 +109,7 @@ class EncodeMouseTests(unittest.TestCase):
                 self.assertEqual(encode_mouse(event, 2, 5, self.SGR), sent)
 
     def test_original_form(self) -> None:
-        """Without 1006: ESC [ M and three bytes; a release names no button;
-        nothing beyond column or row 223."""
+        """The original form."""
         modes = {1000}
         press = MouseEvent("press", "left", 0, 0)
         self.assertEqual(encode_mouse(press, 2, 5, modes), b"\x1b[M &#")
@@ -122,8 +119,7 @@ class EncodeMouseTests(unittest.TestCase):
         self.assertEqual(encode_mouse(press, 0, 223, {1000, 1006}), b"\x1b[<0;224;1M")
 
     def test_only_what_was_asked_for(self) -> None:
-        """No reports without tracking; drags need 1002 (or 1003), and
-        movement 1003."""
+        """Only what was asked for."""
         drag = MouseEvent("drag", "left", 0, 0)
         move = MouseEvent("move", "none", 0, 0)
         self.assertIsNone(encode_mouse(MouseEvent("press", "left", 0, 0), 0, 0, {1006}))

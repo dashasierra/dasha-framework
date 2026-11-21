@@ -32,11 +32,18 @@ class FileDialogTests(unittest.TestCase):
             pass
 
     def dialog(self, **options: object) -> FileDialog:
-        """A file dialog showing the test's folder."""
+        """A file dialog on the test's folder.
+
+        :param options: Dialog options.
+        """
         return FileDialog("Open", directory=self.root, **options)  # type: ignore[arg-type]
 
     def enter(self, dialog: FileDialog, typed: str) -> None:
-        """Type into the Name box and press OK."""
+        """Type into the Name box and press OK.
+
+        :param dialog: The dialog.
+        :param typed: Text to type.
+        """
         dialog.name_box.text = typed
         dialog.accept()
 
@@ -73,7 +80,7 @@ class FileDialogTests(unittest.TestCase):
         self.assertEqual(dialog.files.items[3:], ["a.py", "z.txt"])
 
     def test_typed_wildcard(self) -> None:
-        """A name with * or ? becomes the filter until the type changes."""
+        """A typed wildcard becomes the filter."""
         dialog = self.dialog(filters=TEXT)
         self.enter(dialog, "*.py")
         self.assertEqual(dialog.files.items[3:], ["a.py"])
@@ -82,8 +89,7 @@ class FileDialogTests(unittest.TestCase):
         self.assertEqual(len(dialog.files.items), 6)
 
     def test_folders(self) -> None:
-        """OK on a folder opens it; on .. goes back, highlighting the folder
-        it came from."""
+        """Opening folders."""
         dialog = self.dialog()
         self.enter(dialog, f"A_dir{S}")
         self.assertEqual(dialog.directory, os.path.join(self.root, "A_dir"))
@@ -149,8 +155,7 @@ class FileDialogTests(unittest.TestCase):
         self.assertIsNone(dialog.result)
 
     def test_enter_on_the_list(self) -> None:
-        """With the Name box empty, Enter on the list opens what is
-        highlighted (after going into a folder, say)."""
+        """Enter on the list."""
         dialog = self.dialog()
         self.enter(dialog, "A_dir")
         dialog.focus(dialog.files)
@@ -174,7 +179,11 @@ class FileDialogTests(unittest.TestCase):
         self.assertEqual(dialog.path, os.path.join(self.root, "z.txt"))
 
     def run_dialog(self, inputs: list[str], **options: object) -> FileDialog:
-        """Show the dialog in a running manager, on scripted input."""
+        """Run the dialog on scripted input.
+
+        :param inputs: Input to read.
+        :param options: Dialog options.
+        """
         dialog = self.dialog(**options)
         manager = ask(inputs, dialog)
         self.assertEqual(manager.answers, [dialog.result])

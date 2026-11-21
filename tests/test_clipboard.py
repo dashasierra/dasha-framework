@@ -16,11 +16,15 @@ from dasha.window import Window
 from tests.test_manager import FakeTerminal
 
 FILE = "text/uri-list"
-"""A type a text box does not take, standing in for a copied file."""
+"""A type a text box does not take."""
 
 
 def press(box: TextBox, *keys: str) -> list[bool]:
-    """Offer keys to a box with the default shortcuts."""
+    """Offer keys to a box.
+
+    :param box: The text box.
+    :param keys: The keys.
+    """
     shortcuts = Shortcuts()
     return [box.handle_key(key, shortcuts) for key in keys]
 
@@ -78,7 +82,10 @@ class TextBoxClipboardTests(unittest.TestCase):
         self.box = self.make(text="hello world")
 
     def make(self, **options: object) -> TextBox:
-        """A text box using this test's own clipboard."""
+        """A text box with the test's clipboard.
+
+        :param options: Text box options.
+        """
         box = TextBox(0, 0, 20, **options)  # type: ignore[arg-type]
         box.clipboard = self.clipboard
         return box
@@ -152,8 +159,7 @@ class TextBoxClipboardTests(unittest.TestCase):
         self.assertFalse(self.make().paste())
 
     def test_cut_the_box_would_refuse_does_nothing(self) -> None:
-        """A cut that would leave text the box refuses neither copies nor
-        deletes."""
+        """A refused cut does nothing."""
         box = self.make(text="10", pattern=r"[1-9][0-9]*")
         box.select(0, 1)  # cutting the 1 would leave "0"
         self.clipboard.copy_text("kept")
@@ -186,7 +192,10 @@ class TextBoxClipboardTests(unittest.TestCase):
 
 
 def bracketed(text: str) -> str:
-    """Text as a terminal with bracketed paste sends a paste of it."""
+    """Text as a bracketed paste.
+
+    :param text: The pasted text.
+    """
     return "\x1b[200~" + text + "\x1b[201~"
 
 
@@ -194,8 +203,7 @@ class TerminalPasteTests(unittest.TestCase):
     """Text pasted through the terminal itself (bracketed paste)."""
 
     def test_all_or_nothing(self) -> None:
-        """A terminal paste the box would refuse changes nothing at all,
-        just like Ctrl+V: "3a4" is not pasted as "34"."""
+        """Terminal pastes are all or nothing."""
         box = TextBox(0, 0, 20, text="12", pattern=r"[0-9]*")
         for text in ("hello", "3a4", "3\r4", "3\x114"):
             self.assertFalse(box.handle_paste(text))
@@ -217,8 +225,7 @@ class TerminalPasteTests(unittest.TestCase):
         self.assertEqual(box.text, "ab")
 
     def test_one_trailing_line_break_is_dropped(self) -> None:
-        """A copied line's own line break is dropped; other line breaks
-        still make the paste fail."""
+        """One trailing line break is dropped."""
         for ending in ("\r", "\n", "\r\n"):
             box = TextBox(0, 0, 20, pattern=r"[0-9]*")
             self.assertTrue(box.handle_paste("42" + ending))
@@ -240,8 +247,7 @@ class TerminalPasteTests(unittest.TestCase):
         self.assertEqual(box.text, "abcdefg")
 
     def test_on_change(self) -> None:
-        """A paste that goes in calls on_change once; a refused one not at
-        all."""
+        """``on_change`` runs once per accepted paste."""
         changes: list[str] = []
         box = TextBox(
             0, 0, 20, pattern=r"[0-9]*", on_change=lambda b: changes.append(b.text)
@@ -263,9 +269,7 @@ class TerminalPasteTests(unittest.TestCase):
         self.assertEqual(box.text, "x")
 
     def test_run_loop(self) -> None:
-        """Through the terminal and presentation manager: pastes reach the
-        focused box whole or not at all, and a Ctrl+Q inside a paste does
-        not quit."""
+        """Pastes through the run loop."""
         window = Window("Numbers", Rect(1, 0, 6, 30))
         box = window.add(TextBox(1, 1, 10, pattern=r"[0-9]*"))
         manager = PresentationManager(windows=[window])

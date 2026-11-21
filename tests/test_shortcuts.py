@@ -43,8 +43,7 @@ class KeyNameTests(unittest.TestCase):
             self.assertIsNone(normalise_key(name), name)
 
     def test_pretty_read_back(self) -> None:
-        """Every key as the status bar shows it reads back as that key, so
-        a click on its hint presses it; text that names no key, as None."""
+        """Pretty names read back."""
         for action, keys in DEFAULTS.items():
             if action == "menu_mnemonic_modifiers":
                 continue  # modifiers, not keys
@@ -158,7 +157,10 @@ class RemappedInputTests(unittest.TestCase):
         )
 
     def manager(self, overrides: dict[str, list[str]]) -> PresentationManager:
-        """A manager with one window and the given overrides."""
+        """A manager with overrides.
+
+        :param overrides: Keys by action.
+        """
         return PresentationManager(
             windows=[self.window], shortcuts=Shortcuts(overrides)
         )
@@ -223,7 +225,10 @@ class CommandLineTests(unittest.TestCase):
         isolated_home(self)  # not the user's own settings, theme included
 
     def run_main(self, *args: str) -> tuple[int, str, str]:
-        """Run main, returning the exit code, stdout and stderr."""
+        """Run main; return exit code, stdout and stderr.
+
+        :param args: Command-line arguments.
+        """
         out, err = StringIO(), StringIO()
         with redirect_stdout(out), redirect_stderr(err):
             code = main(list(args))

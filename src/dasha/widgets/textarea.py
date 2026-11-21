@@ -1,4 +1,4 @@
-"""Text areas, which hold many lines of text to edit."""
+"""Multi-line text areas."""
 
 from bisect import bisect_right
 from collections import Counter
@@ -18,12 +18,11 @@ type Position = tuple[int, int]
 """A place in the text: (line, character), both counted from 0."""
 
 NUMBERS_BAR = "\N{BOX DRAWINGS LIGHT VERTICAL}"
-"""The bar between the line numbers and the text: ``│`` (code page 437 179)."""
+"""Bar between line numbers and text."""
 
 
 class _Change(NamedTuple):
-    """One undoable change: at ``start``, ``removed`` was replaced by
-    ``inserted``; the cursor and selection were as given."""
+    """One undoable change."""
 
     start: Position
     removed: str
@@ -34,114 +33,18 @@ class _Change(NamedTuple):
 
 # pylint: disable-next=too-many-instance-attributes,too-many-public-methods
 class TextArea(Widget):
-    """A ``TextArea`` holds many lines of text to edit. Put one in an
-    otherwise empty window, and the window becomes a text editor:
+    """An editor for many lines of text.
 
-    ::
-
-        editor = Window(title="Editor", rect=rect, resizable=True, maximisable=True)
-        area = editor.add(widget=TextArea(row=0, column=0, text=notes))
-
-    **Size and scrolling.** A text area is always at least as big as the rest of its
-    window's interior (``width`` and ``height``, both 1 by default, are the least it
-    is), and it follows the window as it is resized or maximised. It also grows with
-    its text: when the text is longer or wider than the window, the text area is
-    bigger than the window, so the window's own frame scroll bars appear, and the
-    window scrolls to keep the cursor in view. When the cursor fits without
-    scrolling sideways, the window shows the lines from their start. Deleting text
-    shrinks it again, and the scroll bars go. Only the lines and columns showing are
-    drawn, so long texts cost no more than short ones.
-
-    **Word wrap.** With ``word_wrap`` on (off by default), a line too long for the
-    window goes on in the rows below it, broken after a space where it can be, and
-    within a word only when the word is longer than a row. The text area then stays
-    as wide as the window, which never scrolls sideways; resizing the window wraps
-    the text again. The line breaks in the text stay where they were: wrapping only
-    changes how it is shown. Up and Down, PgUp and PgDn, and clicks go by the rows
-    shown, while Home and End, Ctrl+Y and a double-click take the whole line.
-
-    **Line numbers.** With ``line_numbers`` on (off by default), each line's number
-    shows at its left, right-aligned in a column of its own, with ``│`` between it
-    and the text. The column is ``number_digits`` (3) wide, and wider once there are
-    more lines than that many digits can number: four digits from line 1000. With
-    word wrap, a line's number is on its first row only. The numbers stay in view
-    as the window scrolls sideways; a click on them goes to the start of that row.
-
-    **Editing.** It edits as a text box does, with the same keys, plus some of its
-    own:
-
-    - Left / Right (``text_left`` / ``text_right``): Move a character, onto the line
-      above or below at the ends
-    - Ctrl+Left / Ctrl+Right (``text_word_left`` / ``text_word_right``): Move a
-      word, onto the line above or below at the ends
-    - Up / Down (``area_up`` / ``area_down``): Move a line, keeping to the same
-      column where the line is long enough
-    - PgUp / PgDn (``area_page_up`` / ``area_page_down``): Move a page: what the
-      window shows, less one line
-    - Home / End (``text_home`` / ``text_end``): Go to the start / end of the line
-    - Ctrl+Home / Ctrl+End (``area_top`` / ``area_bottom``): Go to the start / end
-      of the text
-    - Shift with any of these (bar Ctrl+Home/End) (``text_select_*``,
-      ``area_select_up`` / ``area_select_down``): Select as it moves
-    - Ctrl+A (``text_select_all``): Select all the text
-    - Enter (``area_newline``): Start a new line
-    - Tab (``area_tab``): Type a tab
-    - Ctrl+Tab / Ctrl+Shift+Tab (``area_next_widget`` / ``area_previous_widget``):
-      Move the focus to the next / previous control
-    - Ctrl+Z (``text_undo``): Undo the last change; again for the one before
-    - Alt+Z, Ctrl+Shift+Z (``text_redo``): Redo what was undone
-    - Backspace / Del (``text_backspace`` / ``text_delete``): Delete the selection,
-      or a character; at a line's start or end, join the lines
-    - Ctrl+Y (``area_delete_line``): Delete the line
-    - Ctrl+X / Ctrl+C / Ctrl+V (``text_cut`` / ``text_copy`` / ``text_paste``): Cut,
-      copy and paste, line breaks and all
-    - Click: Put the cursor there (past a line's end, at its end)
-    - Shift+click, drag: Select to there
-    - Double-click: Select the whole line
-
-    Typing a character, pressing Enter or pasting (with Ctrl+V or through the
-    terminal) replaces the selection, just as in a text box. Only text is pasted:
-    anything else on the clipboard is ignored. Shift+Tab and Escape are left for the
-    window, and the mouse wheel scrolls the window.
-
-    **Tabs and the focus.** Tab types a tab, which stays in the text and is drawn as
-    spaces up to the next multiple of ``tab_size`` (4) columns. The cursor, clicks,
-    selections and Up/Down all go by those columns on screen. Since Tab is taken,
-    Ctrl+Tab and Ctrl+Shift+Tab move the focus to the next or previous control
-    instead, in any window: out of a text area, and into one from the control before
-    it. Many terminals send Ctrl+Tab just as they send Tab, so it never reaches
-    Dasha Framework; those that can tell them apart send it in the "CSI u" or xterm
-    "modifyOtherKeys" form, which Dasha Framework reads. Where it does not arrive,
-    ``area_next_widget`` and ``area_previous_widget`` can be bound to other keys
-    (``dasha --key-test`` shows what arrives). They cannot both be left without
-    keys.
-
-    **Undo.** Ctrl+Z undoes the last change, and pressing it again undoes the one
-    before, back through the last ``undo_limit`` changes (20; any number is fine,
-    2000 say, or ``None`` for no limit; set it on ``TextArea`` for a whole project
-    or on one text area). Typing is undone a word at a time: a run of typed
-    characters is one change, and a space starts the next. Undoing puts the cursor
-    and the selection back as they were. Setting ``text`` from code starts afresh,
-    with nothing to undo.
-
-    **Redo.** Alt+Z redoes what Ctrl+Z undid, a step at a time, cursor and selection
-    included, and Ctrl+Shift+Z does the same in terminals that send it: most send
-    Ctrl+Shift+Z just as they send Ctrl+Z, so Alt+Z, which arrives everywhere, is
-    the first key for it (Ctrl+Y deletes a line). As in any
-    editor, making a new change forgets what could be redone. Text boxes undo and
-    redo the same way.
-
-    ``text`` (and ``value``) is all the text, its lines joined with ``"\\n"``, and
-    ``lines`` the lines themselves (each one line, however many rows it wraps to).
-    Text put in has its line breaks made ``\\n``. Control characters stay, as a file
-    had them, drawn as their code page 437 pictures (escape as ←), never sent to
-    the terminal to act on. ``cursor`` is (line, character),
-    ``selection`` the selected (start, end) and ``selected_text`` what they hold.
-    ``select``, ``select_all``, ``select_line``, ``insert``, ``delete_line``,
-    ``cut``, ``copy``, ``paste``, ``undo`` and ``redo`` do from code what the keys
-    do. ``on_change(area)`` is called after each edit, undoing included. Colours:
-    ``textarea`` (bright yellow on blue), ``textarea.selected`` and
-    ``textarea.numbers`` (cyan on blue).
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param width: Least width in columns.
+    :param height: Least height in rows.
+    :param text: Initial text.
+    :param word_wrap: Whether long lines wrap.
+    :param line_numbers: Whether line numbers show.
+    :param on_change: Called with the area after each edit.
+    :param name: Widget name.
+    :param status: Status bar text.
     """
 
     focusable = True
@@ -152,16 +55,13 @@ class TextArea(Widget):
     number_style: Style = Style(foreground=CYAN, background=BLUE)
     """The style of the line numbers, and of the bar beside them."""
     number_digits: int = 3
-    """The smallest width of the line numbers' column, in digits; it is
-    wider when there are more lines than that many digits can number."""
+    """Least width of the line numbers, in digits."""
     clipboard: Clipboard = CLIPBOARD
     """The clipboard used for cut, copy and paste."""
     tab_size: int = 4
     """How many columns apart the tab stops are."""
     undo_limit: int | None = 20
-    """How many changes Ctrl+Z can undo, oldest forgotten first. Any number
-    will do (2000, say), or ``None`` for no limit; set it on the class for a
-    whole project, or on one text area."""
+    """Most changes Ctrl+Z can undo, or ``None``."""
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
@@ -208,8 +108,7 @@ class TextArea(Widget):
 
     @property
     def text(self) -> str:
-        """All the text. Setting it puts the cursor at the start, and forgets
-        everything that could be undone."""
+        """All the text."""
         return "\n".join(self.lines)
 
     @text.setter
@@ -239,22 +138,19 @@ class TextArea(Widget):
 
     @property
     def numbers_width(self) -> int:
-        """How many columns the line numbers take, including the bar; none
-        without ``line_numbers``."""
+        """Columns the line numbers take."""
         if not self._line_numbers:
             return 0
         return max(self.number_digits, len(str(len(self.lines)))) + 1
 
     @property
     def _text_column(self) -> int:
-        """Where in the window's content the text's first column is: after
-        the line numbers."""
+        """Column where the text starts."""
         return self.rect.column + self.numbers_width
 
     @property
     def word_wrap(self) -> bool:
-        """Whether long lines continue on the rows below, rather than past
-        the window's right edge. Off by default."""
+        """Whether long lines wrap."""
         return self._word_wrap
 
     @word_wrap.setter
@@ -267,8 +163,10 @@ class TextArea(Widget):
 
     @staticmethod
     def _clean(text: str) -> str:
-        """Text as it is kept: ``\\n`` line breaks, and the rest as it came,
-        control characters too (drawn as pictures), bar surrogates."""
+        """Text with line breaks normalised.
+
+        :param text: The text.
+        """
         text = text.replace("\r\n", "\n").replace("\r", "\n")
         if text.replace("\n", "").replace("\t", "").isprintable():
             return text  # nothing to look at: no need to go a character at a time
@@ -276,8 +174,7 @@ class TextArea(Widget):
 
     @property
     def cursor(self) -> Position:
-        """Where typing goes, as (line, character). Setting it clears the
-        selection."""
+        """Cursor position, as (line, character)."""
         return self._cursor
 
     @cursor.setter
@@ -291,7 +188,10 @@ class TextArea(Widget):
     # Tabs: characters to screen columns and back
 
     def _shown(self, line: str) -> str:
-        """A line as it is drawn, its tabs spread to the tab stops."""
+        """A line with tabs expanded.
+
+        :param line: The line.
+        """
         return line.expandtabs(self.tab_size)
 
     def _count_widths(self) -> None:
@@ -300,8 +200,11 @@ class TextArea(Widget):
         self._widths_tab_size = self.tab_size
 
     def _recount(self, removed: Iterable[str], added: Iterable[str]) -> None:
-        """Lines ``removed`` have gone and ``added`` arrived: count their
-        widths out and in."""
+        """Update the line width counts.
+
+        :param removed: Lines removed.
+        :param added: Lines added.
+        """
         widths = self._widths
         for line in removed:
             width = len(self._shown(line))
@@ -311,13 +214,19 @@ class TextArea(Widget):
         widths.update(len(self._shown(line)) for line in added)
 
     def _column_of(self, position: Position) -> int:
-        """The screen column (within the text area) of a position."""
+        """A position's screen column.
+
+        :param position: The position.
+        """
         line, index = position
         return len(self._shown(self.lines[line][:index]))
 
     def _index_at(self, line: int, column: int) -> int:
-        """The character in a line that a screen column falls on (or after
-        the last, past the end); within a tab, the tab."""
+        """The character at a screen column.
+
+        :param line: Line number.
+        :param column: Screen column.
+        """
         width = 0
         for index, char in enumerate(self.lines[line]):
             after = (
@@ -333,10 +242,11 @@ class TextArea(Widget):
     # Word wrap: lines into rows and back
 
     def _line_breaks(self, text: str, limit: int) -> tuple[int, ...]:
-        """Where a line is broken into rows ``limit`` columns wide: after the
-        last space that fits (a space that does not fit stays at the end of
-        its row), or within a word too long for a row. The last row is
-        never wider than ``limit``, leaving a cell for the cursor after it."""
+        """Where a line breaks into rows.
+
+        :param text: The line.
+        :param limit: Row width.
+        """
         if len(text) <= limit and "\t" not in text:
             return ()  # fits, and no tabs to measure
         ends = []  # the screen column after each character
@@ -360,15 +270,22 @@ class TextArea(Widget):
         return tuple(breaks)
 
     def _wrap(self, limit: int) -> None:
-        """Break every line into rows ``limit`` columns wide, afresh."""
+        """Wrap every line afresh.
+
+        :param limit: Row width.
+        """
         self._wrap_limit = limit
         self._wrap_tab_size = self.tab_size
         self._breaks = [self._line_breaks(line, limit) for line in self.lines]
         self._row_starts = None
 
     def _rewrap(self, first: int, removed: int, added: list[str]) -> None:
-        """``removed`` lines from ``first`` have been replaced by ``added``:
-        break those into rows (if word wrap is on and the rows are known)."""
+        """Rewrap replaced lines.
+
+        :param first: First line replaced.
+        :param removed: Lines removed.
+        :param added: Lines added.
+        """
         if not self._word_wrap or not self._wrap_limit:
             return
         new = [self._line_breaks(line, self._wrap_limit) for line in added]
@@ -394,8 +311,10 @@ class TextArea(Widget):
         return self._line_rows()[-1] + len(self._breaks[-1]) + 1
 
     def _segment(self, row: int) -> tuple[int, int, int, bool]:
-        """The line a row shows part of, its characters from and to (not
-        including), and whether it is the line's last row."""
+        """A row's line, character range and whether it is last.
+
+        :param row: The row.
+        """
         if not self._word_wrap:
             return row, 0, len(self.lines[row]), True
         starts = self._line_rows()
@@ -407,8 +326,10 @@ class TextArea(Widget):
         return line, start, len(self.lines[line]) if last else breaks[part], last
 
     def _row_of(self, position: Position) -> tuple[int, int]:
-        """The row a position is shown on, and its column in that row. At a
-        break, it is the start of the row after."""
+        """A position's row and column.
+
+        :param position: The position.
+        """
         if not self._word_wrap:
             return position[0], self._column_of(position)
         line, index = position
@@ -419,16 +340,21 @@ class TextArea(Widget):
         return row, self._column_of(position) - self._column_of((line, start))
 
     def _at_row(self, row: int, column: int) -> Position:
-        """The position a column of a row falls on: within the row, or at
-        its end (just before its last character, for a row the next goes on
-        from, since after it is the next row's start)."""
+        """The position at a row and column.
+
+        :param row: The row.
+        :param column: Column in the row.
+        """
         row = max(0, min(row, self._row_count() - 1))
         line, start, end, last = self._segment(row)
         index = self._index_at(line, self._column_of((line, start)) + max(0, column))
         return line, max(start, min(index, end if last else end - 1))
 
     def _goal_of(self, position: Position) -> int:
-        """The column Up and Down aim for from a position: on its row."""
+        """The column Up and Down aim for.
+
+        :param position: The position.
+        """
         return self._row_of(position)[1]
 
     # The selection
@@ -447,7 +373,11 @@ class TextArea(Widget):
         return "" if selection is None else self._between(*selection)
 
     def _between(self, start: Position, end: Position) -> str:
-        """The text from ``start`` to ``end``."""
+        """The text between two positions.
+
+        :param start: Start position.
+        :param end: End position.
+        """
         (first, begin), (last, finish) = start, end
         if first == last:
             return self.lines[first][begin:finish]
@@ -457,7 +387,11 @@ class TextArea(Widget):
         )
 
     def select(self, start: Position, end: Position) -> None:
-        """Select from ``start`` to ``end``, leaving the cursor at ``end``."""
+        """Select a range.
+
+        :param start: Start position.
+        :param end: End position, where the cursor goes.
+        """
         self._anchor = self._clamp(start)
         self._move(end, extend=True)
 
@@ -466,12 +400,20 @@ class TextArea(Widget):
         self.select((0, 0), (len(self.lines) - 1, len(self.lines[-1])))
 
     def select_line(self, line: int) -> None:
-        """Select one whole line, as a double-click does."""
+        """Select a whole line.
+
+        :param line: Line number.
+        """
         line = self._clamp((line, 0))[0]
         self.select((line, 0), (line, len(self.lines[line])))
 
     def _move(self, position: Position, extend: bool, keep_goal: bool = False) -> None:
-        """Move the cursor; with ``extend`` the selection goes with it."""
+        """Move the cursor.
+
+        :param position: New position.
+        :param extend: Whether to extend the selection.
+        :param keep_goal: Whether to keep the goal column.
+        """
         if not extend:
             self._anchor = None
         elif self._anchor is None:
@@ -482,16 +424,20 @@ class TextArea(Widget):
         self._reveal()
 
     def _vertical(self, lines: int) -> Position:
-        """The position ``lines`` (rows, with word wrap) up (negative) or
-        down, at the goal column."""
+        """The position some rows up or down.
+
+        :param lines: Rows to move; negative is up.
+        """
         if self._word_wrap:
             return self._at_row(self._row_of(self._cursor)[0] + lines, self._goal)
         line = max(0, min(self._cursor[0] + lines, len(self.lines) - 1))
         return line, self._index_at(line, self._goal)
 
     def _word(self, direction: int) -> Position:
-        """Where Ctrl+Left (-1) or Ctrl+Right (1) goes, onto the line above
-        or below from the start or end of a line."""
+        """Where Ctrl+Left or Ctrl+Right goes.
+
+        :param direction: -1 for left, 1 for right.
+        """
         line, index = self._cursor
         text = self.lines[line]
         if direction < 0:
@@ -505,9 +451,10 @@ class TextArea(Widget):
     # Editing
 
     def insert(self, text: str) -> bool:
-        """Put text in place of the selection, or at the cursor, as typing
-        and pasting do; the text may contain line breaks and tabs. Returns
-        ``False`` if nothing changed."""
+        """Insert text; return whether anything changed.
+
+        :param text: The text.
+        """
         text = self._clean(text)
         start, end = self.selection or (self._cursor, self._cursor)
         if not text and start == end:
@@ -516,8 +463,10 @@ class TextArea(Widget):
         return True
 
     def _type(self, text: str) -> None:
-        """A character typed: as ``insert``, but a run of typing (to the end
-        of a word) is undone in one go."""
+        """Type a character.
+
+        :param text: The character.
+        """
         typing_on = (
             self.selection is None
             and self._typing_at == self._cursor
@@ -536,9 +485,13 @@ class TextArea(Widget):
     def _replace(
         self, start: Position, end: Position, text: str, *, record: bool = True
     ) -> None:
-        """Replace the text from ``start`` to ``end`` with ``text``, leave
-        the cursor after it, remember it for undoing (unless ``record`` is
-        off), and tell whoever is listening."""
+        """Replace a range of text.
+
+        :param start: Start position.
+        :param end: End position.
+        :param text: Replacement text.
+        :param record: Whether to remember it for undo.
+        """
         if record:
             change = _Change(
                 start, self._between(start, end), text, self._cursor, self._anchor
@@ -567,15 +520,16 @@ class TextArea(Widget):
         return len(self._history) > 0
 
     def popup_menu(self, shortcuts: Shortcuts) -> Menu | None:
-        """The area's ``context_menu``, or otherwise Undo, Cut, Copy, Paste and
-        Select all, each greyed out when it would do nothing."""
+        """The context menu.
+
+        :param shortcuts: Key bindings shown in the menu.
+        """
         if self.context_menu is not None:
             return self.context_menu
         return edit_menu(self, shortcuts)
 
     def undo(self) -> bool:
-        """Undo the latest change (Ctrl+Z), putting the cursor and selection
-        back as they were; ``False`` if there is nothing to undo."""
+        """Undo the latest change; return whether there was one."""
         change = self._history.pop()
         if change is None:
             return False
@@ -583,8 +537,7 @@ class TextArea(Widget):
         return True
 
     def redo(self) -> bool:
-        """Redo the latest change undone (Alt+Z, or Ctrl+Shift+Z where the
-        terminal sends it); ``False`` if there is nothing to redo."""
+        """Redo the latest undone change; return whether there was one."""
         change = self._history.pop_redo()
         if change is None:
             return False
@@ -592,9 +545,10 @@ class TextArea(Widget):
         return True
 
     def _apply(self, change: _Change) -> _Change:
-        """Put ``change.removed`` back where ``change.inserted`` is, and the
-        cursor and selection as ``change`` has them. Returns the change
-        that reverses this, to redo (or undo again)."""
+        """Apply a change; return its reverse.
+
+        :param change: The change.
+        """
         parts = change.inserted.split("\n")
         if len(parts) == 1:
             end = (change.start[0], change.start[1] + len(parts[0]))
@@ -610,7 +564,10 @@ class TextArea(Widget):
         return reverse
 
     def _back(self, position: Position) -> Position:
-        """The position one character back, onto the previous line if need be."""
+        """The position one character back.
+
+        :param position: The position.
+        """
         line, column = position
         if column > 0:
             return line, column - 1
@@ -619,7 +576,10 @@ class TextArea(Widget):
         return position
 
     def _forward(self, position: Position) -> Position:
-        """The position one character on, onto the next line if need be."""
+        """The position one character on.
+
+        :param position: The position.
+        """
         line, column = position
         if column < len(self.lines[line]):
             return line, column + 1
@@ -641,28 +601,28 @@ class TextArea(Widget):
     # The clipboard
 
     def copy(self) -> bool:
-        """Copy the selection to the clipboard; ``False`` if nothing is
-        selected."""
+        """Copy the selection; return whether anything was selected."""
         if self.selection is None:
             return False
         self.clipboard.copy_text(self.selected_text)
         return True
 
     def cut(self) -> bool:
-        """Copy the selection to the clipboard and delete it; ``False`` if
-        nothing is selected."""
+        """Cut the selection; return whether anything was selected."""
         if not self.copy():
             return False
         return self.insert("")
 
     def paste(self) -> bool:
-        """Put the clipboard's text in place of the selection, or at the
-        cursor. Nothing happens unless the clipboard holds text."""
+        """Paste the clipboard's text."""
         text = self.clipboard.text
         return bool(text) and self.insert(text or "")
 
     def handle_paste(self, text: str) -> bool:
-        """Text pasted through the terminal is inserted as if typed."""
+        """Insert pasted text.
+
+        :param text: The pasted text.
+        """
         return self.insert(text)
 
     # Layout
@@ -671,14 +631,16 @@ class TextArea(Widget):
         self.fit()
 
     def follow_resize(self, before: tuple[int, int], after: tuple[int, int]) -> None:
-        """A text area always fits its window, whatever its ``grow`` is."""
+        """Fit the window, whatever ``grow`` is.
+
+        :param before: Old interior width and height.
+        :param after: New interior width and height.
+        """
         del before, after
         self.fit()
 
     def fit(self) -> None:
-        """Be at least as big as the rest of the window's interior, and as
-        big as the text (plus a column for the cursor after the end); with
-        word wrap, exactly as wide as the interior, and as tall as the rows."""
+        """Size to fit the window and the text."""
         rect = self.rect
         least_width, least_height = self._least
         if self.window is not None:
@@ -732,9 +694,7 @@ class TextArea(Widget):
     # Drawing
 
     def _visible(self) -> tuple[int, int, int, int]:
-        """The rows and columns that can show: (first row, row count, first
-        column, column count), so a long text costs no more to draw than a
-        short one. Without word wrap, each row is a line."""
+        """The visible (first row, rows, first column, columns)."""
         if self.window is None:
             return 0, self._row_count(), 0, self.rect.width
         interior = self.window.interior
@@ -766,17 +726,20 @@ class TextArea(Widget):
                 canvas.place_cursor(top + row, left + at)
 
     def _numbers_column(self) -> int:
-        """Where in the window's content the line numbers are: at the text
-        area's left, or the window's, whichever is further right."""
+        """Column where the line numbers go."""
         scrolled = self.window.scroll_column if self.window is not None else 0
         return max(self.rect.column, scrolled)
 
     def _paint_numbers(
         self, canvas: Canvas, origin: Rect, first: int, count: int
     ) -> int:
-        """Draw the line numbers of the rows that show, each by its line's
-        first row, and the bar beside them, all the text area's height.
-        Returns the screen column just after them."""
+        """Draw the line numbers; return the column after them.
+
+        :param canvas: Canvas to draw on.
+        :param origin: The window's interior on screen.
+        :param first: First visible row.
+        :param count: Visible row count.
+        """
         width = self.numbers_width
         left = origin.column + self._numbers_column()
         if not width:
@@ -804,8 +767,14 @@ class TextArea(Widget):
         view: tuple[int, int],
         selection: tuple[Position, Position] | None,
     ) -> None:
-        """Draw one row (a line, or with word wrap part of one): the columns
-        of it ``view`` says (the first, and how many), and its selection."""
+        """Draw one row.
+
+        :param canvas: Canvas to draw on.
+        :param origin: The window's interior on screen.
+        :param row: The row.
+        :param view: First column and column count.
+        :param selection: The selection, if any.
+        """
         number, begin, finish, last = self._segment(row)
         shown = self._shown(self.lines[number])
         # The columns of the line as drawn that this row shows.
@@ -838,10 +807,14 @@ class TextArea(Widget):
         selection: tuple[Position, Position],
         view: tuple[int, int],
     ) -> None:
-        """Highlight the selected part of one row, and a cell for its line's
-        break when the selection goes on past it. ``place`` is the row, its
-        line, and the column of the line as drawn that the row starts at;
-        ``view`` the columns of the line it shows, from and to."""
+        """Highlight a row's selected part.
+
+        :param canvas: Canvas to draw on.
+        :param origin: The window's interior on screen.
+        :param place: Row, line and starting column.
+        :param selection: The selection.
+        :param view: Columns shown, from and to.
+        """
         row, number, offset = place
         (first, start), (last, end) = selection
         if not first <= number <= last:
@@ -869,9 +842,11 @@ class TextArea(Widget):
         return [(key, "Next")] if key else []
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """Edit the text. Tab types a tab, while Ctrl+Tab, Ctrl+Shift+Tab
-        (and the window's own focus keys other than Tab) and Escape are left
-        for the window."""
+        """Edit the text.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         if shortcuts.matches("area_tab", key):
             self._type("\t")
             return True
@@ -963,8 +938,11 @@ class TextArea(Widget):
         return False
 
     def _position_at(self, row: int, column: int) -> Position:
-        """The text position for a place within the text area; on the line
-        numbers, the start of the row (or of what shows of it)."""
+        """The text position at a place.
+
+        :param row: Row in the area.
+        :param column: Column in the area.
+        """
         column = max(column, self._numbers_column() + self.numbers_width)
         column -= self._text_column
         if self._word_wrap:
@@ -973,9 +951,12 @@ class TextArea(Widget):
         return line, self._index_at(line, column)
 
     def handle_mouse(self, event: MouseEvent, row: int, column: int) -> bool:
-        """A click puts the cursor there, Shift with a click selects to
-        there, a drag selects, and a double-click selects the line. The wheel
-        is left for the window, which scrolls."""
+        """Place the cursor or select with the mouse.
+
+        :param event: The mouse event.
+        :param row: Row in the window's interior.
+        :param column: Column in the window's interior.
+        """
         if event.button != "left":
             return False
         position = self._position_at(row, column)

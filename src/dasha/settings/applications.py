@@ -1,12 +1,4 @@
-"""The Applications page of Settings...: the installed applications, with
-ways to install more and uninstall them, as ``dasha install-app``,
-``uninstall-app`` and ``list-apps`` do.
-
-Installing and uninstalling happen at once, whether the other settings are
-kept or not, and the Applications menu changes to match. Making a virtual
-environment, and installing packages into it with pip, are left to
-``dasha install-app``, which shows what pip does as it does it.
-"""
+"""The Applications settings page."""
 
 from dataclasses import replace
 from typing import TYPE_CHECKING
@@ -24,10 +16,7 @@ if TYPE_CHECKING:
 
 
 class InstallDialog(RunDialog):
-    """Ask what to install: Run...'s program, class and virtual
-    environment, with the name the Applications menu gives it, the group it
-    is listed in, and whether only one may run at a time, among the
-    options. OK answers ``"ok"`` with ``entry`` set, once it is complete."""
+    """Asks what to install."""
 
     OPTIONS_HEIGHT = 8
 
@@ -64,8 +53,11 @@ class InstallDialog(RunDialog):
 
 
 class ApplicationsPage:  # pylint: disable=too-few-public-methods
-    """A table of the installed applications, with Install... and
-    Uninstall."""
+    """Installed applications, with Install and Uninstall.
+
+    :param dialog: The settings dialog.
+    :param page: Its tab page.
+    """
 
     def __init__(self, dialog: "SettingsDialog", page: TabPage) -> None:
         self.dialog = dialog

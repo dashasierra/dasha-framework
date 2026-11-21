@@ -10,7 +10,10 @@ from dasha.window import Window
 
 
 def labels(menu: Menu) -> list[str]:
-    """A menu's labels, separators as ""."""
+    """A menu's labels; separators as "".
+
+    :param menu: The menu.
+    """
     return [item.label for item in menu.items]
 
 
@@ -33,7 +36,11 @@ class WindowMenuTests(unittest.TestCase):
             self.manager.add(window)
 
     def choose(self, menu: Menu, label: str) -> None:
-        """Run an item's action."""
+        """Run an item's action.
+
+        :param menu: The menu.
+        :param label: The item's label.
+        """
         item = next(item for item in menu.items if item.label == label)
         assert item.action is not None
         item.action()

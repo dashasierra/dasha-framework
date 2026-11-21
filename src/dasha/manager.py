@@ -1,5 +1,4 @@
-"""The presentation manager: the desktop, the menu bar, the status bar,
-and a stack of windows."""
+"""The presentation manager: desktop, bars and windows."""
 
 # pylint: disable=too-many-lines
 
@@ -66,15 +65,11 @@ AppT = TypeVar("AppT", bound=Application)
 def drawn_active(
     window: Window, active: Window | None, windows: Sequence[Window]
 ) -> bool:
-    """Whether to draw ``window`` as the active one (with a double frame,
-    and its focused widget's selection showing), given the ``active`` window
-    and every window, from back to front.
+    """Whether to draw a window as active.
 
-    A window is drawn as active if it is the active window, or if every
-    window in front of it is a popup (``close_on_outside_click``), such as
-    a context menu, a drop-down list or a list of suggestions. A popup
-    leaves the window it came from looking active, so that the text a
-    context menu would cut or copy stays selected on screen.
+    :param window: The window.
+    :param active: The active window, if any.
+    :param windows: Every window, back to front.
     """
     if window is active:
         return True
@@ -94,9 +89,7 @@ def _end_on_signal(number: int, frame: object) -> None:
 
 
 def _catch_ending_signals() -> dict[int, Any]:
-    """While ``run`` goes, SIGTERM and SIGHUP (the terminal closing, say)
-    end it as Exit would, without asking, so its applications are ended and
-    the terminal put back. Returns the handlers to put back afterwards."""
+    """End ``run`` on SIGTERM and SIGHUP; return the old handlers."""
     caught: dict[int, Any] = {}
     if threading.current_thread() is not threading.main_thread():
         return caught
@@ -111,9 +104,11 @@ def _catch_ending_signals() -> dict[int, Any]:
 
 
 def _with_mnemonic(label: str, taken: set[str]) -> str:
-    """``label`` with its first letter not in ``taken`` marked as its
-    mnemonic, and that letter added to ``taken``; unmarked if every letter
-    is taken. The label must not hold ``&``."""
+    """A label with a free mnemonic letter marked.
+
+    :param label: The label, without ``&``.
+    :param taken: Letters already taken; updated.
+    """
     for index, char in enumerate(label):
         if char.isalnum() and char.lower() not in taken:
             taken.add(char.lower())
@@ -122,19 +117,16 @@ def _with_mnemonic(label: str, taken: set[str]) -> str:
 
 
 class _RestoreItem(MenuItem):  # pylint: disable=too-few-public-methods
-    """A menu item that restores a minimised window (or the separator
-    before them), which the manager replaces as windows come and go."""
+    """A menu item restoring a minimised window."""
 
 
 class _AppItem(MenuItem):  # pylint: disable=too-few-public-methods
-    """A system menu item that switches to a running application (or the
-    separator after them), replaced as applications come and go."""
+    """A system menu item switching application."""
 
 
 @dataclass
 class _Drag:
-    """A mouse drag in progress: moving a window, resizing it, dragging one
-    of its scroll bar thumbs, or holding down a scroll bar's arrow or track."""
+    """A mouse drag in progress."""
 
     window: Window
     kind: str  # "move", "resize", "vertical_thumb", "horizontal_thumb", "repeat"
@@ -159,75 +151,40 @@ class _Adjust:
 
 # pylint: disable-next=too-many-instance-attributes,too-many-public-methods
 class PresentationManager:
-    """Owns the desktop, the menu bar, the status bar and the windows, and
-    runs the screen.
+    """Runs the screen: desktop, menu bar, status bar and windows.
 
-    The menu bar takes up the top row. On the desktop it starts with the
-    system menu (``system_menu``, shown as a burger icon), followed by the
-    active application's menus and its Window menu (see ``bar_menus``). The
-    status bar takes up the bottom row and
-    shows help for whatever has the focus (see ``status``). Windows live in
-    the work area between the two bars, and pass underneath both of them.
-
-    Windows are kept in Z-order, from back to front. The front window is the
-    active one: it is drawn last, so it covers the others, and it receives
-    keyboard input. Clicking a window brings it to the front, dragging its
-    top row (its title bar) moves it, and dragging a resizable window's
-    bottom-right corner resizes it. A window whose content is bigger than the
-    window shows scroll bars on its frame. Windows can be maximised to fill
-    the work area, or minimised; a minimised window leaves the screen and is
-    listed in a menu, from which it can be restored. Key bindings come from
-    ``shortcuts`` (the defaults, or a user's ``shortcuts.json``), and
-    ``handle_key``, ``handle_mouse``, ``handle_paste`` and ``handle_resize``
-    can be overridden to change or add behaviour.
+    :param desktop: The background, or ``None`` for the default.
+    :param windows: Windows to start with.
+    :param shortcuts: Key bindings, or ``None`` for the defaults.
     """
 
     escape_timeout: float = registry.ESCAPE_TIMEOUT / 1000
-    """How many seconds to wait after a lone ESC for the rest of an escape
-    sequence (an arrow key, say).
-
-    The default, 0.1 s, is long enough for a sequence split by a slow SSH
-    connection, but short enough that pressing Escape still feels instant.
-    Over a slower link, raise it (``escape_timeout`` in ``settings.toml``,
-    in milliseconds, or Settings...): a key whose sequence arrives later
-    than this is taken as Escape followed by typing.
-    """
+    """Seconds to wait after a lone ESC."""
 
     double_click_time: float = 0.4
-    """How many seconds a second press in the same place may follow the
-    first and still count as a double-click (``MouseEvent.clicks``)."""
+    """Seconds allowed between double-click presses."""
 
     rescue_margin: int = 4
-    """How many columns of a window's title bar are left showing when a
-    resize of the terminal brings the window back onto the screen."""
+    """Title bar columns kept on screen after a resize."""
 
     system_menu_title: str = "\N{IDENTICAL TO}"
     """The burger icon that titles the system menu."""
 
     confirm_exit: bool = True
-    """Whether quitting (with Exit, or the exit key) asks for
-    confirmation first, in a dialog."""
+    """Whether quitting asks for confirmation."""
     about_title: str = "About Dasha Desktop"
     about_message: str = (
         f"Dasha Desktop - v{__version__}\n"
         "\n"
         "https://github.com/dashasierra/dasha-framework"
     )
-    """The title and message that About in the system menu shows. Set them
-    to give an application its own About box."""
+    """The About box's title and message."""
     use_processes: bool = False
-    """Whether ``start`` (used by the Applications menu) runs each
-    application in its own process, as the Dasha Desktop does, rather
-    than in the current process (as ``launch`` always does)."""
+    """Whether ``start`` uses separate processes."""
     quit_when_empty: bool = False
-    """Whether ``run`` stops when the last application ends. This is set
-    for an application running on its own, with ``Application.run``."""
+    """Whether ``run`` stops when the last application ends."""
     show_system_menu: bool = True
-    """Whether the system menu (``≡``) is shown at the start of the menu
-    bar. The desktop of an application running on its own
-    (``Application.run``) has none: its windows' Window menus list the
-    minimised windows instead, and the last window showing cannot be
-    minimised."""
+    """Whether the system menu is shown."""
     exit_title: str = "Exit"
     exit_message: str = (
         "Warning: Shutting down Dasha Desktop will\nclose all open applications."
@@ -236,15 +193,9 @@ class PresentationManager:
     """The label of the exit dialog's OK button."""
     exit_status: str = "Press Shutdown to close Dasha Desktop"
     program_name: str = "Dasha Desktop"
-    """What the user knows this program as, for what it tells them (such as
-    "Something went wrong in Dasha Desktop"): the desktop's name, or, for
-    applications running on their own (``stand_alone``), theirs, so that
-    nothing on screen names Dasha Framework."""
+    """The program's name in messages."""
     help_folder: Path | None = None
-    """The folder of the help pages about the desktop itself (see
-    ``use_own_help``). Applications have help of their own
-    (``Application.help_folder``). None by default, when the help key does
-    nothing without an application."""
+    """Folder of the desktop's own help pages."""
 
     def __init__(
         self,
@@ -275,8 +226,7 @@ class PresentationManager:
         self.server: "AppServer | None" = None
         """Runs applications in processes of their own, once one is started."""
         self.registry: dict[str, AppEntry] = {}
-        """The applications the Applications menu offers, by id; add to it
-        with ``register``."""
+        """Applications offered, by id."""
         self._applications_item = MenuItem(
             "A&pplications",
             submenu=Menu("Applications", []),
@@ -352,23 +302,18 @@ class PresentationManager:
     # Settings
 
     shortcuts_path: Path = SHORTCUTS_PATH
-    """The shortcuts file, to which Settings... saves the keyboard
-    shortcuts."""
+    """The shortcuts file."""
 
     def settings_dialog(self) -> None:
-        """Show Settings... (in the system menu), in which the theme and its
-        colours, the keyboard shortcuts, the desktop's settings and the
-        installed applications can be changed, and saved for next time. This
-        works only while ``run`` is going."""
+        """Show the Settings dialog."""
         if self.can_show_dialogs:
             self.execute(SettingsDialog(self))
 
     def set_shortcuts(self, shortcuts: Shortcuts) -> None:
-        """Use other keyboard shortcuts, at once: for the desktop's own keys,
-        its menus and windows, and every application running in its own
-        process. Menu items already made keep the hints they were given; each
-        application is told (``Application.shortcuts_changed``), so that it
-        can make its menus again."""
+        """Use other keyboard shortcuts.
+
+        :param shortcuts: The new key bindings.
+        """
         self.shortcuts = shortcuts
         self.menu_bar.shortcuts = shortcuts
         self._shutdown_item.shortcut = shortcuts.hint("exit")
@@ -383,14 +328,13 @@ class PresentationManager:
                 host.send("shortcuts", shortcuts=bindings)
 
     colour_depth: str = "auto"
-    """How colours are drawn (one of ``style.COLOUR_DEPTHS``): RGB colours
-    as they are (``"24bit"``), RGB colours as the nearest 256-palette colour
-    (``"256"``), every colour as the nearest of the 16 standard colours
-    (``"16"``), or as the terminal seems to allow (``"auto"``)."""
+    """How colours are drawn."""
 
     def set_colour_depth(self, depth: str) -> None:
-        """Draw colours at another depth (see ``colour_depth``), at
-        once. Raises ``ValueError`` for an unknown depth."""
+        """Change the colour depth.
+
+        :param depth: One of ``style.COLOUR_DEPTHS``.
+        """
         style.set_colour_depth(depth)
         self.colour_depth = depth
         self._on_screen = None  # draw every cell again
@@ -398,46 +342,27 @@ class PresentationManager:
     # Themes
 
     theme_name: str | None = "default"
-    """The name of the theme in use (such as ``"dark"``), as it was given to
-    ``set_theme``, or ``None`` for the colours file (``colours_path``) or for
-    colours set in some other way. The system menu's Themes marks it."""
+    """The current theme's name, or ``None``."""
     themes_folder: Path = theme.THEMES_FOLDER
     """The folder holding the theme files that the Themes menu offers."""
     colours_path: Path | None = theme.DEFAULT_PATH
-    """The colours file, which the Themes menu offers (as "Colours file")
-    if it exists, or ``None`` for no colours file."""
+    """The colours file, or ``None``."""
     remember_theme: bool = False
-    """Whether the chosen theme is remembered for next time, in
-    ``settings_path``. This is true for the desktop, but not for an
-    application running on its own, nor in tests."""
+    """Whether the chosen theme is remembered."""
     settings_path: Path = registry.SETTINGS_PATH
     """The desktop settings file that remembered choices are written to."""
 
     @property
     def colours_locked(self) -> bool:
-        """Whether the theme is held at Monochrome, because ``NO_COLOR`` is
-        set (``theme.no_colour_set``). While it is, the system menu's Themes is
-        greyed out, Settings...' Appearance page cannot be chosen,
-        ``set_theme`` changes to no other theme, and no choice of theme is
-        remembered, so the one chosen before is there again once
-        ``NO_COLOR`` is no longer set. ``--monochrome``, or choosing
-        Monochrome, holds nothing: another theme can be chosen after."""
+        """Whether ``NO_COLOR`` holds the theme at Monochrome."""
         return theme.no_colour_set()
 
     def set_theme(self, name: str | Path, *, remember: bool | None = None) -> bool:
-        """Change every colour on the screen to a theme's, at once, with
-        nothing to restart. The theme can be a built-in one (``"default"``,
-        ``"dark"`` or ``"monochrome"``), one in ``themes_folder`` given by
-        name (``"ocean"`` is ``ocean.json`` there), or the theme file at a
-        path. Every window, and every application running in its own
-        process, takes on the new theme.
+        """Change the theme; return whether it changed.
 
-        ``remember`` (``remember_theme`` unless given) writes the choice to
-        the settings, to start with next time. Returns whether the theme was
-        changed. For a theme that does not exist or cannot be used, a dialog
-        explains why (while the desktop is running), and the colours are
-        left as they were. While ``colours_locked``, only the Monochrome
-        theme can be set, and any other is refused without a word."""
+        :param name: Theme name or file path.
+        :param remember: Whether to remember it, or ``None`` for the default.
+        """
         if self.colours_locked and name != "monochrome":
             return False
         try:
@@ -451,13 +376,10 @@ class PresentationManager:
         return True
 
     def use_starting_theme(self, *, saved: bool = True) -> None:
-        """Choose the theme that an application running on its own starts
-        with, in the order the desktop does: Monochrome if ``NO_COLOR`` is
-        set (``colours_locked``) or the terminal has no colours; then, if
-        ``saved``, the theme remembered in the settings (``settings_path``),
-        then the colours file (``colours_path``). Whatever cannot be used is
-        passed over: the desktop says what is wrong with it, when it
-        starts."""
+        """Choose a stand-alone application's starting theme.
+
+        :param saved: Whether to try the remembered theme.
+        """
         if self.colours_locked or not style.terminal_has_colours():
             self.set_theme("monochrome", remember=False)
             return
@@ -476,13 +398,11 @@ class PresentationManager:
                 pass
 
     def use_theme(self, colours: theme.Theme, name: str | None) -> None:
-        """Put a theme (from ``theme.build_theme``, for example) on the
-        screen, as ``set_theme`` does, recording its name as ``name``
-        (``None`` for a theme without a name). Each window is told about it
-        (``Window.theme_changed``), the screen is redrawn, and applications
-        running in their own processes are sent the theme too. While
-        ``colours_locked``, the Monochrome theme is used instead, whatever
-        is given."""
+        """Show a theme.
+
+        :param colours: The theme.
+        :param name: Its name, or ``None``.
+        """
         if self.colours_locked:
             colours, name = dict(theme.MONOCHROME_THEME), "monochrome"
         theme.apply_theme(colours)
@@ -494,8 +414,7 @@ class PresentationManager:
             self.server.share_theme()
 
     def _use_colours_file(self) -> None:
-        """The Themes menu's Colours file: the colours file's colours, and
-        no theme remembered, so the desktop starts with it again."""
+        """Use the colours file."""
         if self.colours_path is None:
             return
         try:
@@ -520,11 +439,10 @@ class PresentationManager:
             self.execute(information(title, message))
 
     def _list_themes(self, menu: Menu) -> None:
-        """Fill the Themes menu as it opens: the built-in themes, those in
-        ``themes_folder`` as they are now, and the colours file if there is
-        one, the one in use marked. Each built-in theme has a letter of its
-        own: the first in its name that no theme before it has (so Dark is
-        D&ark, Default having D), keeping C for the colours file."""
+        """Fill the Themes menu.
+
+        :param menu: The Themes menu.
+        """
         items: list[MenuItem] = []
         taken = {"c"}  # Colours file
         for name in theme.theme_names(self.themes_folder):
@@ -553,28 +471,20 @@ class PresentationManager:
     # Animations
 
     animations: bool = False
-    """Whether changes are animated. A menu drops down from the menu bar as
-    it opens; a window shrinks into the middle of the status bar as it is
-    minimised, and grows back out of it as it is restored (or maximised);
-    and a window grows or shrinks between its two sizes as it is maximised
-    and restored. Each animation takes ``animation_frames`` frames, during
-    which the inside of the window stays exactly as it was. Animations are
-    off unless this is set, or they are turned on with ``set_animations``
-    (the system menu's Animations). The desktop starts with them on, unless
-    they were last turned off."""
+    """Whether changes are animated."""
     animation_frames: int = 2
-    """How many intermediate frames an animation draws before its final
-    frame."""
+    """Intermediate frames per animation."""
     animation_frame_time: float = 0.02
     """How many seconds each intermediate frame stays on the screen."""
     remember_animations: bool = False
-    """Whether turning animations on or off is remembered for next time, in
-    ``settings_path``, just as ``remember_theme`` does for themes."""
+    """Whether the animations setting is remembered."""
 
     def set_animations(self, on: bool, *, remember: bool | None = None) -> None:
-        """Turn animations (``animations``) on or off, at once. ``remember``
-        (``remember_animations`` unless given) writes the choice to the
-        settings, to start with next time."""
+        """Turn animations on or off.
+
+        :param on: Whether to turn them on.
+        :param remember: Whether to remember it, or ``None`` for the default.
+        """
         self.animations = on
         self._animation = None
         if self.remember_animations if remember is None else remember:
@@ -587,9 +497,7 @@ class PresentationManager:
                 )
 
     def use_saved_escape_timeout(self) -> None:
-        """Wait after a lone ESC as long as the settings (``settings_path``)
-        say. If the settings file cannot be read, the wait is left as it
-        is."""
+        """Use the saved ESC wait."""
         try:
             wait = registry.read_escape_timeout_setting(self.settings_path)
         except registry.ManifestError:
@@ -597,9 +505,7 @@ class PresentationManager:
         self.escape_timeout = wait / 1000
 
     def use_saved_animations(self) -> None:
-        """Turn animations on, unless the settings (``settings_path``) say
-        they were last turned off. If the settings file cannot be read,
-        animations are left as they are."""
+        """Use the saved animations setting."""
         try:
             self.animations = registry.read_animations_setting(self.settings_path)
         except registry.ManifestError:
@@ -609,8 +515,7 @@ class PresentationManager:
         self.set_animations(not self.animations)
 
     def _label_animations(self) -> None:
-        """The system menu's Animations says whether they are on, and what
-        choosing it does."""
+        """Update the Animations menu item."""
         item = self._animations_item
         item.label = f"A&nimations: {'On' if self.animations else 'Off'}"
         item.status = (
@@ -622,20 +527,16 @@ class PresentationManager:
     # Showing the mouse
 
     show_mouse: bool = False
-    """Whether the cell under the mouse is drawn inverted (in reverse
-    video), so that the mouse can be found on a terminal that shows no
-    pointer of its own. Off unless this is set, or it is turned on with
-    ``set_show_mouse`` (``show_mouse`` among the shortcuts: Alt and the
-    backquote key, by default). The desktop starts with it as it was last
-    left."""
+    """Whether the cell under the mouse is inverted."""
     remember_show_mouse: bool = False
-    """Whether turning ``show_mouse`` on or off is remembered for next time,
-    in ``settings_path``, just as ``remember_animations`` does."""
+    """Whether the ``show_mouse`` setting is remembered."""
 
     def set_show_mouse(self, on: bool, *, remember: bool | None = None) -> None:
-        """Show where the mouse is (``show_mouse``), or stop, at once.
-        ``remember`` (``remember_show_mouse`` unless given) writes the choice
-        to the settings, to start with next time."""
+        """Turn ``show_mouse`` on or off.
+
+        :param on: Whether to turn it on.
+        :param remember: Whether to remember it, or ``None`` for the default.
+        """
         self.show_mouse = on
         if self.remember_show_mouse if remember is None else remember:
             try:
@@ -647,10 +548,11 @@ class PresentationManager:
                 )
 
     def _notice(self, event: Event, dialog: Dialog | None = None) -> bool:
-        """Before an event goes anywhere: note where the mouse is, and turn
-        ``show_mouse`` on or off, or leave for the ``command_prompt``, with
-        their keys, wherever the focus is (but not in a ``dialog`` that
-        ``takes_every_key``). Returns whether the event was used up."""
+        """Handle desktop-wide keys first; return whether used.
+
+        :param event: The event.
+        :param dialog: The waiting dialog, if any.
+        """
         if isinstance(event, MouseEvent):
             self._mouse_at = (event.row, event.column)
             return False
@@ -667,7 +569,10 @@ class PresentationManager:
         return False
 
     def _paint_mouse(self, canvas: Canvas) -> None:
-        """Invert the cell under the mouse, if ``show_mouse`` is on."""
+        """Invert the cell under the mouse.
+
+        :param canvas: Canvas to draw on.
+        """
         if not self.show_mouse or self._mouse_at is None:
             return
         row, column = self._mouse_at
@@ -676,8 +581,10 @@ class PresentationManager:
             canvas.write(row, column, char, replace(look, reverse=not look.reverse))
 
     def _start_animation(self, window: Window) -> WindowAnimation | None:
-        """An animation of a window from where it is now, before it changes,
-        if animations are on (and the screen's size is known)."""
+        """Start a window animation, if on.
+
+        :param window: The window.
+        """
         if not (self.animations and self._size_known):
             return None
         return WindowAnimation.of(window)
@@ -689,10 +596,10 @@ class PresentationManager:
         return Rect(lines - 1, columns // 2, 0, 0)
 
     def _animate(self, terminal: Terminal) -> None:
-        """Draw the frames part-way through whatever has just begun to move,
-        before the frame that shows it done: the window animation started
-        since the last frame (if its window is still where it was going),
-        or else a drop-down newly opened."""
+        """Draw the frames of a new animation.
+
+        :param terminal: The terminal.
+        """
         animation, self._animation = self._animation, None
         menu = self.menu_bar.open_menu
         drops = menu is not None and menu is not self._dropped
@@ -727,7 +634,10 @@ class PresentationManager:
 
     @staticmethod
     def application_of(window: Window) -> Application | None:
-        """The application a window belongs to, if any."""
+        """A window's application, if any.
+
+        :param window: The window.
+        """
         return window.application
 
     def register(
@@ -737,12 +647,10 @@ class PresentationManager:
             " | Iterable[AppEntry]"
         ),
     ) -> None:
-        """Offer applications in the system menu's Applications submenu. This
-        accepts a class (listed by its ``name``), an ``AppEntry`` (such as an
-        installed application), a mapping of names to classes, or several
-        entries. Entries with a ``group`` are listed in a submenu named after
-        the group. The Applications submenu, and Run..., appear once
-        something has been registered."""
+        """Offer applications in the Applications menu.
+
+        :param applications: A class, entry, mapping or entries.
+        """
         if isinstance(applications, Mapping):
             entries = [
                 replace(AppEntry.of(cls, slug(name)), name=name)
@@ -796,15 +704,15 @@ class PresentationManager:
             menu[about + 1 : about + 1] = [self._applications_item, self._run_item]
 
     def unregister(self, app_id: str) -> None:
-        """Take an application off the Applications menu (once it has been
-        uninstalled, for example)."""
+        """Remove an application from the Applications menu.
+
+        :param app_id: The application id.
+        """
         self.registry.pop(app_id, None)
         self._build_applications_menu()
 
     def run_dialog(self) -> None:
-        """Ask for a script or module to run as an application, and run it
-        (Run... in the system menu). This works only while ``run`` is
-        going."""
+        """Show the Run dialog."""
         if not self.can_show_dialogs:
             return
         dialog = RunDialog()
@@ -817,12 +725,10 @@ class PresentationManager:
         return self._size
 
     def start(self, application: "type[Application] | AppEntry") -> None:
-        """Start an application as the Applications menu does. With
-        ``use_processes`` set, it runs in its own process, as does any
-        installed application that Dasha Framework cannot import, or one with a
-        virtual environment; otherwise it is started with ``launch``, in the
-        current process. If a ``single_instance`` application is already
-        running, it is brought forward instead."""
+        """Start an application, as the Applications menu does.
+
+        :param application: The class or entry.
+        """
         entry = application if isinstance(application, AppEntry) else None
         if entry is None:
             assert isinstance(application, type)
@@ -848,9 +754,10 @@ class PresentationManager:
         self.server.start(entry.target, entry.name, entry.venv, guessed_name=guessed)
 
     def add_application(self, application: Application) -> None:
-        """Record an application as running on this desktop, and make it the
-        active one. ``launch`` does this, as does starting an application in
-        its own process."""
+        """Record a running application and make it active.
+
+        :param application: The application.
+        """
         application.manager = self
         application.is_running = True
         if application not in self._applications:
@@ -859,15 +766,14 @@ class PresentationManager:
 
     @property
     def active_application(self) -> Application | None:
-        """The application whose menus are on the menu bar: the one whose
-        window was most recently brought to the front, or that was most
-        recently switched to. It stays active when its last window closes."""
+        """The application whose menus are shown."""
         return self._active_app
 
     def switch_to(self, application: Application) -> None:
-        """Make an application the active one. Its menus are shown, and its
-        front window (if it has one showing) comes forward, along with any
-        dialog of its that is waiting for an answer, in front of that."""
+        """Make an application active.
+
+        :param application: The application.
+        """
         self._active_app = application
         window = application.active_window
         if window is not None:
@@ -881,19 +787,20 @@ class PresentationManager:
             self.bring_to_front(dialogs[-1])
 
     def show_window(self, window: Window) -> None:
-        """Bring a window to the front, restoring it first if it is
-        minimised."""
+        """Bring a window to the front, restoring it.
+
+        :param window: The window.
+        """
         if window in self._minimised:
             self.restore(window)
         elif window in self._windows:
             self.bring_to_front(window)
 
     def launch(self, application: "AppT | type[AppT]") -> AppT:
-        """Start an application (given an instance, or a class to create one
-        from) in the current process, make it the active one, and return it.
-        A ``single_instance`` class that is already running is not started
-        again, but switched to instead. An application runs until it quits,
-        whether or not it has any windows."""
+        """Start an application here and return it.
+
+        :param application: An instance or class.
+        """
         if isinstance(application, type):
             if application.single_instance:
                 for running in self._applications:
@@ -908,19 +815,10 @@ class PresentationManager:
         return application
 
     def stand_alone(self, name: str) -> None:
-        """Run only the applications started on this desktop, as an
-        application running on its own does (``Application.run``): there is
-        no system menu, the desktop ends when they have all ended, and the
-        exit key asks to close ``name`` (such as ``"Notepad"``) rather than
-        to shut Dasha Framework down. This makes ``dasha notepad`` and
-        ``python notepad.py`` look and behave the same.
+        """Run as a stand-alone application's desktop.
 
-        Nothing on screen names Dasha Framework then, so that an application can be
-        given to people who have never heard of it: the status bar shows no
-        name until the application is active (``no_application``), and
-        messages name the application instead (``program_name``), and the
-        log of anything that goes wrong is kept with the system's other logs,
-        named after it (``error_log_folder``)."""
+        :param name: The application's name.
+        """
         self.no_application = ""
         self.program_name = name
         self.error_log_folder = logs.app_log_folder(name)
@@ -933,10 +831,10 @@ class PresentationManager:
         self.exit_status = f"Press Close to close {name}"
 
     def application_ended(self, application: Application) -> None:
-        """Called by ``Application.quit``. The front window's application, or
-        failing that the application started most recently, becomes active.
-        With ``quit_when_empty`` set, the end of the last application stops
-        ``run``, unless another is still loading."""
+        """Called when an application quits.
+
+        :param application: The application.
+        """
         if application in self._applications:
             self._applications.remove(application)
         self._window_menus.pop(application, None)
@@ -960,10 +858,7 @@ class PresentationManager:
 
     @property
     def active_window(self) -> Window | None:
-        """The front window, which receives keyboard input. This is ``None``
-        if there are no windows, or if the front window belongs to an
-        application other than the active one (when an application with no
-        windows of its own has been switched to)."""
+        """The front window, if the active application's."""
         if not self._windows:
             return None
         front = self._windows[-1]
@@ -974,9 +869,10 @@ class PresentationManager:
 
     @staticmethod
     def owner_of(window: Window) -> Application | None:
-        """The application a window is for: the application it belongs to, or,
-        for a dialog that belongs to no application, the one it came from
-        (``Window.owner``)."""
+        """The application a window is for.
+
+        :param window: The window.
+        """
         return window.application or window.owner
 
     def _front_changed(self) -> None:
@@ -987,10 +883,10 @@ class PresentationManager:
     # Dialogs that wait their turn
 
     def must_wait(self, window: Window) -> bool:
-        """Whether a dialog must wait behind the one in front, because that
-        one is also waiting for an answer and belongs to another application
-        (or to the desktop itself), so this one must not take the keyboard
-        from it."""
+        """Whether a dialog must wait behind the front one.
+
+        :param window: The dialog.
+        """
         if not window.modal or not self._windows:
             return False
         front = self._windows[-1]
@@ -1001,14 +897,17 @@ class PresentationManager:
         )
 
     def add_waiting(self, window: Window) -> None:
-        """Add a dialog just behind the one in front, without giving it the
-        keyboard. It comes forward once the front dialog has been answered."""
+        """Add a dialog behind the front one.
+
+        :param window: The dialog.
+        """
         self.add_behind(window)
 
     def add_behind(self, window: Window) -> None:
-        """Add a window just behind the one in front, so that it does not take
-        the keyboard from whatever the user is doing (for example, a window
-        from an application that is not the active one)."""
+        """Add a window behind the front one.
+
+        :param window: The window.
+        """
         if window in self._windows or window in self._minimised:
             raise ValueError("Window is already on this desktop")
         if window.maximised:
@@ -1020,10 +919,7 @@ class PresentationManager:
 
     @property
     def waiting(self) -> list[Window]:
-        """Other applications' dialogs that are waiting their turn behind the
-        front window: behind a dialog of the front application, or behind its
-        work, because they were opened while their application was not the
-        active one (see ``add_behind``)."""
+        """Dialogs waiting their turn."""
         if not self._windows:
             return []
         front = self._windows[-1]
@@ -1034,8 +930,10 @@ class PresentationManager:
         ]
 
     def _next_of(self, application: Application | None) -> None:
-        """After a window of the active application left the screen: its
-        next window comes forward, if it has one."""
+        """Bring the application's next window forward.
+
+        :param application: The application, if any.
+        """
         if application is not None and application is self._active_app:
             window = application.active_window
             if window is not None:
@@ -1043,12 +941,14 @@ class PresentationManager:
 
     @property
     def minimised(self) -> tuple[Window, ...]:
-        """The windows that are open but minimised, in the order they were
-        minimised. They are not on screen, and not in ``windows``."""
+        """Minimised windows, in order minimised."""
         return tuple(self._minimised)
 
     def add(self, window: Window) -> None:
-        """Add a window in front of all the others."""
+        """Add a window in front.
+
+        :param window: The window.
+        """
         if window in self._windows or window in self._minimised:
             raise ValueError("Window is already on this desktop")
         if window.maximised:
@@ -1060,8 +960,10 @@ class PresentationManager:
         self._front_changed()
 
     def remove(self, window: Window) -> None:
-        """Take a window off the desktop, whether it is showing or
-        minimised."""
+        """Take a window off the desktop.
+
+        :param window: The window.
+        """
         if window in self._minimised:
             self._minimised.remove(window)
             self._update_restore_items()
@@ -1084,11 +986,9 @@ class PresentationManager:
     # Maximising, minimising and restoring
 
     def maximise(self, window: Window) -> None:
-        """Make a window fill the work area, and bring it to the front.
+        """Maximise a window.
 
-        The window is fitted to the work area again whenever the terminal is
-        resized, and ``restore`` returns it to its earlier size and
-        position.
+        :param window: The window.
         """
         animation = self._start_animation(window)
         minimised = window in self._minimised
@@ -1101,11 +1001,10 @@ class PresentationManager:
             self._animation = animation.to_window(start)
 
     def minimise(self, window: Window) -> None:
-        """Hide a window. An application's window is listed in its Window
-        menu, from which it can be restored. Any other window is listed in
-        the system menu, or, when there is no system menu, in its own Window
-        menu; in that case the last such window showing is not minimised,
-        because nothing would be left to restore it from."""
+        """Minimise a window.
+
+        :param window: The window.
+        """
         if window in self._minimised:
             return
         lone = self._windows == [window] and window.application is None
@@ -1127,9 +1026,7 @@ class PresentationManager:
     def restore(self, window: Window) -> None:
         """Undo minimising or maximising.
 
-        A minimised window comes back to the front just as it was when it
-        was minimised (maximised, if it was then). A maximised window returns
-        to its earlier size and position.
+        :param window: The window.
         """
         changes = window in self._minimised or window.maximised
         animation = self._start_animation(window) if changes else None
@@ -1149,15 +1046,17 @@ class PresentationManager:
                 self._animation = animation.to_window()
 
     def toggle_maximise(self, window: Window) -> None:
-        """Maximise a window, or restore it if it is maximised."""
+        """Maximise or restore a window.
+
+        :param window: The window.
+        """
         if window.maximised:
             self.restore(window)
         else:
             self.maximise(window)
 
     def _update_restore_items(self) -> None:
-        """List the minimised windows that belong to no application at the
-        top of the system menu (an application's are in its Window menu)."""
+        """List unowned minimised windows in the system menu."""
         items = self.system_menu.items
         for item in self._restore_items:
             if item in items:
@@ -1178,10 +1077,10 @@ class PresentationManager:
         items[0:0] = self._restore_items
 
     def bring_to_front(self, window: Window) -> None:
-        """Move a window in front of all the others, making it the active
-        window (and its application the active application). A minimised
-        window is restored, as it must be to come to the front; a window
-        this desktop does not have is left alone."""
+        """Bring a window to the front.
+
+        :param window: The window.
+        """
         if window in self._minimised:
             self.restore(window)
             return
@@ -1192,8 +1091,10 @@ class PresentationManager:
         self._front_changed()
 
     def send_to_back(self, window: Window) -> None:
-        """Move a window behind all the others (a minimised window, or one
-        this desktop does not have, is left alone)."""
+        """Send a window to the back.
+
+        :param window: The window.
+        """
         if window not in self._windows:
             return
         self._windows.remove(window)
@@ -1201,8 +1102,7 @@ class PresentationManager:
         self._front_changed()
 
     def activate_next(self) -> None:
-        """Make the next window active, by sending the front window to the
-        back."""
+        """Activate the next window."""
         if len(self._windows) > 1:
             self.send_to_back(self._windows[-1])
 
@@ -1212,7 +1112,11 @@ class PresentationManager:
             self.bring_to_front(self._windows[0])
 
     def window_at(self, row: int, column: int) -> Window | None:
-        """The front-most window covering a screen position, if any."""
+        """The frontmost window at a position, if any.
+
+        :param row: Screen row.
+        :param column: Screen column.
+        """
         for window in reversed(self._windows):
             if window.rect.contains(row, column):
                 return window
@@ -1221,13 +1125,7 @@ class PresentationManager:
     # Menus and screen layout
 
     def bar_menus(self) -> list[Menu]:
-        """The menus on the bar: the system menu (if ``show_system_menu`` is
-        set), then the active application's menus and its Window menu, then
-        any of its menus to go after that (``Menu.after_window``). A front
-        window that belongs to no application but has menus of its
-        own shows those instead. While a dialog (which has no menus) is in
-        front, the application's menus stay on the bar but cannot be used
-        (``inert_menus``)."""
+        """The menus on the bar."""
         system = [self.system_menu] if self.show_system_menu else []
         if self.show_system_menu:
             self._list_applications()
@@ -1260,23 +1158,20 @@ class PresentationManager:
         ]
 
     no_application: str = "Dasha Desktop"
-    """The name the status bar shows when no application is active: the
-    desktop's. Applications running on their own (``stand_alone``) show none
-    (an empty name), not even while they load."""
+    """Status bar name with no active application."""
 
     def application_label(self, application: Application) -> str:
-        """An application's name as the desktop shows it. A second
-        application with the same name is shown as "Notepad (2)", and so
-        on."""
+        """An application's displayed name.
+
+        :param application: The application.
+        """
         same = [app for app in self._applications if app.name == application.name]
         number = same.index(application) + 1 if application in same else 1
         return application.name + (f" ({number})" if number > 1 else "")
 
     @property
     def status_owner(self) -> str:
-        """The names the status bar shows on its left: the active application,
-        or ``no_application``, followed by any applications whose dialogs are
-        waiting their turn (``Notepad │ Worker waiting``)."""
+        """Names shown on the status bar's left."""
         application = self._active_app
         label = (
             self.application_label(application) if application else self.no_application
@@ -1293,10 +1188,7 @@ class PresentationManager:
         return label
 
     def inert_menus(self) -> list[int]:
-        """The positions on the menu bar of menus that are shown but cannot be
-        opened. These are the active application's menus, while a dialog (a
-        window that belongs to no application and has no menus of its own)
-        is in front. The system menu stays usable."""
+        """Bar positions of menus that cannot open."""
         front = self._windows[-1] if self._windows else None
         if front is None or front.application is not None or front.menus:
             return []
@@ -1307,8 +1199,7 @@ class PresentationManager:
 
     @property
     def _is_loading(self) -> bool:
-        """Whether an application in its own process has been started but
-        has nothing to show yet (``AppHost.is_loading``)."""
+        """Whether an application is still loading."""
         return self.server is not None and self.server.is_loading
 
     def _sync_menu_bar(self) -> None:
@@ -1316,8 +1207,7 @@ class PresentationManager:
         self.menu_bar.set_menus(self.bar_menus(), self.inert_menus())
 
     def _list_applications(self) -> None:
-        """List the running applications at the top of the system menu, the
-        active one marked, to switch between them."""
+        """List running applications in the system menu."""
         items = self.system_menu.items
         items[:] = [item for item in items if not isinstance(item, _AppItem)]
         listed: list[MenuItem] = []
@@ -1337,8 +1227,10 @@ class PresentationManager:
         items[0:0] = listed
 
     def _list_minimised(self, menu: Menu) -> None:
-        """Put the minimised windows at the end of a Window menu, in place
-        of those it listed before."""
+        """List minimised windows in a Window menu.
+
+        :param menu: The Window menu.
+        """
         kept = [item for item in menu.items if not isinstance(item, _RestoreItem)]
         windows = [item for item in self._restore_items if not item.is_separator]
         if windows:
@@ -1352,12 +1244,7 @@ class PresentationManager:
         return Rect(1, 0, max(0, lines - 2), columns)
 
     def status(self) -> str:
-        """The status bar text: help for whatever has the focus.
-
-        While a menu is open, this is the highlighted item's status;
-        otherwise it is the active window's. Anything without status text
-        gives ``""``, and the status bar is left blank.
-        """
+        """The status bar text."""
         if self._adjust is not None:
             return self._adjust_help()
         self._sync_menu_bar()
@@ -1371,11 +1258,7 @@ class PresentationManager:
         return status_text(active)
 
     def key_hints(self) -> list[tuple[str, str]]:
-        """The keys the status bar lists on its right, while no menu is open
-        and nothing is being moved from the keyboard. First comes the key
-        that opens the menu bar (``open_menu``, F10 by default), whenever it
-        would open it, even when there is no window or application; then the
-        keys of the active window's focused widget (``Widget.key_help``)."""
+        """Keys listed on the status bar's right."""
         if self.menu_bar.is_open or self._adjust is not None:
             return []
         hints = []
@@ -1388,8 +1271,7 @@ class PresentationManager:
         return hints
 
     def _menu_bar_opens(self) -> bool:
-        """Whether the ``open_menu`` key would open the menu bar now: it
-        has a menu that is not inert, and no dialog is being answered."""
+        """Whether the ``open_menu`` key would open the bar."""
         if any(window.modal for window in self._windows):
             return False
         inert = self.inert_menus()
@@ -1398,21 +1280,16 @@ class PresentationManager:
     # Drawing and input
 
     def looks_active(self, window: Window) -> bool:
-        """Whether a window is drawn as the active one (see
-        ``drawn_active``): either it is the active window, or a popup it
-        opened is in front of it."""
+        """Whether a window is drawn active.
+
+        :param window: The window.
+        """
         return drawn_active(window, self.active_window, self._windows)
 
     def compose(self, canvas: Canvas) -> None:
-        """Paint the desktop, then every window from back to front, then the
-        bars.
+        """Paint the desktop, windows and bars.
 
-        The bars are painted after the windows, so that windows pass
-        underneath them, and the menu bar is painted last of all, so that an
-        open drop-down covers the status bar. The drop-down's shadow is
-        painted before the status bar, so that no shadow ever falls on it.
-        While the bar has no menus because the application is still loading
-        (on a desktop with no system menu), the desktop shows through it.
+        :param canvas: Canvas to draw on.
         """
         self._sync_menu_bar()
         self.desktop.paint(canvas)
@@ -1446,8 +1323,10 @@ class PresentationManager:
         self._paint_mouse(canvas)
 
     def handle_event(self, event: Event) -> None:
-        """Pass one input event to the menu bar, or otherwise to
-        ``handle_key``, ``handle_mouse`` or ``handle_paste``."""
+        """Dispatch one input event.
+
+        :param event: The event.
+        """
         self._sync_menu_bar()
         if self._notice(event):
             return
@@ -1469,9 +1348,10 @@ class PresentationManager:
                 self.handle_key(event)
 
     def _route_mouse(self, event: MouseEvent) -> None:
-        """Pass a mouse event where it belongs: closing an application's
-        drop-down list, pressing a status bar hint's key, the menu bar, or
-        else ``handle_mouse``."""
+        """Dispatch a mouse event.
+
+        :param event: The mouse event.
+        """
         if self.server is not None and self.server.outside_press(event):
             pass  # it closed a drop-down list of an application's
         elif (key := self.hint_key_at(event)) is not None:
@@ -1485,12 +1365,10 @@ class PresentationManager:
             self.handle_mouse(event)
 
     def hint_key_at(self, event: MouseEvent) -> str | None:
-        """The key that a left press on the status bar stands for, if the
-        press is on one of the bar's key hints (``key_hints``), whether on
-        the key or its description: for example, ``"f10"`` for a press on
-        ``F10 Menu``. The press then does whatever pressing that key would,
-        wherever the key would go: to the menu bar, the window in front, or
-        an application running in its own process."""
+        """The key a status bar hint click stands for, if any.
+
+        :param event: The mouse event.
+        """
         if event.action != "press" or event.button != "left":
             return None
         columns, lines = self._size
@@ -1502,8 +1380,10 @@ class PresentationManager:
         return None if hint is None else key_from_pretty(hint[0])
 
     def _is_system_menu_double_click(self, event: MouseEvent) -> bool:
-        """Whether an event is the second press of a double-click on the
-        system menu's title (``≡``) on the menu bar."""
+        """Whether a press double-clicks the system menu.
+
+        :param event: The mouse event.
+        """
         if event.action != "press" or event.button != "left" or event.clicks < 2:
             return False
         if not self.show_system_menu:
@@ -1512,8 +1392,10 @@ class PresentationManager:
         return bool(spans) and spans[0].contains(event.row, event.column)
 
     def _count_clicks(self, event: MouseEvent) -> MouseEvent:
-        """Mark the second press of a double-click (and so on): a left press
-        in the same cell as the one before, within ``double_click_time``."""
+        """Count clicks of a multi-click press.
+
+        :param event: The mouse event.
+        """
         if event.action != "press" or event.button != "left":
             return event
         now = time.monotonic()
@@ -1539,10 +1421,10 @@ class PresentationManager:
         return self._drag is not None and self._drag.kind == "resize"
 
     def handle_paste(self, text: str) -> None:
-        """Handle text pasted through the terminal. It goes to the active
-        window's focused widget, if that widget accepts pastes, and is
-        otherwise ignored. A paste is never treated as key presses, so
-        pasted text cannot trigger shortcuts."""
+        """Paste text into the focused widget.
+
+        :param text: The pasted text.
+        """
         active = self.active_window
         if active is not None:
             active.handle_paste(text)
@@ -1550,14 +1432,7 @@ class PresentationManager:
     def handle_mouse(self, event: MouseEvent) -> None:
         """Handle mouse activity.
 
-        A left click brings a window to the front, and so does a right click,
-        which may also pop up a context menu. Pressing on a window's top row
-        and dragging moves the window; it can be dragged partly off the
-        screen, and stays where it is left. Pressing on a resizable window's
-        grip (its bottom-right corner) and dragging resizes it, keeping the
-        top-left corner where it is. Scroll bars scroll by a line (with the
-        arrows) or a page (with the track), or follow a dragged thumb, and
-        the mouse wheel scrolls the window under the pointer.
+        :param event: The mouse event.
         """
         if event.action == "scroll":
             self._mouse_wheel(event)
@@ -1579,9 +1454,11 @@ class PresentationManager:
             active.handle_mouse(event)  # a drag or release for a widget
 
     def _mouse_drag(self, drag: _Drag, event: MouseEvent) -> None:
-        """The mouse moved with its button down: carry on what the press
-        started. A maximised window is restored by being moved (back to its
-        size before), or resized (from the size it has)."""
+        """Continue a mouse drag.
+
+        :param drag: The drag in progress.
+        :param event: The mouse event.
+        """
         window = drag.window
         if drag.kind == "repeat":
             drag.repeat.move(event.row, event.column)
@@ -1606,8 +1483,10 @@ class PresentationManager:
         window.move_to(row, event.column - drag.grab_offset)
 
     def _mouse_wheel(self, event: MouseEvent) -> None:
-        """Scroll the window under the pointer: three lines a notch, sideways
-        for a sideways wheel (or Shift with the wheel, in many terminals)."""
+        """Scroll the window under the pointer.
+
+        :param event: The mouse event.
+        """
         if not self.workspace.contains(event.row, event.column):
             return
         window = self.window_at(event.row, event.column)
@@ -1622,7 +1501,11 @@ class PresentationManager:
             window.scroll_by(amount, 0)
 
     def _drag_thumb(self, window: Window, event: MouseEvent) -> None:
-        """Scroll to follow a scroll bar thumb being dragged."""
+        """Follow a dragged scroll bar thumb.
+
+        :param window: The window.
+        :param event: The mouse event.
+        """
         assert self._drag is not None
         vertical, horizontal = window.scroll_bars
         if self._drag.kind == "vertical_thumb" and vertical is not None:
@@ -1635,8 +1518,10 @@ class PresentationManager:
             )
 
     def _right_press(self, event: MouseEvent) -> None:
-        """A right-button press: bring the window under it forward, and let
-        it pop up a context menu (``Window.context_menu``, or a widget's)."""
+        """Raise the window and pop up its context menu.
+
+        :param event: The mouse event.
+        """
         if not self.workspace.contains(event.row, event.column):
             return
         window = self.window_at(event.row, event.column)
@@ -1647,8 +1532,10 @@ class PresentationManager:
         window.handle_mouse(event)
 
     def _mouse_press(self, event: MouseEvent) -> None:
-        """A left-button press: raise, title button, scroll bar, grip, title
-        bar, widget."""
+        """Handle a left-button press.
+
+        :param event: The mouse event.
+        """
         if not self.workspace.contains(event.row, event.column):
             return  # a click on a bar never reaches a window beneath it
         window = self.window_at(event.row, event.column)
@@ -1696,9 +1583,11 @@ class PresentationManager:
             window.handle_mouse(event)  # perhaps a widget
 
     def _unmaximise_for_drag(self, window: Window, event: MouseEvent) -> None:
-        """A maximised window's title bar is dragged: it goes back to the
-        size it had before, with the pointer on the same part of its title
-        bar (as far along, in proportion), and moves on from there."""
+        """Restore a maximised window being dragged.
+
+        :param window: The window.
+        :param event: The mouse event.
+        """
         drag = self._drag
         assert drag is not None
         wide = window.rect.width
@@ -1710,22 +1599,26 @@ class PresentationManager:
         window.move_to(window.rect.row, event.column - drag.grab_offset)
 
     def _start_drag(self, drag: _Drag) -> None:
-        """Start moving or resizing a window with the mouse: its frame shows
-        it, as when moving it from the keyboard."""
+        """Start a mouse move or resize.
+
+        :param drag: The drag.
+        """
         self._drag = drag
         drag.window.adjusting = True
 
     def _end_drag(self) -> None:
-        """The mouse drag is over: the frame goes back to its own colours
-        (unless the window is being moved from the keyboard too)."""
+        """End a mouse drag."""
         drag = self._drag
         self._drag = None
         if drag is not None and drag.kind in ("move", "resize"):
             drag.window.adjusting = self.adjusting is drag.window
 
     def press_button(self, window: Window, button: str) -> None:
-        """Carry out a title bar button's action: close, maximise, restore or
-        minimise."""
+        """Do a title bar button's action.
+
+        :param window: The window.
+        :param button: The button.
+        """
         if button == "close":
             self.close(window)
         elif button == "maximise":
@@ -1736,15 +1629,10 @@ class PresentationManager:
             self.minimise(window)
 
     def handle_resize(self, columns: int, lines: int) -> None:
-        """Handle a new screen size. This is also called before the first
-        frame.
+        """Handle a new screen size.
 
-        A window that the resize has left entirely outside the work area is
-        pulled back to the nearest edge, with its title bar showing (above
-        the status bar), so that it can be dragged back. A window whose title
-        bar is hidden under the menu bar is moved down to just below it.
-        Other windows are left where they are, even if they are partly off
-        the screen.
+        :param columns: Screen width.
+        :param lines: Screen height.
         """
         self.menu_bar.lines = lines
         self._size = (columns, lines)
@@ -1769,7 +1657,10 @@ class PresentationManager:
             window.move_to(row, column)
 
     def handle_key(self, key: str) -> None:
-        """Handle one key press."""
+        """Handle a key press.
+
+        :param key: The key.
+        """
         if self.shortcuts.matches("exit", key):
             self.request_exit()
         elif self.shortcuts.matches("help", key):
@@ -1800,18 +1691,17 @@ class PresentationManager:
         return self._adjust.window if self._adjust is not None else None
 
     def start_moving(self, window: Window | None = None) -> None:
-        """Move a window (the active one by default) with the keyboard. The
-        arrow keys move it, Tab switches to resizing, Enter keeps the result,
-        and Escape puts the window back. A maximised window stays maximised
-        until the first arrow key: moving it then returns it to its earlier
-        size, resizing it starts from its current size, and Escape maximises
-        it again."""
+        """Move a window with the keyboard.
+
+        :param window: The window, or ``None`` for the active one.
+        """
         self._start_adjusting(window, "move")
 
     def start_resizing(self, window: Window | None = None) -> None:
-        """Resize a window with the keyboard, as ``start_moving`` does, but
-        with the arrow keys resizing the window to begin with. This works
-        only on a resizable window."""
+        """Resize a window with the keyboard.
+
+        :param window: The window, or ``None`` for the active one.
+        """
         self._start_adjusting(window, "resize")
 
     def _start_adjusting(self, window: Window | None, kind: str) -> None:
@@ -1829,8 +1719,10 @@ class PresentationManager:
         window.adjusting = True
 
     def finish_adjusting(self, cancel: bool = False) -> None:
-        """Finish moving or resizing from the keyboard, leaving the window
-        where it is, or, with ``cancel``, putting it back where it was."""
+        """Finish moving or resizing from the keyboard.
+
+        :param cancel: Whether to put the window back.
+        """
         adjust = self._adjust
         if adjust is None:
             return
@@ -1845,9 +1737,10 @@ class PresentationManager:
             window.rect = adjust.original
 
     def _adjust_event(self, event: Event) -> bool:
-        """While moving or resizing from the keyboard, every key belongs to
-        that. A mouse press finishes it first and then goes on as usual.
-        Returns whether the event was used up."""
+        """Handle input while adjusting; return whether used.
+
+        :param event: The event.
+        """
         adjust = self._adjust
         assert adjust is not None
         if isinstance(event, MouseEvent):
@@ -1892,13 +1785,10 @@ class PresentationManager:
         self.keep_reachable(window)
 
     def keep_reachable(self, window: Window) -> None:
-        """Keep a window where the user can still reach it, with its title bar
-        between the menu bar and the status bar, and at least
-        ``rescue_margin`` of its columns on screen (or all of them, if it is
-        narrower). It may stay partly off the screen, as dragging can leave
-        it, but moving or resizing it from the keyboard, or an application
-        positioning it, cannot lose it altogether. A maximised window fills
-        the work area in any case."""
+        """Keep a window reachable on screen.
+
+        :param window: The window.
+        """
         if window.maximised:
             return
         rect = window.rect
@@ -1935,8 +1825,7 @@ class PresentationManager:
 
     @property
     def can_show_dialogs(self) -> bool:
-        """Whether ``execute`` can show a dialog now, which it can while
-        ``run`` is going."""
+        """Whether dialogs can be shown now."""
         return self._terminal is not None
 
     def quit(self) -> None:
@@ -1944,22 +1833,9 @@ class PresentationManager:
         self._running = False
 
     def call_when_running(self, callback: Callable[[], object]) -> None:
-        """Call ``callback`` (with no arguments) once the desktop is running
-        and can show dialogs: straight away if it already is, and otherwise
-        as soon as ``run`` starts (or, for an application that a desktop
-        started in its own process, as soon as it is connected and ready).
+        """Call something once the desktop is running.
 
-        An application's ``start`` runs before then, so this is how an
-        application shows a dialog as it starts, for example to report that
-        a file it was asked to open cannot be read::
-
-            def start(self) -> None:
-                ...
-                self.manager.call_when_running(callback=self.warn_about_settings)
-
-        Callbacks are called in the order they were given. Any that are
-        still waiting when the desktop stops before it has started running
-        are not called.
+        :param callback: Called with no arguments.
         """
         if self._when_running is None:
             callback()
@@ -1967,37 +1843,22 @@ class PresentationManager:
             self._when_running.append(callback)
 
     def call_from_thread(self, callback: Callable[[], object]) -> None:
-        """Call ``callback`` (with no arguments) on the thread the desktop
-        runs on, as soon as it can. This is how another thread (one reading
-        a program's output, say) changes windows and widgets, which only the
-        desktop's own thread may touch. It may be called from any thread,
-        including the desktop's own.
+        """Call something on the desktop's thread.
 
-        A wait for input is cut short (``wake``), so the callback does not
-        wait for a key press. Callbacks are called in the order they were
-        given, each once, before the screen is next drawn; a callback that
-        calls this again is called on the next pass of the loop. Any still
-        waiting when the desktop stops are not called. For an application
-        that a desktop started in its own process, they are called on that
-        process's own thread in the same way.
+        :param callback: Called with no arguments.
         """
         self._from_threads.append(callback)
         self.wake()
 
     def wake(self) -> None:
-        """Cut short a wait for input, so that the loop comes round at once
-        (see ``call_from_thread``). Safe to call from any thread. Does
-        nothing on a terminal that cannot be woken (one without
-        ``Terminal.wake``), where the loop comes round at its next input or
-        timer instead."""
+        """Interrupt the input wait; thread-safe."""
         terminal = self._terminal
         wake = getattr(terminal, "wake", None) if terminal is not None else None
         if wake is not None:
             wake()
 
     def _call_from_threads(self) -> None:
-        """Call what ``call_from_thread`` has been given so far (not any
-        that those add, which wait for the next pass)."""
+        """Run queued ``call_from_thread`` callbacks."""
         for _ in range(len(self._from_threads)):
             if not self.is_running:
                 return
@@ -2013,20 +1874,17 @@ class PresentationManager:
             callback()
 
     def close(self, window: Window) -> None:
-        """Close a window, if the window's ``request_close`` agrees."""
+        """Close a window, if it agrees.
+
+        :param window: The window.
+        """
         if window.request_close():
             self.remove(window)
 
     # The command prompt (see dasha.shell)
 
     def command_prompt(self) -> None:
-        """Leave for a command prompt (Command prompt in the system menu, or
-        ``command_prompt`` among the shortcuts: Alt+F12, by default): give
-        the terminal back, so the user's own screen returns, and run their
-        shell there until they type exit; then draw every cell afresh, from
-        the windows as they are, as the shell's programs may have drawn on
-        the screen. Applications carry on meanwhile. This works only while
-        ``run`` is going, on a terminal that can be given back."""
+        """Hand the terminal to the user's shell until exit."""
         terminal = self._terminal
         if terminal is None or not hasattr(terminal, "suspended"):
             return
@@ -2049,13 +1907,14 @@ class PresentationManager:
             )
 
     def window_menu(self, window: Window) -> Menu:
-        """A Window menu for a window (see ``dasha.windowmenu``)."""
+        """A Window menu for a window.
+
+        :param window: The window.
+        """
         return window_menu(self, window)
 
     def about_box(self) -> None:
-        """Show ``about_message`` in an information dialog (About in the
-        system menu). Like any dialog, this works only while ``run`` is
-        going."""
+        """Show the About box."""
         if not self.can_show_dialogs:
             return
         dialog = information(
@@ -2070,10 +1929,12 @@ class PresentationManager:
     """The most rows a drop-down list (``pick``) shows at once."""
 
     def place_popup(self, popup: Dialog, row: int, column: int) -> None:
-        """Put a popup with its top-left corner at a place on the screen, or
-        as close to it as possible while keeping the popup on the screen and
-        clear of the menu bar and status bar. If there is no room below the
-        place, the popup goes above it instead."""
+        """Place a popup on screen.
+
+        :param popup: The popup.
+        :param row: Desired screen row.
+        :param column: Desired screen column.
+        """
         workspace, rect = self.workspace, popup.rect
         if row + rect.height > workspace.bottom:
             row = row - rect.height + 1
@@ -2082,10 +1943,12 @@ class PresentationManager:
         popup.move_to(row, column)
 
     def context_menu(self, menu: Menu, row: int, column: int) -> None:
-        """Pop up a menu at a place on the screen (such as the pointer), wait
-        for a choice, and run the chosen item once the menu has closed, so
-        that its action can show dialogs of its own. This works only while
-        ``run`` is going; otherwise nothing is shown."""
+        """Pop up a menu and run its choice.
+
+        :param menu: The menu.
+        :param row: Screen row.
+        :param column: Screen column.
+        """
         if not self.can_show_dialogs or not menu.items:
             return
         popup = MenuPopup(menu)
@@ -2096,12 +1959,12 @@ class PresentationManager:
                 action()
 
     def pick(self, items: list[str], selected: int, below: Rect) -> int | None:
-        """Drop down a list of ``items`` below ``below`` (a rectangle on the
-        screen, such as a combo box's field), as wide as it, and wait for a
-        choice. Returns the index of the chosen item, or ``None`` if the
-        list was cancelled. The list goes above instead if there is no room
-        below, and always stays on the screen. This works only while ``run``
-        is going; otherwise nothing is shown, and ``None`` is returned."""
+        """Drop down a list; return the chosen index, or ``None``.
+
+        :param items: The items.
+        :param selected: Index of the initial item.
+        :param below: Screen rect to drop below.
+        """
         if not self.can_show_dialogs or not items:
             return None
         rows = min(len(items), self.pick_rows)
@@ -2115,13 +1978,11 @@ class PresentationManager:
         return popup.chosen if self.execute(popup) == "ok" else None
 
     def suggest(self, box: AutoCompleteBox, items: list[str]) -> SuggestionPopup | None:
-        """Show an autocomplete box's suggestions, ``items``, below the box
-        (or above it, if there is more room there), with the popup covering
-        the box so that typing carries on in it. Wait until the popup
-        closes, and return it, so that the caller can see what was chosen
-        (``chosen``) and any key to pass on (``passed_key``). This works only
-        while ``run`` is going, and for a box in a window; otherwise nothing
-        is shown, and ``None`` is returned."""
+        """Show autocomplete suggestions; return the popup, or ``None``.
+
+        :param box: The autocomplete box.
+        :param items: The suggestions.
+        """
         window = box.window
         if not self.can_show_dialogs or not items or window is None:
             return None
@@ -2139,14 +2000,7 @@ class PresentationManager:
         return popup
 
     def request_exit(self) -> None:
-        """Quit Dasha Framework, after asking for confirmation in a dialog if
-        ``confirm_exit`` is set. Each application is then asked
-        (``can_close``), and any of them can stop the exit, to offer to save
-        its work first.
-
-        The exit dialog follows the pattern for any dialog: ``execute``
-        returns the answer, and the caller decides what to do about it.
-        """
+        """Quit, after confirmation and applications agree."""
         if self.confirm_exit and self.can_show_dialogs:
             dialog = confirm(
                 self.exit_title,
@@ -2167,12 +2021,7 @@ class PresentationManager:
     # Help
 
     def press_help(self) -> None:
-        """What the help key does when nothing has used it (see
-        ``dasha.help``): it goes to the application that the window in
-        front belongs to, or else the active application, which has its own
-        help or none. Only with no application active, or in the desktop's
-        own dialogs, is the help the desktop's. A drop-down list has no
-        help."""
+        """Show the relevant help."""
         window = self.answering_dialog or self.active_window
         if isinstance(window, Popup):
             return
@@ -2186,10 +2035,7 @@ class PresentationManager:
             application.show_help()
 
     def use_own_help(self) -> None:
-        """Offer Dasha Framework's own help on this desktop, from the help key and
-        the system menu. The desktop does this as it starts; one for just an
-        application running on its own does not, nor does a
-        ``PresentationManager`` by default."""
+        """Offer the desktop's own help."""
         self.help_folder = DESKTOP_PAGES
         # With no key of its own: the help key is the active application's
         # while there is one, and a menu item's shortcut would take it.
@@ -2203,8 +2049,7 @@ class PresentationManager:
         menu.insert(settings, item)
 
     def show_desktop_help(self) -> None:
-        """Show the help of the desktop itself, if it has any
-        (``help_folder``), for whatever has the focus."""
+        """Show the desktop's help."""
         if self.help_folder is None:
             return
         book = HelpBook(self.help_folder)
@@ -2222,26 +2067,16 @@ class PresentationManager:
 
     @property
     def answering_dialog(self) -> Dialog | None:
-        """The dialog that is waiting for an answer, if one is on this side
-        of a connection to an application."""
+        """The dialog waiting for an answer, if any."""
         for window in reversed(self._windows):
             if window.modal and isinstance(window, Dialog):
                 return window
         return None
 
     def execute(self, dialog: Dialog) -> str | None:
-        """Show a dialog, wait until it is answered, and return the answer.
+        """Show a dialog and return its answer.
 
-        The dialog goes on top, in the middle of the work area, and nothing
-        else responds until it is answered: neither the menus nor any other
-        window. Keys go to its widgets, and Escape (``dialog_cancel``)
-        cancels it. The answer is the ``result`` of the button pressed, or
-        the dialog's ``cancel_result`` (``None`` if Dasha Framework stopped first).
-        The dialog is then taken off the screen, but the caller can still
-        read its widgets.
-
-        This works only while ``run`` is going, because it reads the
-        terminal itself.
+        :param dialog: The dialog.
         """
         if self._terminal is None:
             raise RuntimeError("execute() needs the presentation manager running")
@@ -2271,10 +2106,10 @@ class PresentationManager:
     def handle_modal_event(  # pylint: disable=too-many-return-statements
         self, dialog: Dialog, event: Event
     ) -> None:
-        """Handle input while a dialog is waiting for an answer.
+        """Handle input while a dialog waits.
 
-        Only the dialog responds: clicks elsewhere are ignored, and the menu
-        bar and the window keys cannot be used.
+        :param dialog: The dialog.
+        :param event: The event.
         """
         if self._notice(event, dialog):
             return
@@ -2304,7 +2139,10 @@ class PresentationManager:
             dialog.cancel()
 
     def _draw_frame(self, terminal: Terminal) -> None:
-        """Bring the screen up to date, handling a new terminal size first."""
+        """Update the screen.
+
+        :param terminal: The terminal.
+        """
         columns, lines = terminal.size()
         if hasattr(terminal, "take_cleared") and terminal.take_cleared():
             self._on_screen = None  # draw every cell again
@@ -2318,7 +2156,10 @@ class PresentationManager:
         self._show(terminal)
 
     def _show(self, terminal: Terminal) -> None:
-        """Draw the screen as it is now."""
+        """Draw the screen.
+
+        :param terminal: The terminal.
+        """
         columns, lines = terminal.size()
         canvas = Canvas(columns, lines)
         self.compose(canvas)
@@ -2331,9 +2172,10 @@ class PresentationManager:
             yield from window.shown_widgets
 
     def _wait_for_events(self, terminal: Terminal) -> list[Event]:
-        """Wait for input, until a widget's timer is due, or until woken
-        (``wake``), then run any timers that are due and whatever
-        ``call_from_thread`` has been given. Returns the input, if any."""
+        """Wait for input, timers or a wake; return any input.
+
+        :param terminal: The terminal.
+        """
         wakes = [wake for w in self._widgets() if (wake := w.wake_time()) is not None]
         if self._drag is not None and (wake := self._drag.repeat.wake_time()):
             wakes.append(wake)
@@ -2353,9 +2195,10 @@ class PresentationManager:
         return events
 
     def run_timers(self, now: float) -> None:
-        """Call ``on_timer`` on every widget whose ``wake_time`` has come, and
-        repeat a scroll bar click that is being held down on a window's
-        frame."""
+        """Run due widget timers.
+
+        :param now: The current ``time.monotonic``.
+        """
         drag = self._drag
         if drag is not None and drag.kind == "repeat":
             vertical, horizontal = drag.window.scroll_bars
@@ -2374,19 +2217,11 @@ class PresentationManager:
     # Failing softly (see dasha.recovery)
 
     survive_errors: bool = False
-    """Whether an unexpected exception in one step of the loop (handling an
-    event, running the timers, taking in applications' messages, drawing) is
-    logged and reported while the desktop carries on, rather than ending it
-    (see ``dasha.recovery``). Off unless set, so that a bug in code or a
-    test using a desktop fails at once; the command line and
-    ``Application.run`` turn it on."""
+    """Whether loop errors are logged and survived."""
     error_log_folder: Path = logs.LOG_FOLDER
-    """The folder that the log of such failures is written in: Dasha Framework's own,
-    or, for applications running on their own (``stand_alone``), the system's
-    folder for theirs (``logs.app_log_folder``)."""
+    """Folder for the error log."""
     error_log_name: str = "desktop"
-    """The start of that log's file name (``desktop-20261114-162427.log``):
-    for applications running on their own, from their name."""
+    """Start of the error log's file name."""
     recovery: Recovery | None = None
     """What has gone wrong, once something has: the log, and the count."""
     stopped_by_errors: bool = False
@@ -2394,10 +2229,11 @@ class PresentationManager:
     _telling_of_error = False
 
     def _guard(self, step: Callable[[], object], kind: str | None) -> None:
-        """Run one step of the loop: with ``survive_errors``, recovering
-        from an unexpected exception (``_recover``). ``kind`` names the kind
-        of step (``"drawing"``, say), or is ``None`` for one handling the
-        user's input."""
+        """Run one loop step, recovering from errors.
+
+        :param step: The step.
+        :param kind: Step kind, or ``None`` for input handling.
+        """
         if not self.survive_errors:
             step()
             return
@@ -2414,9 +2250,11 @@ class PresentationManager:
             self.recovery.succeeded(kind)
 
     def _recover(self, error: Exception, kind: str | None) -> None:
-        """Log a failed step, put aside whatever was under way, and tell the
-        user; or, once one ``kind`` of step has failed too many times in a
-        row, give up and shut down."""
+        """Log and report a failed step.
+
+        :param error: The exception.
+        :param kind: Step kind, or ``None`` for input handling.
+        """
         if self.recovery is None:
             self.recovery = Recovery(
                 self.error_log_folder,
@@ -2454,10 +2292,9 @@ class PresentationManager:
             self._telling_of_error = False
 
     def run(self, terminal: Terminal) -> None:
-        """Draw the screen and handle input until ``quit`` is called.
+        """Draw and handle input until ``quit``.
 
-        Reading from the terminal returns early when the terminal is
-        resized, so a resize redraws the screen straight away.
+        :param terminal: The terminal.
         """
         self._running = True
         if self.survive_errors:
@@ -2488,9 +2325,7 @@ class PresentationManager:
                 signal.signal(number, handler)
 
     def _report_crashes(self) -> None:
-        """Say which applications stopped without being asked to, or could
-        not start; ask about any that is taking too long to start; and while
-        shutting down, ask about any that is not responding."""
+        """Report crashed, slow or unresponsive applications."""
         server = self.server
         while server is not None and server.notices and self.is_running:
             title, message = server.notices.pop(0)

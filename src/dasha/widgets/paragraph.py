@@ -1,6 +1,4 @@
-"""Paragraphs, which show text over several lines, wrapped to fit and
-scrolling when there is more than can be shown, and ``align_lines``, which
-aligns text (and which dialogs also use for their messages)."""
+"""Paragraphs and line alignment."""
 
 import textwrap
 from collections.abc import Callable
@@ -17,14 +15,11 @@ ALIGNMENTS = ("left", "centre", "right", "justify")
 
 
 def align_lines(lines: list[str], width: int, align: str) -> list[tuple[int, str]]:
-    """Each line as it should be drawn within ``width`` columns, as (how
-    far in it starts, its text).
+    """Lines aligned in a width, as (indent, text) pairs.
 
-    ``"left"`` keeps the lines as they are; ``"centre"`` and ``"right"`` move
-    them across; and ``"justify"`` spreads the words of a line out to fill the
-    width, as in a book. The last line of a paragraph (before a blank line,
-    or at the end) and a line of a single word are left as they are, because
-    stretching them looks wrong. Lines are never rewrapped.
+    :param lines: The lines.
+    :param width: Width in columns.
+    :param align: ``"left"``, ``"centre"``, ``"right"`` or ``"justify"``.
     """
     if align not in ALIGNMENTS:
         raise ValueError(f"align must be one of {', '.join(ALIGNMENTS)}")
@@ -43,8 +38,11 @@ def align_lines(lines: list[str], width: int, align: str) -> list[tuple[int, str
 
 
 def _justified(line: str, width: int) -> str:
-    """A line with the spaces between its words widened to fill ``width``,
-    the extra spaces going to the first gaps."""
+    """A line justified to a width.
+
+    :param line: The line.
+    :param width: Width in columns.
+    """
     words = line.split()
     if len(words) < 2:
         return line
@@ -58,10 +56,11 @@ def _justified(line: str, width: int) -> str:
 
 
 def wrap(text: str, width: int) -> list[list[str]]:
-    """Text broken into lines of at most ``width`` characters, keeping
-    words whole where they fit. Returns a list for each line of the text
-    (every line break is kept, so a blank line is a paragraph break) of the
-    lines it wraps to."""
+    """Wrap text into lines, per original line.
+
+    :param text: The text.
+    :param width: Width in columns.
+    """
     width = max(1, width)
     return [
         textwrap.wrap(line, width, replace_whitespace=False, drop_whitespace=True)
@@ -71,32 +70,17 @@ def wrap(text: str, width: int) -> list[list[str]]:
 
 
 class Paragraph(Widget):  # pylint: disable=too-many-instance-attributes
-    """A ``Paragraph`` is static text over several lines, wrapped to its
-    width with words kept whole (a word longer than the width is broken), for
-    help, descriptions and About boxes:
+    """Static wrapped text that can scroll.
 
-    ::
-
-        dialog.add(
-            widget=Paragraph(text=text, row=1, column=2, width=42, align="justify")
-        )
-
-    - **Lines.** Each line break in the text is kept, so a blank line
-      separates paragraphs; ``lines`` gives the lines as shown.
-    - **Alignment.** ``align`` is ``"left"`` (the default), ``"centre"``,
-      ``"right"`` or ``"justify"``. Justifying spreads each wrapped line's words
-      out to the full width, except on the last line that each line of the
-      text wraps to, and on a line with a single word.
-      This uses the same ``align_lines`` as dialog messages (defined in
-      ``dasha.widgets.paragraph``, and also importable from
-      ``dasha.dialog``).
-    - **Height.** Without a ``height``, the paragraph is as tall as its text.
-      Given a smaller height, it scrolls: a scroll bar appears on its right, it
-      can take the focus, and Up, Down, Page Up, Page Down, Home and End (the
-      ``list_*`` actions), the bar and the mouse wheel all scroll it.
-    - **Changing it.** Setting ``text`` wraps the text afresh, and so does a new
-      width from ``grow``. It is drawn in the window's colours, or in its own
-      ``style``.
+    :param text: The text.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param width: Width in columns.
+    :param height: Height in rows, or ``None`` to fit.
+    :param align: ``"left"``, ``"centre"``, ``"right"`` or ``"justify"``.
+    :param style: Style, or ``None`` for the window's.
+    :param name: Widget name.
+    :param status: Status bar text.
     """
 
     focusable = True
@@ -136,8 +120,7 @@ class Paragraph(Widget):  # pylint: disable=too-many-instance-attributes
 
     @property
     def text(self) -> str:
-        """The text. Setting it wraps the text afresh, and scrolls back to the
-        top."""
+        """The text."""
         return self._text
 
     @text.setter
@@ -156,7 +139,7 @@ class Paragraph(Widget):  # pylint: disable=too-many-instance-attributes
         return [" " * offset + line for offset, line in self._lines]
 
     def _wrap(self) -> None:
-        """Wrap to the width, leaving room for a scroll bar if one is needed."""
+        """Wrap the text to the width."""
         width = self.rect.width
         placed = self._placed(width)
         if self._fixed_height is not None and len(placed) > self._fixed_height:
@@ -167,7 +150,10 @@ class Paragraph(Widget):  # pylint: disable=too-many-instance-attributes
         self.scroll_to(self._first)
 
     def _placed(self, width: int) -> list[tuple[int, str]]:
-        """Every wrapped line, lined up in ``width``."""
+        """Every wrapped line, aligned.
+
+        :param width: Width in columns.
+        """
         placed: list[tuple[int, str]] = []
         for group in wrap(self._text, width):
             placed += align_lines(group, width, self.align)
@@ -189,7 +175,10 @@ class Paragraph(Widget):  # pylint: disable=too-many-instance-attributes
         return self._first
 
     def scroll_to(self, first: int) -> None:
-        """Show the lines starting from ``first`` (kept within range)."""
+        """Scroll to a line.
+
+        :param first: First line to show.
+        """
         last = max(0, len(self._lines) - self.rect.height)
         self._first = max(0, min(first, last))
 
@@ -226,7 +215,11 @@ class Paragraph(Widget):  # pylint: disable=too-many-instance-attributes
             self.scroll_bar.paint(canvas, origin, False)
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """Scroll by a line or a page, or to either end."""
+        """Scroll with the keys.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         if not self.is_scrollable:
             return False
         page = max(1, self.rect.height - 1)
@@ -241,7 +234,12 @@ class Paragraph(Widget):  # pylint: disable=too-many-instance-attributes
         return run_shortcut(shortcuts, key, actions)
 
     def handle_mouse(self, event: MouseEvent, row: int, column: int) -> bool:
-        """The mouse wheel and the scroll bar scroll the paragraph."""
+        """Scroll with the mouse.
+
+        :param event: The mouse event.
+        :param row: Row in the window's interior.
+        :param column: Column in the window's interior.
+        """
         if not self.is_scrollable:
             return False
         self._sync_bar()

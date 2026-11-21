@@ -1,6 +1,4 @@
-"""Tests for what keeps one application from harming the desktop, or another
-application: what it sends is checked, it cannot take the keyboard, the
-clipboard or another's name, and it cannot hold the desktop up."""
+"""Tests for protecting the desktop from applications."""
 
 # These tests play the desktop's side of the connection, so they reach into
 # the server's own workings (its queue, its greeting) to do it.
@@ -41,7 +39,12 @@ from tests.test_waiting_dialogs import state
 
 
 def item(label: str, shortcut: str = "", submenu: Any = None) -> dict[str, Any]:
-    """A menu item as an application sends it."""
+    """A menu item as an application sends it.
+
+    :param label: Item label.
+    :param shortcut: Shortcut hint.
+    :param submenu: Submenu, if any.
+    """
     return {
         "separator": False,
         "submenu": submenu,
@@ -53,8 +56,7 @@ def item(label: str, shortcut: str = "", submenu: Any = None) -> dict[str, Any]:
 
 
 class Desktop(unittest.TestCase):
-    """A desktop with an Editor (active) and a Sneaky application in the
-    background, each at the end of a pipe."""
+    """A desktop with an active and a background application."""
 
     def setUp(self) -> None:
         self.manager = PresentationManager()
@@ -66,12 +68,18 @@ class Desktop(unittest.TestCase):
         self.addCleanup(CLIPBOARD.clear)
 
     def host(self, name: str) -> tuple[AppHost, Connection]:
-        """An application at the end of a pipe, made the active one."""
+        """A piped application, made active.
+
+        :param name: Application name.
+        """
         return hosted(self.server, name)
 
     def dispatch(self, host: AppHost, message: Message) -> None:
-        """A message from an application, as the desktop takes it: one it
-        cannot act on ends that application."""
+        """Dispatch a message as the desktop does.
+
+        :param host: The application.
+        :param message: The message.
+        """
         connection = host.connection
         assert connection is not None
 
@@ -87,8 +95,7 @@ class CheckedMessagesTests(Desktop):
     """What an application sends is checked before the desktop keeps it."""
 
     def test_a_colour_that_is_not_one_ends_the_application(self) -> None:
-        """Out of range, or not a number: the application is ended, and the
-        desktop goes on drawing."""
+        """A bad colour ends the application."""
         for colour in (300, -1, "red", [1], True, 2.5):
             with self.subTest(colour=colour):
                 self.assertRaises(ProtocolError, decode_colour, colour)
@@ -103,8 +110,7 @@ class CheckedMessagesTests(Desktop):
         self.assertEqual(decode_colour(255), 255)
 
     def test_text_is_one_line_and_not_too_long(self) -> None:
-        """Titles, status lines and hints: line breaks become spaces, and
-        they stop at MAX_TEXT characters."""
+        """Text is one short line."""
         self.editor.handle(
             state(
                 title="A\nB" + "x" * 5000, status="one\r\ntwo", hints=[["F1", "a\nb"]]
@@ -135,8 +141,7 @@ class CheckedMessagesTests(Desktop):
         self.assertNotIn(self.editor, self.server.hosts)
 
     def test_a_message_too_long_ends_the_connection(self) -> None:
-        """Longer than MAX_MESSAGE: the connection is dropped, as though the
-        application had gone, before the desktop takes it all in."""
+        """A too-long message ends the connection."""
         app_end, desktop_end = pipe()
         with mock.patch.object(hosting, "MAX_MESSAGE", 64):
             reader = threading.Thread(
@@ -156,8 +161,12 @@ class NamesTests(Desktop):
     """An application cannot pass itself off as another, or as Dasha Framework."""
 
     def greet(self, host_name: str, given: object, guessed: bool) -> str:
-        """The name a starting application ends up with, having said its
-        name is ``given``."""
+        """The name a starting application ends up with.
+
+        :param host_name: The desktop's name for it.
+        :param given: The name it gives itself.
+        :param guessed: Whether the desktop's name was guessed.
+        """
         host = AppHost(self.server, "x:Y", host_name, guessed_name=guessed)
         self.server.hosts.append(host)
         self.server._by_token[host.token] = host
@@ -173,8 +182,7 @@ class NamesTests(Desktop):
         self.assertEqual(self.greet("Notepad", "Editor", guessed=False), "Notepad")
 
     def test_a_guessed_name_gives_way(self) -> None:
-        """Started by Run..., named after its script: its own name is used,
-        on one line and not too long."""
+        """A guessed name gives way."""
         self.assertEqual(self.greet("app", "Text Stats", guessed=True), "Text Stats")
         self.assertEqual(self.greet("app", "Two\nLines", guessed=True), "Two Lines")
         self.assertEqual(len(self.greet("app", "x" * 500, guessed=True)), 40)
@@ -188,11 +196,13 @@ class NamesTests(Desktop):
 
 
 class VersionTests(Desktop):
-    """A desktop and an application agree on the highest protocol version
-    that both speak, and only one with none in common is refused."""
+    """Protocol version agreement."""
 
     def greet(self, hello: Message) -> tuple[AppHost, Message]:
-        """A starting application's host, and the answer to its ``hello``."""
+        """A starting application's host and welcome answer.
+
+        :param hello: The ``hello`` message.
+        """
         host = AppHost(self.server, "x:Y", "Versioned", guessed_name=False)
         self.server.hosts.append(host)
         self.server._by_token[host.token] = host
@@ -246,10 +256,7 @@ class VersionTests(Desktop):
             self.assertIsNone(agree_version({"versions": [2, 1]}))
 
     def test_a_first_release_application_can_take_the_theme(self) -> None:
-        """An application of version 1 (the first release), which refuses a
-        role it does not know, is sent the theme without the roles added
-        since, at first and when the theme changes; one of this version is
-        sent them all."""
+        """A first-release application can take the theme."""
         old_end = self.connect({"versions": [1, 1]})
         new_end = self.connect({"versions": [MINIMUM_VERSION, PROTOCOL_VERSION]})
         sent_old = [drain(old_end)[0]]
@@ -275,8 +282,10 @@ class VersionTests(Desktop):
             )
 
     def connect(self, hello: Message) -> Connection:
-        """A starting application's end of the pipe, once it has sent its
-        ``hello``."""
+        """A starting application's pipe end, after ``hello``.
+
+        :param hello: The ``hello`` message.
+        """
         host = AppHost(self.server, "x:Y", "Versioned", guessed_name=False)
         self.server.hosts.append(host)
         self.server._by_token[host.token] = host
@@ -289,7 +298,7 @@ class FocusTests(Desktop):
     """An application in the background cannot take the keyboard."""
 
     def test_a_window_from_the_background_opens_behind(self) -> None:
-        """What the user types still goes to the window they were typing in."""
+        """A background window opens behind."""
         self.sneaky.handle(state(title="Editor", id=7))
         self.assertEqual(self.manager.windows[-1], self.editor.windows[1])
         drain(self.sneaky_end)
@@ -298,9 +307,7 @@ class FocusTests(Desktop):
         self.assertIn({"type": "key", "id": 1, "key": "s"}, drain(self.editor_end))
 
     def test_its_requests_are_refused(self) -> None:
-        """Coming to the front, moving or resizing (which takes the keys),
-        switching windows or leaving the desktop: not from the background.
-        Minimising its own window: yes."""
+        """Background requests are refused."""
         self.sneaky.handle(state(title="Sneaky", id=7))
         with mock.patch.object(self.manager, "request_exit") as exit_:
             for op in ("front", "move", "resize", "restore", "maximise",
@@ -320,8 +327,7 @@ class FocusTests(Desktop):
         self.assertEqual(self.front(), "Second")
 
     def test_while_shutting_down_it_may_ask(self) -> None:
-        """Asked whether it may close, an application in the background may
-        put its question in front, to offer to save its work."""
+        """While shutting down it may ask."""
         self.server.ask_to_close(lambda: None)
         self.sneaky.handle(
             state(title="Save changes?", id=8, look="dialog", modal=True)
@@ -333,7 +339,7 @@ class ShortcutsTests(Desktop):
     """An application's menus cannot take the desktop's own keys."""
 
     def test_desktop_keys_are_not_shortcuts(self) -> None:
-        """F6, Alt+F4 and the like are taken off its items; its own keys stay."""
+        """Desktop keys are not shortcuts."""
         items = [item("&Grab", "F6"), item("&Close", "Alt+F4"), item("&Open", "F3")]
         self.editor.handle(
             {"type": "menus", "menus": [{"title": "&File", "items": items}]}
@@ -346,8 +352,7 @@ class ShortcutsTests(Desktop):
 
 
 class ClipboardTests(Desktop):
-    """Covered with the rest of hosting in test_hosting; here, the desktop
-    never hands the clipboard to an application in the background."""
+    """The clipboard is never handed to the background."""
 
     def test_background_application_is_not_told(self) -> None:
         """A copy in the Editor stays with the Editor and the desktop."""
@@ -361,8 +366,7 @@ class HoldingUpTests(Desktop):
     """An application cannot hold up the desktop, or other applications."""
 
     def test_the_welcome_does_not_wait_for_it(self) -> None:
-        """One that never reads: the welcome waits in its outbox, and the
-        desktop carries on."""
+        """The welcome does not wait for it."""
         host = AppHost(self.server, "x:Y", "Quiet")
         self.server.hosts.append(host)
         self.server._by_token[host.token] = host
@@ -380,8 +384,7 @@ class HoldingUpTests(Desktop):
         self.assertTrue(done.wait(5))
 
     def test_a_stalled_handshake_holds_up_no_one(self) -> None:
-        """A connection that never proves it knows the key is dropped after
-        handshake_timeout, and others connect meanwhile."""
+        """A stalled handshake holds up no one."""
         self.server.handshake_timeout = 1.0
         self.server._listen()
         address = self.server.address
@@ -404,9 +407,7 @@ class HoldingUpTests(Desktop):
         self.addCleanup(self.server.stop_all, 0)
 
     def test_shutting_down_asks_about_one_that_never_answers(self) -> None:
-        """Answering pings but never saying whether it may close: after
-        close_timeout the user is asked about it, unless it is asking the
-        user something itself."""
+        """Shutdown asks about one that never answers."""
         self.server.ask_to_close(lambda: None)
         self.assertIsNone(self.server.stuck())
         self.server._close_asked_at -= self.server.close_timeout
@@ -416,8 +417,7 @@ class HoldingUpTests(Desktop):
         self.assertIsNone(self.server.stuck())
 
     def test_a_flood_of_messages_is_taken_a_little_at_a_time(self) -> None:
-        """Each time round, at most max_messages, so the screen is still
-        drawn and the keyboard still read."""
+        """A flood of messages is taken in batches."""
         self.server.max_messages = 10
         connection = self.editor.connection
         assert connection is not None
@@ -447,8 +447,7 @@ class LogTests(unittest.TestCase):
             self.assertEqual(host.last_words(), "the end")
 
     def test_an_empty_log_is_dropped(self) -> None:
-        """A log the application wrote nothing to goes once it has ended;
-        one it wrote to stays, for its last words."""
+        """An empty log is dropped."""
         quiet, chatty = AppHost(self.server, "x:Y", "Quiet"), AppHost(
             self.server, "x:Y", "Chatty"
         )
@@ -474,8 +473,7 @@ class LogTests(unittest.TestCase):
         self.assertEqual(kept[0], "app-005.log")
 
     def test_the_crash_message_says_whose_words(self) -> None:
-        """The last line of its log is labelled as such, in the desktop's
-        message, not passed off as the desktop's own words."""
+        """The crash message says whose words."""
         host = AppHost(self.server, "x:Y", "Crashy")
         host.log_path = self.folder / "crashy.log"
         host.log_path.write_text("Enter your password to continue\n")
@@ -487,8 +485,7 @@ class StartingTests(unittest.TestCase):
     """How an application's process is started."""
 
     def test_the_desktops_folder_is_not_on_its_path(self) -> None:
-        """Python runs it with -P, so a module planted in the folder the
-        desktop runs in is not imported in place of the real one."""
+        """The desktop's folder is not on its path."""
         server = AppServer(PresentationManager())
         self.addCleanup(server.stop_all, 0)
         folder = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
@@ -503,11 +500,10 @@ class StartingTests(unittest.TestCase):
 
 
 class ScreenTests(unittest.TestCase):
-    """Text that would not take exactly one cell, or cannot be sent at all."""
+    """Text that cannot take one cell."""
 
     def test_shown(self) -> None:
-        """Code page 437 as it is; surrogates, wide and zero-width
-        characters as UNSHOWABLE; control characters as pictures."""
+        """What ``shown`` sends."""
         cp437 = bytes(range(256)).decode("cp437")
         self.assertEqual("".join(shown(c) for c in cp437[0x20:0x7F]), cp437[0x20:0x7F])
         self.assertTrue(all(shown(c) != UNSHOWABLE for c in cp437[0x80:]))
@@ -539,8 +535,7 @@ class ScreenTests(unittest.TestCase):
         self.assertIn("a??b???z", output)
 
     def test_a_terminal_that_cannot_hold_a_character(self) -> None:
-        """Writing what the terminal's encoding has no room for sends ?
-        rather than stopping Dasha Framework."""
+        """A terminal that cannot encode a character."""
         sent = io.BytesIO()
         stream = io.TextIOWrapper(sent, encoding="ascii")
         terminal = Terminal(stream=stream)

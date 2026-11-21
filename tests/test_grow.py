@@ -44,8 +44,7 @@ class GrowTests(unittest.TestCase):
         self.assertEqual(ok.rect, Rect(11, 27, 2, 11))
 
     def test_shrinking_and_growing_back(self) -> None:
-        """Sizes come from the original layout, so after shrinking past a
-        widget's minimum and growing back, it is as it was."""
+        """Shrinking and growing back."""
         win = window()
         box = win.add(ListBox(NAMES, 0, 0, 20, 6), grow=Grow.ALL)
         win.resize(12, 3)  # far smaller than the list box
@@ -65,7 +64,7 @@ class GrowTests(unittest.TestCase):
         self.assertEqual(box.rect, Rect(0, 0, 8, 28))
 
     def test_moved_by_code_becomes_the_layout(self) -> None:
-        """A widget code moves is laid out afresh from where it now is."""
+        """A widget moved by code is laid out afresh."""
         win = window()
         label = win.add(Label("Hi", 2, 3), grow=Grow.STICK_RIGHT)
         label.rect = Rect(4, 5, 1, 2)

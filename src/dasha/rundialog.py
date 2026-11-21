@@ -1,16 +1,4 @@
-"""Run...: start a Python script or module as an application, once,
-without installing it.
-
-``PresentationManager.run_dialog`` shows the dialog (Run... in the system
-menu) and starts whatever it answers with: a script (``path/app.py``) or a
-module (``package.module:Class``), optionally with a virtual environment's
-Python.
-
-Usually, naming the script is all it takes. The dialog reads the script
-(without running it) to find its application classes (``find_classes``),
-and looks next to it, or in the folder above, for a virtual environment
-(``find_venv``), filling in both.
-"""
+"""The Run dialog for starting a script or module."""
 
 import ast
 import os
@@ -30,20 +18,17 @@ from dasha.widgets import (
 )
 
 LARGEST_SCRIPT = 1_000_000
-"""The largest number of bytes read from a script to find its classes;
-anything larger is not treated as a script."""
+"""Largest script read, in bytes."""
 
 VENV_FOLDERS = ("", ".venv", "venv", "env")
-"""Where ``find_venv`` looks for a virtual environment in a script's
-folder (and then in the folder above): first the folder itself, then these
-folders inside it."""
+"""Folders searched for a virtual environment."""
 
 
 def _read_classes(script: Path) -> tuple[list[str], set[str]]:
-    """The classes a script defines at its top level, in order, and which
-    of them are applications: a class whose bases include
-    ``Application``, or a class of the script's that is one. Read, never
-    run: a script that cannot be read, or is not Python, has none."""
+    """A script's top-level classes and which are applications.
+
+    :param script: The script.
+    """
     try:
         if script.stat().st_size > LARGEST_SCRIPT:
             return [], set()
@@ -62,10 +47,10 @@ def _read_classes(script: Path) -> tuple[list[str], set[str]]:
 
 
 def find_classes(script: Path) -> list[str]:
-    """The classes that a script defines at its top level: first those that
-    are applications (``class Notepad(Application)``, or ``class
-    Big(Notepad)`` defined after it), then the rest, each group in the order
-    they are written. The script is read, but never run."""
+    """A script's top-level classes, applications first.
+
+    :param script: The script.
+    """
     names, applications = _read_classes(script)
     return [n for n in names if n in applications] + [
         n for n in names if n not in applications
@@ -73,15 +58,19 @@ def find_classes(script: Path) -> list[str]:
 
 
 def likely_class(script: Path) -> str:
-    """The class most likely meant to be run: the script's first
-    application class, or ``""`` if it has none."""
+    """The class most likely meant, or "".
+
+    :param script: The script.
+    """
     names, applications = _read_classes(script)
     return next((name for name in names if name in applications), "")
 
 
 def _base_name(base: ast.expr) -> str:
-    """A base class's name, as written: ``Application`` in both
-    ``Application`` and ``dasha.application.Application``."""
+    """A base class's name.
+
+    :param base: The base expression.
+    """
     if isinstance(base, ast.Name):
         return base.id
     if isinstance(base, ast.Attribute):
@@ -90,13 +79,10 @@ def _base_name(base: ast.expr) -> str:
 
 
 def find_venv(script: Path) -> Path | None:
-    """A virtual environment that is probably the script's own. In the
-    script's folder, this is the folder itself if it has a ``pyvenv.cfg``,
-    or else a ``.venv``, ``venv`` or ``env`` folder inside it that has one.
-    Failing that, the folder above is searched in the same way, as for a
-    project that keeps its code in ``src`` and its virtual environment next
-    to that. Only an environment with a Python to run counts. Returns
-    ``None`` if none is found."""
+    """A script's likely virtual environment, or ``None``.
+
+    :param script: The script.
+    """
     script = script.resolve()  # so a relative path has a folder above
     for folder in (script.parent, script.parent.parent):
         for name in VENV_FOLDERS:
@@ -108,25 +94,10 @@ def find_venv(script: Path) -> Path | None:
 
 
 class RunDialog(Dialog):  # pylint: disable=too-many-instance-attributes
-    """Ask what to run::
+    """Asks what to run.
 
-        Program: a .py script, or module:Class
-         C:\\apps\\notepad.py                    Browse...
-        Runs Notepad, with the virtual environment .venv
-        ► Options
-
-    Usually, naming a script (with Browse... or by typing it) is all
-    that is needed. The dialog reads the script to find its application
-    classes, looks next to it for a virtual environment, and describes what
-    will run on the line below. Options shows the class (an autocomplete box
-    offering the script's classes, with the most likely application first)
-    and the virtual environment (whose Browse... button chooses a
-    ``pyvenv.cfg``), for when the guess is not what is wanted; the dialog
-    grows to show them. A field is filled in automatically only while the
-    user has not typed in it.
-
-    OK checks what was entered and answers ``"ok"`` with ``entry`` set;
-    otherwise, the problem is shown on the line above the buttons.
+    :param program: Starting program.
+    :param venv: Starting virtual environment.
     """
 
     help = "running"
@@ -203,7 +174,10 @@ class RunDialog(Dialog):  # pylint: disable=too-many-instance-attributes
     """How many rows the options take up when they are open."""
 
     def say(self, text: str) -> None:
-        """Show what is wrong, on the line above the buttons."""
+        """Show a problem above the buttons.
+
+        :param text: The problem.
+        """
         self.info.text = text[:54]
 
     # What the script is, as far as can be told
@@ -217,8 +191,7 @@ class RunDialog(Dialog):  # pylint: disable=too-many-instance-attributes
         return path if path.is_file() else None
 
     def _program_changed(self) -> None:
-        """A new program: read it for its classes and look beside it for a
-        virtual environment, filling in what the user has not."""
+        """Fill in the class and environment for a new program."""
         script = self._script()
         if script is not None and script.resolve() != self._read:
             self._read = script.resolve()
@@ -241,8 +214,7 @@ class RunDialog(Dialog):  # pylint: disable=too-many-instance-attributes
         self._describe()
 
     def _describe(self) -> None:
-        """Say what will run, under the program, so the options need not be
-        opened to see it."""
+        """Describe what will run."""
         program = self.program.text.strip()
         class_name = self.class_box.text.strip()
         venv = self.venv.text.strip()
@@ -258,7 +230,10 @@ class RunDialog(Dialog):  # pylint: disable=too-many-instance-attributes
         self.summary.text = text[:56]
 
     def _fit(self, options: Collapsible) -> None:
-        """Grow to show the options while they are open, and shrink back."""
+        """Grow or shrink for the options.
+
+        :param options: The options area.
+        """
         rect = self.rect
         height = self.HEIGHT + (self.OPTIONS_HEIGHT if options.expanded else 0)
         self.rect = Rect(rect.row, rect.column, height, rect.width)
@@ -302,15 +277,17 @@ class RunDialog(Dialog):  # pylint: disable=too-many-instance-attributes
     # Answering
 
     def button_pressed(self, button: Widget) -> None:
-        """Pressing OK ends the dialog only once there is something to run."""
+        """End only once there is something to run.
+
+        :param button: The button pressed.
+        """
         if button.name == "ok":
             self.accept()
         else:
             super().button_pressed(button)
 
     def accept(self) -> None:
-        """Check what was entered, and either answer ``"ok"`` with ``entry``
-        set, or show what is wrong."""
+        """Check the entry and answer, or show a problem."""
         program = self.program.text.strip()
         class_name = self.class_box.text.strip()
         venv = self.venv.text.strip()

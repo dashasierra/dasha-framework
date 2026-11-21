@@ -13,7 +13,11 @@ from tests.test_manager import FakeTerminal
 
 
 def title_at(window: Window, active: bool = True) -> int:
-    """The column the window's title starts at, drawn on a canvas."""
+    """The column the title starts at.
+
+    :param window: The window.
+    :param active: Whether it is drawn active.
+    """
     canvas = Canvas(window.rect.right + 1, window.rect.bottom + 1)
     window.paint(canvas, active)
     return canvas.text(window.rect.row).index(f" {window.title} ")
@@ -47,8 +51,11 @@ class SystemMenuDoubleClickTests(unittest.TestCase):
     """Double-clicking ≡ asks to shut down, like its Exit item."""
 
     def run_with(self, inputs: list[str], confirm_exit: bool = True) -> FakeTerminal:
-        """Run a manager on scripted input, double-clicks counting for
-        however long the test takes."""
+        """Run a manager on scripted input.
+
+        :param inputs: Input to read.
+        :param confirm_exit: Whether exit asks first.
+        """
         terminal = FakeTerminal(inputs, sizes=[(60, 20)])
         manager = PresentationManager()
         manager.double_click_time, manager.confirm_exit = 60.0, confirm_exit

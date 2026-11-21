@@ -1,8 +1,4 @@
-"""Tests for the menu bar while an application in its own process is loading:
-it becomes the active application once it has something to show, so no frame
-shows a Window menu with nothing else of it. Until then the bar stays as it
-was, or, on a desktop with no system menu, the desktop's pattern shows through
-it."""
+"""Tests for the menu bar while an application loads."""
 
 # These tests play the application's side of the connection, starting from
 # the server's own greeting, so they reach into its workings to do it.
@@ -45,30 +41,38 @@ PATTERN = Desktop.pattern * 80
 """The menu bar's row, drawn in the desktop's pattern."""
 
 type Step = tuple[Callable[[], bool], list[str]]
-"""A condition to wait for, and the keys to press once it is true."""
+"""A condition and the keys to press once true."""
 
 
 def cells_of(canvas: Canvas) -> str:
-    """A canvas's top row, without the space around it."""
+    """A canvas's top row, trimmed.
+
+    :param canvas: The canvas.
+    """
     return "".join(canvas.cell(0, c)[0] for c in range(canvas.width)).strip()
 
 
 def top_row(manager: PresentationManager) -> str:
-    """The top row of the screen, as a frame would draw it now."""
+    """The screen's top row.
+
+    :param manager: The desktop.
+    """
     canvas = Canvas(80, 24)
     manager.compose(canvas)
     return cells_of(canvas)
 
 
 def menus_message(*titles: str) -> Message:
-    """The message giving an application's menus, with these titles."""
+    """A menus message with these titles.
+
+    :param titles: Menu titles.
+    """
     menus = [Menu(title, [MenuItem("&Item", lambda: None)]) for title in titles]
     return {"type": "menus", "menus": encode_menus(menus)}
 
 
 class Loading(unittest.TestCase):
-    """A desktop with applications at the end of pipes, greeted as real ones
-    are."""
+    """A desktop with piped applications."""
 
     def setUp(self) -> None:
         self.manager = PresentationManager()
@@ -76,15 +80,20 @@ class Loading(unittest.TestCase):
         self.server = serving(self, self.manager)
 
     def started(self, name: str = "Slow") -> AppHost:
-        """An application that has been started, and has not connected."""
+        """A started, unconnected application.
+
+        :param name: Application name.
+        """
         host = AppHost(self.server, "x:Y", name)
         self.server.hosts.append(host)
         self.server._by_token[host.token] = host
         return host
 
     def greeted(self, name: str = "Slow") -> tuple[AppHost, Connection, Connection]:
-        """An application that has said hello, and has sent nothing else:
-        its host, its end of the pipe, and the desktop's end."""
+        """An application that has only said hello.
+
+        :param name: Application name.
+        """
         host = self.started(name)
         app_end, desktop_end = pipe()
         self.addCleanup(app_end.close)
@@ -104,7 +113,10 @@ class Loading(unittest.TestCase):
         return other
 
     def run_steps(self, *steps: Step) -> None:
-        """Run the desktop through ``steps``; fail if it times out."""
+        """Run the desktop through steps.
+
+        :param steps: The steps.
+        """
         terminal = StepTerminal(self.manager, list(steps))
         self.manager.run(cast(Terminal, terminal))
         self.assertFalse(terminal.timed_out, "timed out")
@@ -118,8 +130,7 @@ class OnTheDesktopTests(Loading):
     """Started from the desktop, as the Applications menu does."""
 
     def test_the_bar_stays_as_it_was(self) -> None:
-        """Having said hello, it changes nothing: not the other application's
-        menus, nor the name on the status bar, nor the system menu's list."""
+        """The bar stays as it was."""
         other = self.active_other()
         host, _, _ = self.greeted()
         self.assertEqual(top_row(self.manager), f"{SYSTEM}  Edit  Window")
@@ -141,8 +152,7 @@ class OnTheDesktopTests(Loading):
         self.assertEqual(of_type(drain(other_end), "menu")[0]["path"], [0, 0])
 
     def test_its_menus_change_everything_together(self) -> None:
-        """Its menus arrive, and the bar, the status bar and the system menu
-        all change to it at once."""
+        """Its menus change everything together."""
         self.active_other()
         host, _, _ = self.greeted()
         host.handle(menus_message("&File"))
@@ -163,16 +173,14 @@ class OnTheDesktopTests(Loading):
         self.assertEqual(top_row(self.manager), f"{SYSTEM}  File  Window")
 
     def test_with_no_menus_of_its_own(self) -> None:
-        """An application with no menus says so, and has just a Window menu
-        once it has loaded."""
+        """With no menus of its own."""
         host, _, _ = self.greeted()
         host.handle(menus_message())
         self.assertEqual(top_row(self.manager), f"{SYSTEM}  Window")
         self.assertIs(self.manager.active_application, host.application)
 
     def test_a_window_without_menus(self) -> None:
-        """One that sends a window first has something to show too, and the
-        window comes to the front."""
+        """A window without menus."""
         host, _, _ = self.greeted()
         host.handle(state(title="Slow"))
         self.assertIs(self.manager.active_application, host.application)
@@ -180,8 +188,7 @@ class OnTheDesktopTests(Loading):
         self.assertIs(self.manager.active_window, host.windows[1])
 
     def test_what_shows_nothing_does_not_count(self) -> None:
-        """Answering a ping, which a slow start leaves waiting when it ends,
-        comes before anything else; nor does saying goodbye show anything."""
+        """What shows nothing does not count."""
         host, _, _ = self.greeted()
         for kind in ("pong", "answer", "bye"):
             host.handle({"type": kind})
@@ -189,8 +196,7 @@ class OnTheDesktopTests(Loading):
         self.assertEqual(top_row(self.manager), SYSTEM)
 
     def test_a_theme_asked_for_as_it_starts(self) -> None:
-        """What it does as it starts is still done: it is the application
-        the user has just started, so it may change the theme."""
+        """A theme asked for as it starts."""
         self.addCleanup(theme.apply_theme, theme.current_theme())
         host, _, _ = self.greeted()
         host.handle({"type": "theme", "name": "dark"})
@@ -198,8 +204,7 @@ class OnTheDesktopTests(Loading):
         self.assertIs(self.manager.active_application, host.application)
 
     def test_a_second_start_of_a_single_instance(self) -> None:
-        """Started again while still loading, it is not switched to: there
-        is nothing to show of it yet."""
+        """A second start of a single instance."""
         target = "tests.hosted_apps:Hello"
         host = self.started("Single")
         host.target = target
@@ -244,14 +249,13 @@ class StandAloneTests(Loading):
         self.assertEqual(top_row(self.manager), "ab" * 40)
 
     def test_with_no_menus_of_its_own(self) -> None:
-        """Once it has loaded, an application with no menus has a Window
-        menu, which it needs."""
+        """With no menus of its own, alone."""
         host, _, _ = self.greeted()
         host.handle(menus_message())
         self.assertEqual(top_row(self.manager), "Window")
 
     def test_the_row_does_nothing(self) -> None:
-        """No key opens a menu, nothing offers to, and a click is harmless."""
+        """The empty row does nothing."""
         self.greeted()
         top_row(self.manager)
         self.assertEqual(self.manager.key_hints(), [])
@@ -278,8 +282,7 @@ class StandAloneTests(Loading):
         self.assertEqual(self.server.notices[0][0], "Application stopped")
 
     def test_the_last_one_ending_while_another_loads(self) -> None:
-        """``dasha a b``: the desktop stays for one that is still coming,
-        and the bar goes back to the pattern, not to nothing."""
+        """The last one ending while another loads."""
         first, _, _ = self.greeted("First")
         first.handle(menus_message("&File"))
         second, _, _ = self.greeted("Second")
@@ -302,8 +305,7 @@ class FailingTests(Loading):
         self.assertEqual(self.server.notices[0][0], "Application stopped")
 
     def test_ending_after_it_connects(self) -> None:
-        """It breaks in ``start``: the bar never changed, and the user is
-        told."""
+        """Ending after it connects."""
         other = self.active_other()
         _, _, desktop_end = self.greeted()
         self.server._dispatch(desktop_end, None)
@@ -322,8 +324,7 @@ class FailingTests(Loading):
 
 
 class SlowToLoadTests(Loading):
-    """An application that connects, and then has nothing to show for a
-    long time."""
+    """An application slow to show anything."""
 
     def asking(self) -> bool:
         """Whether the question is on the screen."""
@@ -335,8 +336,7 @@ class SlowToLoadTests(Loading):
         self.assertIsNone(self.server.slow_to_load())
 
     def test_only_once_connected(self) -> None:
-        """Not having connected is ``start_timeout``'s business, which ends
-        it without asking."""
+        """Only once connected."""
         self.started()
         self.server.load_timeout = 0
         self.assertIsNone(self.server.slow_to_load())
@@ -349,7 +349,7 @@ class SlowToLoadTests(Loading):
         self.assertIsNone(self.server.slow_to_load())
 
     def test_end_now(self) -> None:
-        """The user may end it, and is not then told that it stopped."""
+        """The user may end it."""
         host, _, _ = self.greeted()
         self.server.load_timeout = 0
         ended: list[bool] = []
@@ -402,8 +402,7 @@ class ShuttingDownTests(Loading):
     """Leaving the desktop while an application is loading."""
 
     def test_it_is_not_waited_for(self) -> None:
-        """Too busy to answer, and with no work to lose: the desktop leaves
-        without asking it."""
+        """It is not waited for."""
         _, app_end, _ = self.greeted()
         left: list[bool] = []
         self.server.ask_to_close(lambda: left.append(True))
@@ -411,8 +410,7 @@ class ShuttingDownTests(Loading):
         self.assertEqual(of_type(drain(app_end), "may_close"), [])
 
     def test_loading_while_others_are_asked(self) -> None:
-        """It finishes loading while another keeps the desktop waiting, and
-        might have work to lose by then: it is asked as well."""
+        """Loading while others are asked."""
         other, _ = hosted(self.server, "Other")
         host, app_end, _ = self.greeted()
         left: list[bool] = []
@@ -458,7 +456,10 @@ class RealProcessTests(unittest.TestCase):
         self.server.ping_interval = 0.1
 
     def run_until(self, *steps: Step) -> None:
-        """Run the desktop through ``steps``; fail if it times out."""
+        """Run the desktop through steps.
+
+        :param steps: The steps.
+        """
         terminal = StepTerminal(self.manager, list(steps))
         self.manager.run(cast(Terminal, terminal))
         self.assertFalse(terminal.timed_out, f"timed out: {self.manager.bars}")
@@ -468,8 +469,10 @@ class RealProcessTests(unittest.TestCase):
         return bool(self.manager.windows)
 
     def breaks(self, application: type[Application]) -> None:
-        """It breaks as it starts: the bar never changes, and the user is
-        told."""
+        """Check an application that breaks as it starts.
+
+        :param application: The application class.
+        """
         told: list[str] = []
 
         def telling() -> bool:
@@ -519,8 +522,7 @@ class RealProcessTests(unittest.TestCase):
         self.breaks(SlowToBreak)
 
     def test_breaking_on_its_own(self) -> None:
-        """With nothing else to show, the desktop stops, and what it had to
-        say is left for the terminal."""
+        """Breaking on its own."""
         self.manager.stand_alone("Slow break")
         self.manager.start(SlowToBreak)
         self.run_until((lambda: False, []))
@@ -528,8 +530,7 @@ class RealProcessTests(unittest.TestCase):
         self.assertIn("Slow break stopped", self.server.notices[0][1])
 
     def test_never_starting_can_be_ended(self) -> None:
-        """Connected, and never any further: the user is asked, and it goes.
-        On its own, the desktop goes with it."""
+        """Never starting can be ended."""
         self.manager.stand_alone("Never")
         self.server.load_timeout = 0.3
         self.manager.start(NeverStarts)
@@ -538,8 +539,7 @@ class RealProcessTests(unittest.TestCase):
         self.assertEqual(self.server.hosts, [])
 
     def test_never_starting_can_be_left(self) -> None:
-        """The exit key works throughout, and the desktop does not wait for
-        an application that is too busy to answer it."""
+        """Never starting can be left."""
         self.manager.stand_alone("Never")
         self.manager.start(NeverStarts)
         host = self.server.hosts[0]

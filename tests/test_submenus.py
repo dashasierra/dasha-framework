@@ -44,7 +44,10 @@ class SubmenuTests(unittest.TestCase):
         self.menu_bar.lines = 24
 
     def keys(self, *names: str) -> None:
-        """Press keys at the menu bar."""
+        """Press keys at the menu bar.
+
+        :param names: The keys.
+        """
         for name in names:
             self.menu_bar.handle_key(name)
 
@@ -60,8 +63,7 @@ class SubmenuTests(unittest.TestCase):
         self.assertIn(SUBMENU_MARK, canvas.text(3))
 
     def test_right_enter_left_and_escape(self) -> None:
-        """Right and Enter open a submenu; Left and Escape close one level;
-        F10 closes everything."""
+        """Right, Enter, Left and Escape."""
         self.keys("f10", "down", "right")
         self.assertEqual(self.menu_bar.open_menus, [self.file, self.recent])
         self.keys("down", "enter")
@@ -76,15 +78,14 @@ class SubmenuTests(unittest.TestCase):
         self.assertFalse(self.menu_bar.is_open)
 
     def test_right_on_a_plain_item_goes_to_the_next_menu(self) -> None:
-        """Right with no submenu to open goes on to the next bar menu, from
-        any depth, closing the submenus."""
+        """Right on a plain item goes to the next menu."""
         self.keys("f10", "down", "right")  # Recent open, Draft highlighted
         self.keys("right")
         self.assertIs(self.menu_bar.open_menu, self.help)
         self.assertEqual(len(self.menu_bar.open_menus), 1)
 
     def test_choosing_in_a_submenu(self) -> None:
-        """Enter on an item in a submenu runs it and closes every menu."""
+        """Choosing in a submenu."""
         self.keys("f10", "down", "right", "enter")
         self.assertEqual(self.chosen, ["draft"])
         self.assertFalse(self.menu_bar.is_open)
@@ -97,7 +98,7 @@ class SubmenuTests(unittest.TestCase):
     # Letters, innermost first
 
     def test_innermost_open_menu_wins(self) -> None:
-        """D in Older (open) is Dusty, not Draft in Recent or Delete in File."""
+        """The innermost open menu wins."""
         self.keys("f10", "r", "o", "d")
         self.assertEqual(self.chosen, ["dusty"])
 
@@ -108,8 +109,7 @@ class SubmenuTests(unittest.TestCase):
         self.assertEqual(self.chosen, ["draft", "delete"])
 
     def test_letters_from_further_out(self) -> None:
-        """N is not in Older, so Recent's Notes; a letter only in File (New)
-        reaches File; one only on the bar (H) opens that menu."""
+        """Letters from further out."""
         self.keys("f10", "r", "o", "n")
         self.keys("f10", "r", "o")
         self.keys("e")  # in no menu: ignored, everything stays open
@@ -137,8 +137,7 @@ class SubmenuTests(unittest.TestCase):
         self.assertIsNone(self.menu_bar.item_for_shortcut("ctrl+q"))
 
     def test_greyed_out_submenu_stays_shut(self) -> None:
-        """An item greyed out by its check: its submenu cannot be opened,
-        by letter or arrow, and the shortcuts inside it do nothing."""
+        """A greyed-out submenu stays shut."""
         self.file.items[1].enabled = lambda: False  # Recent
         self.assertIsNone(self.menu_bar.item_for_shortcut("ctrl+d"))
         self.keys("f10", "r")
@@ -159,8 +158,7 @@ class SubmenuTests(unittest.TestCase):
     # Placement
 
     def test_beside_its_item(self) -> None:
-        """A submenu opens to the right, its first item level with the item
-        that opened it."""
+        """Beside its item."""
         self.keys("f10", "r", "o")
         drop, recent, older = self.menu_bar.level_rects(80, 24)
         self.assertEqual(recent.row + 1, drop.row + 1 + 1)  # level with Recent
@@ -169,8 +167,7 @@ class SubmenuTests(unittest.TestCase):
         self.assertGreater(older.column, recent.column)
 
     def test_to_the_left_when_there_is_no_room(self) -> None:
-        """Near the right edge, a submenu opens to the left instead, its
-        right edge against the menu it came from."""
+        """To the left without room."""
         self.menu_bar.set_menus([self.help, self.file])  # File further along
         self.menu_bar.open(1)
         self.keys("r", "o")
@@ -179,7 +176,7 @@ class SubmenuTests(unittest.TestCase):
         self.assertEqual(older.right, recent.column + self.menu_bar.frame_padding)
 
     def test_kept_on_the_screen(self) -> None:
-        """Too wide for either side, it is pulled in; too low, it moves up."""
+        """Kept on the screen."""
         self.keys("f10", "r", "o")
         for rect in self.menu_bar.level_rects(22, 24):
             self.assertGreaterEqual(rect.column, 0)
@@ -191,16 +188,24 @@ class SubmenuTests(unittest.TestCase):
     # The mouse
 
     def move(self, row: int, column: int) -> None:
-        """The pointer moving with no button held."""
+        """A mouse move with no button.
+
+        :param row: Screen row.
+        :param column: Screen column.
+        """
         self.menu_bar.handle_mouse(MouseEvent("move", "none", row, column), 80)
 
     def click(self, row: int, column: int, action: str = "press") -> None:
-        """A left-button event."""
+        """A left-button event.
+
+        :param row: Screen row.
+        :param column: Screen column.
+        :param action: Mouse action.
+        """
         self.menu_bar.handle_mouse(MouseEvent(action, "left", row, column), 80)
 
     def test_hover_opens_and_closes_submenus(self) -> None:
-        """Hovering over an item with a submenu opens it; hovering over
-        another item of that menu closes it again."""
+        """Hovering opens and closes submenus."""
         self.menu_bar.open(0)
         drop = self.menu_bar.level_rects(80)[0]
         self.move(drop.row + 2, drop.column + 4)  # Recent
@@ -209,8 +214,7 @@ class SubmenuTests(unittest.TestCase):
         self.assertEqual(self.menu_bar.open_menus, [self.file])
 
     def test_click_in_a_submenu(self) -> None:
-        """A click on a submenu's item runs it; a click outside every menu
-        closes them all; a click on an item with a submenu opens it."""
+        """Clicks in a submenu."""
         self.menu_bar.open(0)
         drop = self.menu_bar.level_rects(80)[0]
         self.click(drop.row + 2, drop.column + 4)  # Recent: opens
@@ -237,8 +241,7 @@ class SubmenuTests(unittest.TestCase):
     # Shadows
 
     def test_submenu_shadow_stays_off_the_status_bar(self) -> None:
-        """Through the manager: a submenu low on a short screen casts no
-        shadow on the status bar, but does on the drop-down beneath it."""
+        """Submenu shadows stay off the status bar."""
         window = Window("W", Rect(2, 0, 5, 30), menus=[self.file])
         manager = PresentationManager(windows=[window])
         manager.handle_resize(60, 9)

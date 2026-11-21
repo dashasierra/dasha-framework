@@ -8,7 +8,10 @@ from dasha.widgets.progressbar import EMPTY, HALF_ACROSS, HALF_UP
 
 
 def drawn(progress: ProgressBar) -> Canvas:
-    """The bar painted on a canvas just its size."""
+    """The bar painted on a canvas of its size.
+
+    :param progress: The bar.
+    """
     canvas = Canvas(progress.rect.width, progress.rect.height)
     progress.paint(canvas, canvas.bounds, False)
     return canvas
@@ -26,7 +29,7 @@ class ProgressBarTests(unittest.TestCase):
         self.assertEqual(drawn(progress).cell(0, 9)[1], ProgressBar.filled_style)
 
     def test_half_cells(self) -> None:
-        """25% of 10 cells is two and a half: ▌ for the half."""
+        """Half cells."""
         progress = ProgressBar(0, 0, 10, value=25, text=None)
         self.assertEqual(drawn(progress).text(0), "  " + HALF_ACROSS + EMPTY * 7)
         half = drawn(progress).cell(0, 2)[1]
@@ -34,8 +37,7 @@ class ProgressBarTests(unittest.TestCase):
         self.assertEqual(half.background, ProgressBar.empty_style.background)
 
     def test_text_changes_colour_where_reached(self) -> None:
-        """The text is in the middle; the part the progress has reached is in
-        its colours, the rest in the track's."""
+        """Text changes colour where reached."""
         progress = ProgressBar(0, 0, 11, value=50)
         canvas = drawn(progress)
         self.assertEqual(canvas.text(0)[4:7], "50%")
@@ -90,8 +92,7 @@ class ColumnBarTests(unittest.TestCase):
         self.assertEqual(drawn(progress).text(2), HALF_UP)
 
     def test_text_down_the_middle(self) -> None:
-        """The text reads from top to bottom down the middle column, each
-        character changing colour as the bar rises past it."""
+        """Column text runs down the middle."""
         progress = ColumnBar(0, 0, 5, 3, value=20)
         canvas = drawn(progress)
         self.assertEqual(

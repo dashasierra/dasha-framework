@@ -1,5 +1,4 @@
-"""Tabs: pages of widgets sharing the same place, with a row of tabs to
-choose which page is shown."""
+"""Tabbed pages."""
 
 from collections.abc import Callable
 
@@ -15,19 +14,18 @@ from dasha.widgets.label import on_window, paint_mnemonic_label
 DIVIDER = "\N{BOX DRAWINGS LIGHT VERTICAL}"
 LINE = "\N{BOX DRAWINGS LIGHT HORIZONTAL}"
 JOIN = "\N{BOX DRAWINGS LIGHT UP AND HORIZONTAL}"
-"""``│`` between the tabs, ``─`` below them, and ``┴`` where the two meet
-(code page 437 glyphs 179, 196 and 193)."""
+"""Tab line characters."""
 OPEN_LEFT = "\N{BOX DRAWINGS LIGHT UP AND LEFT}"
 OPEN_RIGHT = "\N{BOX DRAWINGS LIGHT UP AND RIGHT}"
-"""``┘`` and ``└``, which turn the line below up into the chosen tab's sides,
-so that the tab opens onto its page (code page 437 glyphs 217 and 192)."""
+"""Corner characters for the chosen tab."""
 
 
 class TabPage(Container):
-    """One page of a ``Tabs`` widget, whose widgets are shown while it is the
-    selected page. Pages are created by ``Tabs.add_page``, and ``add`` puts a
-    widget on the page, positioned relative to the area below the row of
-    tabs."""
+    """One page of a ``Tabs`` widget.
+
+    :param tabs: The tabs widget.
+    :param label: Tab label; ``&`` marks the mnemonic.
+    """
 
     noun = "tabs"
 
@@ -50,54 +48,15 @@ class TabPage(Container):
 
 
 class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
-    """``Tabs`` shows several pages of widgets in the same place, with a row of
-    tabs above them to choose which page is shown, as a properties dialog does:
+    """Pages of widgets chosen by a row of tabs.
 
-    ::
-
-         General │ Account │
-        ─────────┘         └──────────────
-         (the chosen page's widgets)
-
-    ::
-
-        tabs = dialog.add(widget=Tabs(row=1, column=2, width=50, height=13))
-        general = tabs.add_page(label="&General")
-        general.add(widget=CheckBoxes(labels=["&Window shadows"], row=0, column=1))
-        account = tabs.add_page(label="Accou&nt")
-        account.add(widget=PasswordBox(row=1, column=11, width=30, name="password"))
-
-    Each page is a container (a ``TabPage``; see ``dasha.widgets.container``).
-    ``page.add(widget)`` places a widget relative to the area below the tabs,
-    and only the selected page's widgets are shown. The widgets of every page
-    are included in ``dialog.values``.
-
-    - Left / Right, on the tabs (``tabs_left`` / ``tabs_right``): choose the
-      neighbouring tab
-    - Ctrl+PgDn / Ctrl+PgUp, anywhere in the window (``tabs_next`` /
-      ``tabs_previous``): choose the next / previous page, wrapping round from
-      the last to the first
-    - A click on a tab, or its letter: choose that tab
-
-    Tab moves the focus from the tabs into the selected page's widgets, and
-    then onwards. Choosing another page while the focus was on the previous
-    page moves the focus to the tabs. ``value`` (and ``selected``) is the selected
-    page's number, and ``selected_page`` is the page itself. ``select(index)`` and
-    ``step(step)`` (``step(step=1)`` for the next page, ``step(step=-1)`` for
-    the previous one) choose a page as the user does, and ``on_change(tabs)`` is
-    called for every change the user makes.
-
-    **Disabled pages.** ``disable(*indexes)`` greys out those pages' tabs
-    (``tabs.disabled``). They cannot be chosen by key, click or letter, their
-    letters are free for other widgets to use, and moving from tab to tab
-    skips over them. ``enable(*indexes)`` undoes this, and ``is_enabled(index)``
-    and the ``disabled`` set say which pages are which. If the selected page
-    is disabled, the next one that is not is shown instead. Tabs whose pages
-    are all disabled cannot take the focus.
-
-    The colours are ``tabs`` (the tabs not selected, and the lines),
-    ``tabs.selected``, ``tabs.focused`` and ``tabs.disabled``; colours left
-    as ``default`` are the window's.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param width: Width in columns.
+    :param height: Height in rows.
+    :param on_change: Called with the tabs when the user changes page.
+    :param name: Widget name.
+    :param status: Status bar text.
     """
 
     focusable = True
@@ -134,8 +93,10 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
     # The pages
 
     def add_page(self, label: str) -> TabPage:
-        """Add a page, with its tab last (``&`` marks a mnemonic letter in the
-        label)."""
+        """Add a page and return it.
+
+        :param label: Tab label; ``&`` marks the mnemonic.
+        """
         page = TabPage(self, label)
         self.pages.append(page)
         return page
@@ -155,15 +116,15 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
         return self.pages[self._index] if self.pages else None
 
     def help_topic(self) -> str | None:
-        """The help topic of the selected page, if it has one, since that is
-        what the tabs are showing; otherwise, as for any widget, ``help``."""
+        """The selected page's help topic, or the widget's."""
         page = self.selected_page
         return page.help if page is not None and page.help else self.help
 
     def select(self, index: int) -> None:
-        """Choose a page as the user does, calling ``on_change`` if the page
-        changed. If the focus was on the previous page, it moves to the
-        tabs. A disabled page cannot be chosen."""
+        """Choose a page, as the user does.
+
+        :param index: Page index.
+        """
         if not self.pages:
             return
         index = max(0, min(index, len(self.pages) - 1))
@@ -174,8 +135,10 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
             self.on_change(self)
 
     def _show(self, index: int) -> None:
-        """Show a page, moving the focus to the tabs if it was on the page
-        shown before."""
+        """Show a page.
+
+        :param index: Page index.
+        """
         self._index = index
         window = self.window
         if window is not None:
@@ -184,16 +147,19 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
                 window.focus(self)
 
     def step(self, step: int) -> None:
-        """Choose the page ``step`` places on, wrapping round from the last to
-        the first, and passing over disabled pages."""
+        """Choose a page, wrapping round.
+
+        :param step: Pages to move by.
+        """
         number = self._next_enabled(step)
         if number is not None:
             self.select(number)
 
     def _next_enabled(self, step: int) -> int | None:
-        """The first page that is not disabled, going ``step`` places at a
-        time from the selected one and wrapping round; ``None`` if there is
-        none but the selected page."""
+        """The next enabled page, or ``None``.
+
+        :param step: Pages to move by.
+        """
         count = len(self.pages)
         if not count or not step % count:
             return None
@@ -205,9 +171,10 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
         return None
 
     def _beside(self, step: int) -> None:
-        """Choose the nearest page that is not disabled on one side (``step``
-        of -1 or 1) of the selected one, if there is one, without wrapping
-        round."""
+        """Choose the nearest enabled page to one side.
+
+        :param step: -1 or 1.
+        """
         number = self._index + step
         while 0 <= number < len(self.pages) and not self.is_enabled(number):
             number += step
@@ -217,14 +184,17 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
     # Disabled pages
 
     def is_enabled(self, index: int) -> bool:
-        """Whether the page numbered ``index`` can be chosen."""
+        """Whether a page can be chosen.
+
+        :param index: Page index.
+        """
         return index not in self.disabled
 
     def disable(self, *indexes: int) -> None:
-        """Grey out these pages' tabs, so that they cannot be chosen. If the
-        selected page is one of them, the next page that is not disabled is
-        shown instead (``on_change`` is not called, as the user did not
-        change it)."""
+        """Grey out pages.
+
+        :param indexes: Page indexes.
+        """
         self.disabled.update(indexes)
         if self.pages and not self.is_enabled(self._index):
             number = self._next_enabled(1)
@@ -232,7 +202,10 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
                 self._show(number)
 
     def enable(self, *indexes: int) -> None:
-        """Let these pages be chosen again."""
+        """Re-enable pages.
+
+        :param indexes: Page indexes.
+        """
         self.disabled.difference_update(indexes)
 
     def can_focus(self) -> bool:
@@ -244,8 +217,7 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
     # Where each tab is
 
     def _spans(self) -> list[tuple[int, int]]:
-        """Each tab's (first column, width) along the row, relative to the
-        widget: `` Label `` and then a divider."""
+        """Each tab's (first column, width)."""
         spans, column = [], 0
         for page in self.pages:
             width = len(split_mnemonic(page.label)[0]) + 2
@@ -254,7 +226,10 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
         return spans
 
     def tab_at(self, column: int) -> int | None:
-        """The tab at a column of the window's content, if there is one."""
+        """The tab at a column, if any.
+
+        :param column: Column in the window's content.
+        """
         offset = column - self.rect.column
         for number, (first, width) in enumerate(self._spans()):
             if first <= offset < first + width:
@@ -307,8 +282,15 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
         span: tuple[int, int],
         styles: tuple[Style, Style],
     ) -> None:
-        """One tab, `` Label ``, in its style, and the divider after it in
-        the plain one, as far as the widget's width allows."""
+        """Draw one tab and its divider.
+
+        :param canvas: Canvas to draw on.
+        :param origin: The window's interior on screen.
+        :param at: Screen row and column.
+        :param number: Page index.
+        :param span: First column and width.
+        :param styles: Tab and plain styles.
+        """
         (row, left), (first, length), width = at, span, self.rect.width
         style, plain = styles
         canvas.write(row, left + first, " ", style, clip=origin)
@@ -341,7 +323,11 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
                 return
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """Left and Right choose the neighbouring tab that is not disabled."""
+        """Choose a neighbouring tab.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         actions: dict[str, Callable[[], object]] = {
             "tabs_left": lambda: self._beside(-1),
             "tabs_right": lambda: self._beside(1),
@@ -349,7 +335,11 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
         return run_shortcut(shortcuts, key, actions)
 
     def window_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """Ctrl+PgDn and Ctrl+PgUp choose the next or previous page."""
+        """Choose the next or previous page.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         actions: dict[str, Callable[[], object]] = {
             "tabs_next": lambda: self.step(1),
             "tabs_previous": lambda: self.step(-1),
@@ -357,8 +347,12 @@ class Tabs(Widget):  # pylint: disable=too-many-instance-attributes
         return bool(self.pages) and run_shortcut(shortcuts, key, actions)
 
     def handle_mouse(self, event: MouseEvent, row: int, column: int) -> bool:
-        """A press on a tab chooses it; presses on the rest of the widget,
-        beneath its page's widgets, are not used up."""
+        """Choose the tab clicked.
+
+        :param event: The mouse event.
+        :param row: Row in the window's interior.
+        :param column: Column in the window's interior.
+        """
         if event.button != "left" or row != self.rect.row:
             return False
         if event.action == "press":

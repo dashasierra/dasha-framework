@@ -1,16 +1,4 @@
-"""The desktop's side of applications that run in their own processes.
-
-``AppServer`` listens for applications, starts them (``start``) and passes
-their messages on. Each one is an ``AppHost``: its process, its connection,
-and its windows, which the desktop shows as ``RemoteWindow``\\ s. A remote
-window is an ordinary window to the presentation manager: it has a frame,
-and moves, resizes, minimises and stacks like any other, while what is
-inside the frame comes from the application, which is told about every key
-and click.
-
-An application that crashes, or stops answering on its connection, affects
-only its own windows: the desktop removes them and reports what happened.
-"""
+"""The desktop side of applications in other processes."""
 
 # pylint: disable=too-many-lines
 
@@ -79,12 +67,22 @@ if TYPE_CHECKING:
 
 
 def _squeezed(name: str) -> str:
-    """A name in lower case, without spaces, hyphens or underscores."""
+    """A name lowercased without spaces, hyphens or underscores.
+
+    :param name: The name.
+    """
     return "".join(name.replace("-", " ").replace("_", " ").split()).casefold()
 
 
 class AppHost:  # pylint: disable=too-many-instance-attributes
-    """One application running in its own process."""
+    """One application in its own process.
+
+    :param server: The application server.
+    :param target: ``MODULE:CLASS`` or a script.
+    :param name: Application name.
+    :param venv: Virtual environment folder, if any.
+    :param guessed_name: Whether the name was made up.
+    """
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
@@ -98,15 +96,11 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
         self.server = server
         self.manager = server.manager
         self.target = target
-        """What it runs: ``MODULE:CLASS``, or a script (``path/app.py``,
-        ``path/app.py:CLASS``)."""
+        """What it runs."""
         self.venv = venv
         """The virtual environment whose Python runs it, if not this one."""
         self.guessed_name = guessed_name
-        """Whether ``name`` was only made up from what it runs (by Run...),
-        so the name the application gives itself may replace it. Otherwise
-        the desktop's name stands: an application cannot pass itself off as
-        another, or as Dasha Framework."""
+        """Whether the name was made up."""
         self.token = secrets.token_hex(16)
         self.application = RemoteApplication(self, name)
         self.windows: dict[int, RemoteWindow] = {}
@@ -117,8 +111,7 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
         self.version = PROTOCOL_VERSION
         """The protocol version agreed with the application."""
         self.pid: int | None = None
-        """The process id the application gave when it connected: the real
-        Python's, which a virtual environment's launcher may have started."""
+        """The application's process id."""
         self.ended = False
         self.said_bye = False
         self.stopping = False
@@ -127,8 +120,7 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
         self.started_at = time.monotonic()
         self.last_heard = self.started_at
         self.load_asked_at = self.started_at
-        """When it connected, or when the user last chose to wait for it to
-        finish loading (``AppServer.slow_to_load``)."""
+        """When the load wait last started."""
         self._ping_sent: float | None = None
         self._outbox: "queue.Queue[bytes | None]" = queue.Queue()
         self._told_active: int | None = None
@@ -143,16 +135,11 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
 
     @property
     def is_loading(self) -> bool:
-        """Whether it has been started but has nothing to show yet. Until
-        then, the desktop goes on as it was: it is not one of the manager's
-        applications, and the menu bar, the status bar and the system menu
-        take no notice of it (``loaded``)."""
+        """Whether it has started but shows nothing yet."""
         return not self.ended and not self.application.is_running
 
     def loaded(self) -> None:
-        """Make it the active application, now that it has something to
-        show. If the desktop is already asking its applications whether they
-        may close, it is asked too, now that it might have work to lose."""
+        """Make it the active application once loaded."""
         self.manager.add_application(self.application)
         closing = self.server.closing
         if closing is not None:
@@ -160,8 +147,7 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
             self.send("may_close")
 
     def start(self) -> None:
-        """Start the application's process, which then connects back to the
-        desktop."""
+        """Start the process."""
         server = self.server
         safe = re.sub(r"[^A-Za-z0-9]+", "-", self.name).strip("-").lower() or "app"
         folder = server.log_folder
@@ -200,9 +186,7 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
             pass  # it has gone already; poll() notices
 
     def python(self) -> Path:
-        """The Python that runs the application: its virtual environment's
-        Python, or the desktop's own. Raises ``FileNotFoundError`` for a
-        virtual environment without a Python."""
+        """The Python that runs the application."""
         if self.venv is None:
             return Path(sys.executable)
         python = venv_python(self.venv)
@@ -211,11 +195,7 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
         return python
 
     def environment(self) -> dict[str, str]:
-        """The environment variables for the child process: the desktop's own,
-        with the address to connect to, and Dasha Framework lent to it. In a
-        virtual environment, only Dasha Framework is lent (a copy of Dasha Framework
-        alone), and only if the environment has not installed its own;
-        nothing else from the desktop's environment leaks in."""
+        """Environment variables for the child process."""
         environment = dict(os.environ)
         environment[ADDRESS_VARIABLE] = self.server.address
         environment[DESKTOP_PID_VARIABLE] = str(os.getpid())
@@ -239,15 +219,19 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
     # Talking to it
 
     def connected(self, connection: Connection) -> None:
-        """Record that the application has connected, and start sending it
-        whatever is waiting in its outbox."""
+        """Record the connection and start sending.
+
+        :param connection: The connection.
+        """
         self.connection = connection
         self.last_heard = self.load_asked_at = time.monotonic()
         threading.Thread(target=self._send_all, args=(connection,), daemon=True).start()
 
     def _send_all(self, connection: Connection) -> None:
-        """Send the outbox, in a thread of its own: an application that has
-        stopped reading blocks this thread, never the desktop."""
+        """Send the outbox on its own thread.
+
+        :param connection: The connection.
+        """
         while (data := self._outbox.get()) is not None:
             try:
                 connection.send_bytes(data)
@@ -255,16 +239,18 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
                 return  # gone (or closed meanwhile); the reader notices
 
     def send(self, kind: str, **fields: object) -> None:
-        """Send a message, if the application is connected. The message goes
-        into the outbox, so this never waits for the application."""
+        """Queue a message, if connected.
+
+        :param kind: Message kind.
+        :param fields: Message fields.
+        """
         if self.connection is not None and not self.ended:
             self._outbox.put(encode(kind, **fields))
 
     # Staying alive
 
     def heard(self) -> None:
-        """Record that a message arrived from the application, which shows it
-        is alive and handling its messages."""
+        """Record that a message arrived."""
         self.last_heard = time.monotonic()
         self._ping_sent = None
         if not self.responding:
@@ -276,8 +262,10 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
             window.show_title()
 
     def check(self, now: float) -> None:
-        """Ping the application when it has been silent, and notice when it
-        stops answering; end it if it never connects."""
+        """Ping, detect hangs, or end if never connected.
+
+        :param now: The current ``time.monotonic``.
+        """
         server = self.server
         if self.connection is None:
             if now - self.started_at > server.start_timeout:
@@ -295,8 +283,7 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
             self._set_responding(False)
 
     def offer_to_end(self) -> None:
-        """Ask the user whether to end the application, now that it is not
-        responding."""
+        """Offer to end an unresponsive application."""
         manager = self.manager
         if not manager.can_show_dialogs:
             return
@@ -311,10 +298,7 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
             self.end_now()
 
     def ask_about_loading(self) -> None:
-        """Ask the user whether to end the application, now that it has been
-        connected for ``load_timeout`` with nothing to show. A slow start
-        is not a failure, so it is ended only if the user says so; choosing
-        to wait asks again after another ``load_timeout``."""
+        """Offer to end a slow-loading application."""
         self.load_asked_at = time.monotonic()
         dialog = question(
             self.name,
@@ -328,8 +312,7 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
             self.end_now()
 
     def end_now(self) -> None:
-        """End the application immediately, together with everything it
-        started."""
+        """End the application and its children now."""
         self.stopping = True
         if self.tree is not None:
             self.tree.kill()
@@ -337,13 +320,7 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
 
     @property
     def can_take_front(self) -> bool:
-        """Whether the application's windows may come to the front and take
-        the keyboard. This is allowed only while it is the active application
-        (the one the user chose most recently), or while the desktop is
-        shutting down and has asked it whether it may close, so that it can
-        ask about unsaved work. Otherwise, an application in the background
-        could open a window while the user is typing in another
-        application's window, and capture what they type."""
+        """Whether its windows may come to the front."""
         if self.application is self.manager.active_application:
             return True
         closing = self.server.closing
@@ -351,14 +328,15 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
 
     @property
     def modal_window(self) -> RemoteWindow | None:
-        """The application's dialog that is waiting for an answer, if any (the
-        most recent one, if there are several)."""
+        """Its waiting dialog, if any."""
         modal = [window for window in self.windows.values() if window.modal]
         return modal[-1] if modal else None
 
     def _blocked(self, window: RemoteWindow) -> bool:
-        """Whether input to a window must wait for a dialog: if so, the
-        dialog is brought forward instead."""
+        """Whether a dialog blocks input to a window.
+
+        :param window: The window.
+        """
         modal = self.modal_window
         if modal is None or modal is window:
             return False
@@ -372,18 +350,20 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
             self.manager.bring_to_front(window)
 
     def input(self, window: RemoteWindow, kind: str, **fields: object) -> None:
-        """Pass a key, click or paste on to one of the application's
-        windows."""
+        """Pass input to a window.
+
+        :param window: The window.
+        :param kind: Input kind.
+        :param fields: Input fields.
+        """
         if not self._blocked(window):
             self.send(kind, id=window.number, **fields)
 
     def choose(self, path: Sequence[int]) -> None:
-        """Handle the choice of an item in the application's menus. While one
-        of its dialogs is waiting for an answer, the dialog comes forward
-        instead, and a shortcut's key is sent to the dialog as a key press.
-        When the item was chosen with a shortcut, the key is sent along with
-        the choice, in case the application has opened a dialog that the
-        desktop does not know about yet."""
+        """Handle a chosen menu item.
+
+        :param path: Menu and item indexes.
+        """
         key = self.manager.menu_bar.shortcut_key
         modal = self.modal_window
         if modal is not None:
@@ -396,10 +376,10 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
             self.send("menu", path=list(path))
 
     def set_menus(self, menus: Sequence[Any]) -> None:
-        """Apply the menus sent by the application, so that choosing an item
-        tells the application which one was chosen. Raises ``ProtocolError``
-        for more than ``MAX_MENU_ITEMS`` items, or for submenus deeper than
-        ``MAX_MENU_DEPTH``."""
+        """Apply the application's menus.
+
+        :param menus: The encoded menus.
+        """
         reserved = self._reserved_keys()
         count = [0]
         self.application.menus = [
@@ -408,9 +388,7 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
         ]
 
     def _reserved_keys(self) -> set[str]:
-        """The desktop's keys, as a menu writes them (``"alt+f4"``): no
-        item of an application's may take one as its shortcut, or it could
-        keep the user from switching away, closing it or opening the menus."""
+        """The desktop's reserved keys."""
         shortcuts = self.manager.shortcuts
         return {
             pretty_key(key).lower()
@@ -460,9 +438,7 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
         return Menu(one_line(data["title"]), items, after_window=after_window)
 
     def flush(self) -> None:
-        """Tell the application what has changed on the desktop: where its
-        windows are, how they are scrolled, which one is active, and the
-        screen size."""
+        """Tell the application what changed."""
         if self.connection is None:
             return
         for window in self.windows.values():
@@ -503,7 +479,10 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
     # Hearing from it
 
     def handle(self, message: Message) -> None:  # pylint: disable=too-many-branches
-        """Handle one message from the application."""
+        """Handle a message from the application.
+
+        :param message: The message.
+        """
         self.heard()
         kind = message["type"]
         # Its first flush comes as soon as it has started, with its menus
@@ -557,11 +536,11 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
             self.said_bye = True
 
     def _request(self, window: RemoteWindow | None, op: str) -> None:
-        """Do what its Window menu (or code) asked of the desktop. Only
-        minimising and sending a window to the back are done for an
-        application in the background (``can_take_front``): everything else
-        would take the front, or the keyboard, from the user's work, or ask
-        to leave the desktop."""
+        """Do a window request from the application.
+
+        :param window: The window, if any.
+        :param op: The request.
+        """
         manager = self.manager
         if op not in ("minimise", "send_to_back") and not self.can_take_front:
             return
@@ -601,9 +580,10 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
             self.send("quit")
 
     def finish(self, crashed: bool) -> None:
-        """Handle the end of the application: take its windows off the
-        desktop, and if it ended without saying goodbye, report what
-        happened."""
+        """Handle the application's end.
+
+        :param crashed: Whether it ended without saying goodbye.
+        """
         if self.ended:
             return
         self.ended = True
@@ -631,54 +611,39 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
         self.server.ended(self, crashed and not self.stopping)
 
     def drop_empty_log(self) -> None:
-        """Once the application has ended, delete its log if it wrote
-        nothing to it."""
+        """Delete the log if empty."""
         if self.log_path is not None:
             logs.drop_if_empty(self.log_path)
 
     def last_words(self) -> str:
-        """The last line the application wrote to its log (its standard
-        error), if any, kept to one line of at most ``MAX_TEXT`` characters
-        (``logs.last_line``)."""
+        """The last line of its log, if any."""
         if self.log_path is None:
             return ""
         return one_line(logs.last_line(self.log_path))
 
 
 class AppServer:  # pylint: disable=too-many-instance-attributes
-    """Starts applications in their own processes, and passes messages
-    between them and the presentation manager."""
+    """Starts applications and relays their messages.
+
+    :param manager: The presentation manager.
+    """
 
     poll_interval: float = 0.02
-    """The longest time, in seconds, that the desktop waits for input while
-    applications are running, before checking whether they have sent
-    anything."""
+    """Longest input wait, in seconds, while applications run."""
     ping_interval: float = 1.0
-    """How many seconds an application can be silent before it is
-    pinged."""
+    """Seconds of silence before a ping."""
     hang_timeout: float = 5.0
-    """How many seconds a ping may go unanswered before the application
-    counts as not responding."""
+    """Seconds before an unanswered ping means hung."""
     start_timeout: float = 30.0
-    """How many seconds an application has to connect once it has been
-    started."""
+    """Seconds to connect after starting."""
     load_timeout: float = 30.0
-    """How many seconds an application can be connected with nothing to show
-    before the user is asked whether to end it or wait for it, and how long
-    each wait lasts (``slow_to_load``)."""
+    """Seconds with nothing shown before asking."""
     handshake_timeout: float = 10.0
-    """How many seconds a new connection has to prove that it knows the
-    key. A connection that stops part-way is dropped, and cannot hold up
-    others that are connecting."""
+    """Seconds to finish the handshake."""
     close_timeout: float = 10.0
-    """How many seconds an application has, when the desktop shuts down, to
-    say whether it may close, unless it is asking the user (because one of
-    its dialogs is open). After that, the user is asked whether to end
-    it."""
+    """Seconds to answer whether it may close."""
     max_messages: int = 1000
-    """The largest number of messages handled on each pass of the desktop's
-    loop, so that a flood of messages from one application cannot stop the
-    screen being drawn or the keyboard being read."""
+    """Most messages handled per loop pass."""
 
     def __init__(self, manager: "PresentationManager") -> None:
         self.manager = manager
@@ -687,9 +652,7 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
         self.hosts: list[AppHost] = []
         self.lend_folder = LEND_FOLDER
         self.notices: list[tuple[str, str]] = []
-        """What the desktop should tell the user, as (title, message): an
-        application that ended without saying goodbye (with the last line
-        of its log), or one that could not start."""
+        """Messages for the user, as (title, message)."""
         self._listener: Listener | None = None
         self._by_token: dict[str, AppHost] = {}
         self._by_connection: dict[int, AppHost] = {}
@@ -702,14 +665,12 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
 
     @property
     def closing(self) -> set[AppHost] | None:
-        """While the desktop is shutting down, the applications it has asked
-        whether they may close, and has not yet heard back from."""
+        """Applications yet to answer a close request."""
         return self._closing
 
     @property
     def address(self) -> str:
-        """The address that applications connect to, once the server is
-        listening."""
+        """The address applications connect to."""
         return "" if self._listener is None else str(self._listener.address)
 
     @property
@@ -719,14 +680,11 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
 
     @property
     def is_loading(self) -> bool:
-        """Whether any application has been started but has nothing to show
-        yet (``AppHost.is_loading``)."""
+        """Whether any application is still loading."""
         return any(host.is_loading for host in self.hosts)
 
     def slow_to_load(self) -> AppHost | None:
-        """An application that has been connected for ``load_timeout`` with
-        nothing to show, since the user last chose to wait for it, if any.
-        One that has not connected has ``start_timeout`` instead."""
+        """A slow-loading application, if any."""
         now = time.monotonic()
         for host in self.hosts:
             if (
@@ -763,9 +721,10 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
             ).start()
 
     def _authenticate(self, connection: Connection) -> bool:
-        """Whether a new connection knows the key, as ``Listener`` would
-        check it, within ``handshake_timeout``: one that does not answer in
-        time fails."""
+        """Whether a connection knows the key.
+
+        :param connection: The connection.
+        """
         timed = cast(Connection, TimedConnection(connection, self.handshake_timeout))
         try:
             deliver_challenge(timed, self.authkey)
@@ -795,12 +754,13 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
         *,
         guessed_name: bool = False,
     ) -> AppHost | None:
-        """Start an application (a ``MODULE:CLASS`` or a script) in its own
-        process, using a virtual environment's Python if one is given.
-        Returns ``None`` if it cannot start, after recording why for the
-        desktop to report. ``guessed_name`` means that ``name`` was only made
-        up from the target, so the application's own name may replace it
-        (``AppHost.guessed_name``)."""
+        """Start an application, or return ``None``.
+
+        :param target: ``MODULE:CLASS`` or a script.
+        :param name: Application name.
+        :param venv: Virtual environment folder, if any.
+        :param guessed_name: Whether the name was made up.
+        """
         self._listen()
         host = AppHost(self, target, name, venv, guessed_name=guessed_name)
         try:
@@ -816,14 +776,14 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
         return host
 
     def running(self, target: str) -> AppHost | None:
-        """A running (or starting) application of this kind, if there is
-        one."""
+        """A running application of this kind, if any.
+
+        :param target: ``MODULE:CLASS`` or a script.
+        """
         return next((host for host in self.hosts if host.target == target), None)
 
     def poll(self) -> None:
-        """Handle the waiting messages (up to ``max_messages``, leaving the
-        rest for next time), and notice applications that ended before they
-        connected."""
+        """Handle waiting messages."""
         for _ in range(self.max_messages):
             if (waiting := self.inbox.get()) is None:
                 break
@@ -838,9 +798,11 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
             host.check(now)
 
     def _dispatch(self, connection: Connection, message: Message | None) -> None:
-        """Act on a message from an application (``None``: it has gone).
-        One that cannot be acted on (a field missing or of the wrong kind)
-        ends that application alone; the desktop and the rest carry on."""
+        """Act on a message, or a disconnect.
+
+        :param connection: The connection.
+        :param message: The message, or ``None`` if gone.
+        """
         host = self._by_connection.get(id(connection))
         if host is None:
             if message is not None:
@@ -862,7 +824,11 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
             )
 
     def _greet(self, connection: Connection, message: Message) -> None:
-        """An application introducing itself: welcome it, or refuse."""
+        """Welcome or refuse an application.
+
+        :param connection: The connection.
+        :param message: The hello message.
+        """
         host = self._by_token.get(str(message.get("token")))
         reason = ""
         agreed = agree_version(message)
@@ -905,9 +871,10 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
         )
 
     def _reserved_name(self, name: str) -> bool:
-        """Whether a name is the desktop's own (``Dasha Desktop``, or
-        whatever the manager calls itself), which no application may take,
-        in any case and however it is spaced (``dasha-desktop`` too)."""
+        """Whether a name is the desktop's own.
+
+        :param name: The name.
+        """
         return _squeezed(name) == _squeezed(self.manager.no_application)
 
     def prune_logs(self) -> None:
@@ -920,7 +887,11 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
             host.flush()
 
     def ended(self, host: AppHost, crashed: bool) -> None:
-        """Called by an ``AppHost`` once it has ended."""
+        """Called once an application has ended.
+
+        :param host: The application.
+        :param crashed: Whether it crashed.
+        """
         if host in self.hosts:
             self.hosts.remove(host)
         self._by_token.pop(host.token, None)
@@ -938,8 +909,10 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
             self.answered(host, True)
 
     def outside_press(self, event: MouseEvent) -> bool:
-        """Handle a press outside a waiting drop-down list by closing the list
-        (and using up the press, as a list in this process would)."""
+        """Close a waiting drop-down list on an outside press.
+
+        :param event: The mouse event.
+        """
         active = self.manager.active_window
         if (
             isinstance(active, RemoteWindow)
@@ -952,9 +925,7 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
         return False
 
     def share_theme(self) -> None:
-        """Send the desktop's new theme to every application, which takes it
-        on at once and redraws its windows. Each is sent the roles that its
-        protocol version knows (``theme.NEWER_ROLES``)."""
+        """Send the theme to every application."""
         current = theme.current_theme()
         written: dict[int, str] = {}
         for host in self.hosts:
@@ -967,12 +938,11 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
             )
 
     def share_clipboard(self, source: AppHost, text: str) -> None:
-        """Handle text cut or copied in an application. The desktop's
-        clipboard takes it, and other applications receive it when one of
-        their windows next becomes active (``AppHost.flush``), but not
-        before, so that an application in the background cannot read what is
-        copied elsewhere. Only the active application may change the
-        clipboard, because only it can have been told to by the user."""
+        """Take text cut or copied in an application.
+
+        :param source: The application.
+        :param text: The text.
+        """
         if source.application is not self.manager.active_application:
             return
         source.told_clipboard = text
@@ -981,12 +951,10 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
     # Shutting down
 
     def ask_to_close(self, then: Callable[[], object]) -> None:
-        """Ask every application whether it may close (each may ask about
-        unsaved work first), and call ``then`` once they have all agreed. Any
-        application that answers no stops the shutdown. One still loading has
-        no work to lose, and may be too busy to answer: it is not asked unless
-        it finishes loading first (``AppHost.loaded``), and ``stop_all`` ends
-        it."""
+        """Ask every application whether it may close.
+
+        :param then: Called once all agree.
+        """
         asking = {
             host
             for host in self.hosts
@@ -1002,10 +970,7 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
             host.send("may_close")
 
     def stuck(self) -> AppHost | None:
-        """While shutting down, an application that is not responding, or that
-        has not said whether it may close within ``close_timeout`` while
-        asking the user nothing, and that the user has not been asked about
-        within the last ``hang_timeout``."""
+        """A stuck application during shutdown, if any."""
         if self._closing is None:
             return None
         now = time.monotonic()
@@ -1020,9 +985,10 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
         return None
 
     def ask_about(self, host: AppHost) -> None:
-        """While shutting down, ask the user about an application that is not
-        responding: whether to end it, wait longer, or stop shutting
-        down."""
+        """Ask the user about a stuck application.
+
+        :param host: The application.
+        """
         self._asked_at[host] = time.monotonic()
         state = (
             "is not responding"
@@ -1043,7 +1009,11 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
             self._closing = self._then = None
 
     def answered(self, host: AppHost, ok: bool) -> None:
-        """Record an application's answer to ``ask_to_close``."""
+        """Record an answer to ``ask_to_close``.
+
+        :param host: The application.
+        :param ok: Whether it may close.
+        """
         closing, then = self._closing, self._then
         if closing is None or host not in closing:
             return
@@ -1057,9 +1027,10 @@ class AppServer:  # pylint: disable=too-many-instance-attributes
                 then()
 
     def stop_all(self, wait: float = 2.0) -> None:
-        """End every application: ask each to quit, wait a little, and then end
-        any that are still running. Also stops listening for
-        connections."""
+        """End every application.
+
+        :param wait: Seconds to wait before forcing.
+        """
         for host in list(self.hosts):
             host.stopping = True
             host.send("quit")

@@ -1,13 +1,4 @@
-"""Animations: the intermediate frames drawn as a menu drops down from the
-menu bar, or as a window moves from one position to another (see
-``PresentationManager.animations``).
-
-A window is animated as a frame that moves, growing or shrinking, from its
-old position to its new one. Throughout, it holds what was inside the window
-when the animation began, exactly as it was: not laid out again or
-scrolled, but cut off where the frame is smaller, and blank beyond it where
-the frame is bigger.
-"""
+"""Menu and window animations."""
 
 from dataclasses import dataclass
 
@@ -16,16 +7,20 @@ from dasha.window import Window
 
 
 def frame_parts(frames: int) -> list[float]:
-    """How far along each of ``frames`` intermediate frames is, from 0 (the
-    start) to 1 (the end), evenly spaced: ``[1/3, 2/3]`` for two frames. The
-    end itself is shown by the next ordinary frame."""
+    """Evenly spaced fractions for intermediate frames.
+
+    :param frames: Number of frames.
+    """
     return [step / (frames + 1) for step in range(1, frames + 1)]
 
 
 def between(start: Rect, end: Rect, part: float) -> Rect:
-    """The rectangle that is the fraction ``part`` (from 0 to 1) of the way
-    from ``start`` to ``end``, with each edge moving in a straight line. It
-    is never smaller than a frame's corners (two by two)."""
+    """A rect part of the way between two others.
+
+    :param start: Starting rect.
+    :param end: Ending rect.
+    :param part: Fraction from 0 to 1.
+    """
 
     def along(first: int, last: int) -> int:
         return round(first + (last - first) * part)
@@ -36,46 +31,44 @@ def between(start: Rect, end: Rect, part: float) -> Rect:
 
 
 def scroll_bars_shown(window: Window) -> tuple[bool, bool]:
-    """Whether a window shows its (vertical, horizontal) scroll bars at its
-    current position and size."""
+    """Whether a window shows its (vertical, horizontal) scroll bars.
+
+    :param window: The window.
+    """
     vertical, horizontal = window.scroll_bars
     return vertical is not None, horizontal is not None
 
 
 @dataclass
 class WindowAnimation:
-    """A window moving from ``start`` to ``end``, as it is maximised,
-    minimised or restored."""
+    """A window moving between two positions."""
 
     window: Window
     start: Rect
     end: Rect
     inside: Canvas
-    """What was inside the window when the animation began
-    (``Window.render_interior``), shown throughout."""
+    """The window's contents when it began."""
     bars: tuple[bool, bool]
-    """The scroll bars (vertical, horizontal) the window may show during the
-    animation: those it has at its full size, which is at the end (or at the
-    start, when minimising)."""
+    """Scroll bars shown during the animation."""
     showing: bool = True
-    """Whether the window is on the screen (rather than minimised) at the
-    end. An animation is not drawn if its window is not, or is no longer,
-    in the expected state."""
+    """Whether the window ends on screen."""
 
     @classmethod
     def of(cls, window: Window) -> "WindowAnimation":
-        """An animation of a window from its current position, with its
-        current contents, ending at the same position until ``end`` is
-        set."""
+        """An animation from a window's current position.
+
+        :param window: The window.
+        """
         rect = window.rect
         return cls(
             window, rect, rect, window.render_interior(True), scroll_bars_shown(window)
         )
 
     def to_window(self, start: Rect | None = None) -> "WindowAnimation":
-        """End the animation where the window is now (and start it from
-        ``start``, if given), showing the scroll bars the window has
-        there."""
+        """End the animation where the window is now.
+
+        :param start: Where to start, if changing.
+        """
         if start is not None:
             self.start = start
         self.end = self.window.rect
@@ -84,7 +77,10 @@ class WindowAnimation:
         return self
 
     def paint(self, canvas: Canvas, part: float) -> None:
-        """Draw the window the fraction ``part`` (from 0 to 1) of the way
-        along."""
+        """Draw the window part of the way along.
+
+        :param canvas: Canvas to draw on.
+        :param part: Fraction from 0 to 1.
+        """
         rect = between(self.start, self.end, part)
         self.window.paint_between(canvas, rect, self.inside, self.bars)
