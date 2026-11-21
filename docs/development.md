@@ -74,9 +74,12 @@ python -m coverage html
 Part of the terminal code is specific to each platform:
 `terminal/_posix.py` runs only on Linux and macOS, and `terminal/_windows.py`
 only on Windows, so a run on one platform leaves the other's code
-uncovered. Code that only runs in a real terminal, such as the `--key-test`
-screen and reading from the console, is also left uncovered and needs to be
-checked by hand. Git ignores the data files (`.coverage*`) and `htmlcov/`.
+uncovered. The pull request checks therefore combine the data from every
+platform before checking the total (see below); `[tool.coverage.paths]`
+lets `coverage combine` merge files measured in different checkouts.
+Code that only runs in a real terminal, such as reading from the console,
+is also left uncovered and needs to be checked by hand. Git ignores the
+data files (`.coverage*`) and `htmlcov/`.
 
 ## Formatting, linting and type checking
 
@@ -128,8 +131,11 @@ exactly where the problem is:
   code that only it runs.
 - **Tests** (`tests/`) and **App tests** (`apps/tests/`), on all three
   platforms, with both the oldest and the newest Python that Dasha Framework
-  supports. The tests measure coverage as they run: the results appear on
-  the run's summary page, and coverage below 90% fails the check.
+  supports. The tests measure coverage as they run, and each run's results
+  appear on its summary page. A last job, **coverage (all platforms)**,
+  combines what every run measured and fails if the total is under 95%. It
+  also fails if any test run failed, so it is the one check to require
+  before merging.
 - **Docs**: builds the documentation as Read the Docs does, treating every
   warning as an error.
 - **Package**: builds the package as PyPI would receive it, checks it with

@@ -102,6 +102,11 @@ branch = true
 patch = ["subprocess"]
 parallel = true
 
+[tool.coverage.paths]
+# CI combines the data from Linux, macOS and Windows, each measured in a
+# checkout of its own: every checkout's src/dasha is this one's.
+source = ["src/dasha", "*/src/dasha", "*\\src\\dasha"]
+
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
