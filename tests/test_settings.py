@@ -262,6 +262,119 @@ class AppearanceTests(Settings):
         self.assertEqual(theme.current_theme(), before)
 
 
+class AppearanceProblemTests(Settings):
+    """The colours file, themes that cannot be used, and files that cannot
+    be written."""
+
+    def test_the_colours_file_is_offered(self) -> None:
+        """A colours file is listed, and choosing it uses its colours."""
+        self.home.joinpath("colours.json").write_text(
+            theme.theme_to_json(theme.DARK_THEME, "dark"), "utf-8"
+        )
+        dialog = self.dialog()
+        choose(dialog, "theme", "Colours file")
+        self.assertEqual(theme.current_theme(), theme.DARK_THEME)
+        self.assertIsNone(dialog.appearance.choice)
+
+    def test_a_theme_set_some_other_way_is_listed(self) -> None:
+        """A theme in use but not in the folder is still offered."""
+        self.manager.theme_name = "borrowed"
+        dialog = self.dialog()
+        self.assertEqual(dialog.appearance.theme_box.selected_item, "borrowed")
+
+    def test_a_broken_theme_in_the_folder(self) -> None:
+        """Choosing it says why, and the colours stay as they were."""
+        folder = self.home / "themes"
+        folder.mkdir()
+        folder.joinpath("broken.json").write_text("{not json", "utf-8")
+        before = theme.current_theme()
+        dialog = self.dialog()
+        self.manager.answers = [answered("ok")]
+        choose(dialog, "theme", "broken")
+        self.assertEqual(self.manager.asked, ["Themes"])
+        self.assertEqual(theme.current_theme(), before)
+        self.assertEqual(dialog.appearance.theme_box.selected_item, "Default")
+
+    def test_load_and_save_as_cancelled(self) -> None:
+        """Cancelling either file dialog changes nothing."""
+        dialog = self.dialog()
+        self.manager.answers = [answered("cancel"), answered("cancel")]
+        press(dialog, "load_theme")
+        press(dialog, "save_theme")
+        self.assertEqual(self.manager.asked, ["Load a theme", "Save the theme as"])
+        self.assertFalse(dialog.appearance.edited)
+        self.assertEqual(list(self.home.joinpath("themes").iterdir()), [])
+
+    def test_save_as_adds_the_suffix(self) -> None:
+        """A name without a suffix is saved as JSON."""
+        dialog = self.dialog()
+        self.manager.answers = [file_chosen(self.home / "themes" / "plain")]
+        press(dialog, "save_theme")
+        self.assertTrue(self.home.joinpath("themes", "plain.json").exists())
+        self.assertEqual(dialog.appearance.choice, "plain")
+
+    def test_save_as_where_nothing_can_be_written(self) -> None:
+        """A themes folder that cannot be made offers the home folder; a
+        file that cannot be written is said."""
+        blocker = self.home / "blocker"
+        blocker.write_text("", "utf-8")
+        self.manager.themes_folder = blocker / "themes"
+        dialog = self.dialog()
+        offered: list[str] = []
+
+        def answer(asked: Dialog) -> str:
+            assert isinstance(asked, FileDialog)
+            offered.append(asked.directory)
+            asked.path = str(blocker / "mine.json")
+            return "ok"
+
+        self.manager.answers = [answer, answered("ok")]
+        press(dialog, "save_theme")
+        self.assertEqual(offered, [str(Path.home())])
+        self.assertEqual(self.manager.asked, ["Save the theme as", "Themes"])
+        self.assertEqual(dialog.appearance.choice, "default")
+
+    def test_button_shadow_shape(self) -> None:
+        """A shape chosen is shown at once, as an edit."""
+        dialog = self.dialog()
+        choose(dialog, "button_shadow", "outline")
+        self.assertEqual(theme.current_theme()["button_shadow"], "outline")
+        self.assertTrue(dialog.appearance.edited)
+        with mock.patch.object(dialog.appearance, "_changed") as changed:
+            dialog.appearance._shape_chosen(dialog.appearance.shadow_shape)
+        changed.assert_not_called()
+
+    def test_an_edit_that_changes_nothing(self) -> None:
+        """Setting a role to the style it has is no edit."""
+        dialog = self.dialog()
+        dialog.appearance._edit(None)
+        self.assertFalse(dialog.appearance.edited)
+
+    def test_colours_that_cannot_be_kept(self) -> None:
+        """A colours file that cannot be written is said; Apply fails."""
+        blocker = self.home / "blocker"
+        blocker.write_text("", "utf-8")
+        self.manager.colours_path = blocker / "colours.json"
+        dialog = self.dialog()
+        choose(dialog, "foreground", "red")
+        self.manager.answers = [answered("ok")]
+        self.assertFalse(dialog.appearance.save())
+        self.assertEqual(self.manager.asked, ["Themes"])
+        self.assertTrue(dialog.appearance.edited)
+
+    def test_a_theme_that_cannot_be_remembered(self) -> None:
+        """A settings file that cannot be written is said; Apply fails."""
+        dialog = self.dialog()
+        choose(dialog, "theme", "Dark")
+        self.manager.answers = [answered("ok")]
+        with mock.patch.object(
+            registry, "save_theme_setting", side_effect=OSError("read-only")
+        ):
+            self.assertFalse(dialog.appearance.save())
+        self.assertEqual(self.manager.asked, ["Themes"])
+        self.assertEqual(dialog.appearance._saved_choice, "default")
+
+
 class ShortcutsTests(Settings):
     """The keys of every action."""
 
@@ -602,6 +715,174 @@ class ApplicationsTests(Settings):
         self.assertEqual(self.manager.asked, ["Install", "Install"])
         self.assertFalse((self.home / "apps").exists())
         self.assertNotIn("desktop", self.manager.registry)
+
+
+class ApplicationProblemTests(Settings):
+    """Installing and uninstalling that is cancelled or fails."""
+
+    def snake(self, dialog: SettingsDialog, *then: Answer) -> None:
+        """Install a script called Snake through Install.
+
+        :param dialog: The settings dialog.
+        :param then: Answers to later dialogs.
+        """
+        script = self.home / "snake.py"
+        script.write_text("", "utf-8")
+
+        def fill(asked: Dialog) -> str | None:
+            assert isinstance(asked, InstallDialog)
+            asked.program.text = str(script)
+            asked.accept()
+            return asked.result
+
+        self.manager.answers = [fill, *then]
+        press(dialog, "install")
+
+    def test_install_cancelled_or_left_blank(self) -> None:
+        """Cancelling installs nothing; a blank program is asked for again."""
+        dialog = self.dialog()
+
+        def blank(asked: Dialog) -> str | None:
+            assert isinstance(asked, InstallDialog)
+            asked.accept()
+            self.assertIsNone(asked.entry)
+            return "cancel"
+
+        self.manager.answers = [blank]
+        press(dialog, "install")
+        self.assertEqual(self.manager.asked, ["Install"])
+        self.assertFalse((self.home / "apps").exists())
+
+    def test_install_that_cannot_be_written(self) -> None:
+        """A manifest that cannot be written is said."""
+        dialog = self.dialog()
+        with mock.patch.object(
+            registry, "write_manifest", side_effect=OSError("disk full")
+        ):
+            self.snake(dialog, answered("ok"))
+        self.assertEqual(self.manager.asked, ["Install", "Install"])
+        self.assertNotIn("snake", self.manager.registry)
+
+    def test_uninstall_with_nothing_chosen(self) -> None:
+        """With nothing installed, Uninstall asks nothing."""
+        dialog = self.dialog()
+        press(dialog, "uninstall")
+        self.assertEqual(self.manager.asked, [])
+
+    def test_uninstall_cancelled(self) -> None:
+        """Cancelling keeps the application."""
+        dialog = self.dialog()
+        self.snake(dialog)
+        self.manager.answers = [answered("cancel")]
+        press(dialog, "uninstall")
+        self.assertIn("snake", self.manager.registry)
+        self.assertTrue(self.home.joinpath("apps", "snake.toml").exists())
+
+    def test_uninstall_that_fails(self) -> None:
+        """An application that cannot be uninstalled is said, and kept."""
+        dialog = self.dialog()
+        self.snake(dialog)
+        self.manager.answers = [answered("uninstall"), answered("ok")]
+        with mock.patch.object(
+            install, "remove_application", side_effect=OSError("in use")
+        ):
+            press(dialog, "uninstall")
+        self.assertEqual(self.manager.asked[-2:], ["Uninstall", "Uninstall"])
+        self.assertIn("snake", self.manager.registry)
+
+    def test_an_environment_made_for_it_can_go_too(self) -> None:
+        """An application with its own environment offers to delete it."""
+        dialog = self.dialog()
+        self.snake(dialog)
+        offered: list[str] = []
+
+        def answer(asked: Dialog) -> str:
+            offered.extend(
+                widget.name or ""
+                for widget in asked.widgets
+                if isinstance(widget, Button)
+            )
+            return "cancel"
+
+        self.manager.answers = [answer]
+        with mock.patch.object(install, "made_venv", return_value=self.home / "venv"):
+            press(dialog, "uninstall")
+        self.assertEqual(offered, ["uninstall", "venv", "cancel"])
+
+
+class SettingsProblemTests(Settings):
+    """Settings that cannot be read, kept or loaded, and files replaced."""
+
+    def test_an_autostart_setting_that_cannot_be_read(self) -> None:
+        """A broken autostart setting starts as none chosen."""
+        with mock.patch.object(
+            registry, "read_autostart", side_effect=registry.ManifestError("bad")
+        ):
+            dialog = self.dialog()
+        self.assertEqual(dialog.desktop.chosen, [])
+
+    def test_desktop_settings_that_cannot_be_saved(self) -> None:
+        """A settings file that cannot be written is said; OK stays open."""
+        dialog = self.dialog()
+        dialog.desktop.escape_wait.set(300)
+        self.manager.answers = [answered("ok")]
+        with mock.patch.object(
+            registry, "save_escape_timeout_setting", side_effect=OSError("read-only")
+        ):
+            press(dialog, "ok")
+        self.assertEqual(self.manager.asked, ["Settings"])
+        self.assertIsNone(dialog.result)
+
+    def test_replacing_a_file_is_asked_first(self) -> None:
+        """Saving over a file asks first; No keeps it."""
+        path = self.home / "mine.json"
+        path.write_text("kept\n", "utf-8")
+        dialog = self.dialog()
+        self.manager.answers = [file_chosen(path), answered("cancel")]
+        press(dialog, "save_shortcuts")
+        self.assertEqual(self.manager.asked, ["Save the shortcuts as", "Shortcuts"])
+        self.assertEqual(path.read_text("utf-8"), "kept\n")
+
+    def test_shortcut_files_cancelled_or_broken(self) -> None:
+        """Cancelling loads and saves nothing; a broken file is said."""
+        broken = self.home / "broken.json"
+        broken.write_text("{not json", "utf-8")
+        dialog = self.dialog()
+        self.manager.answers = [
+            answered("cancel"),
+            answered("cancel"),
+            file_chosen(broken),
+            answered("ok"),
+        ]
+        press(dialog, "load_shortcuts")
+        press(dialog, "save_shortcuts")
+        press(dialog, "load_shortcuts")
+        self.assertEqual(
+            self.manager.asked,
+            ["Load shortcuts", "Save the shortcuts as", "Load shortcuts", "Shortcuts"],
+        )
+        self.assertEqual(self.manager.shortcuts.bindings, DEFAULTS)
+
+    def test_shortcuts_that_cannot_be_kept(self) -> None:
+        """A shortcuts file that cannot be written is said."""
+        blocker = self.home / "blocker"
+        blocker.write_text("", "utf-8")
+        self.manager.shortcuts_path = blocker / "shortcuts.json"
+        dialog = self.dialog()
+        dialog.shortcuts.table.move_to(list(DEFAULTS).index("exit"))
+        press(dialog, "remove_keys")
+        self.manager.answers = [answered("ok")]
+        self.assertFalse(dialog.shortcuts.save())
+        self.assertEqual(self.manager.asked, ["Shortcuts"])
+
+    def test_a_custom_colour_mistyped_then_cancelled(self) -> None:
+        """Text that is no colour yet changes nothing; Cancel answers cancel."""
+        asked = ColourDialog(Rgb(1, 2, 3))
+        asked.text.text = "#ff02"
+        asked._typed()
+        self.assertEqual([box.value for box in asked.parts], [1, 2, 3])
+        press(asked, "cancel")
+        self.assertEqual(asked.result, "cancel")
 
 
 class RemoveApplicationTests(Settings):

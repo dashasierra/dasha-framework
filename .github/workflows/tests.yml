@@ -1,6 +1,7 @@
 # Runs Dasha Framework's own tests (tests/) on Linux, Windows and macOS, with the
 # oldest Python it supports and the newest, measuring coverage as they run.
-# Any failing test fails the check, and so does coverage below the floor.
+# Any failing test fails the check. The coverage job then combines what
+# every run measured, and fails if the total is under 95%.
 name: Tests
 
 on:
@@ -43,10 +44,57 @@ jobs:
         # Settings in pyproject.toml ([tool.coverage.*]): dasha
         # only, and the application processes the tests start too.
         run: python -m coverage run -m unittest discover -s tests -v
-      - name: Coverage
-        # The floor sits a little under what the tests reach today (about
-        # 92% on Linux, 94% on Windows), so a real drop fails the check.
+      - name: Coverage on this platform
+        # For the summary page only: each platform leaves the others'
+        # terminal code unmeasured, so the floor is checked on the total.
         run: |
           python -m coverage combine
           python -m coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
-          python -m coverage report --fail-under=90
+          mv .coverage ".coverage.${{ matrix.os }}-${{ matrix.python }}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ matrix.os }}-${{ matrix.python }}
+          path: .coverage.${{ matrix.os }}-${{ matrix.python }}
+          include-hidden-files: true # the data file's name starts with a dot
+          if-no-files-found: error
+          retention-days: 7
+
+  coverage:
+    # The check to require before merging: it fails if any test run failed,
+    # or if the coverage of every run together is under 95%.
+    name: coverage (all platforms)
+    needs: unittest
+    # Run even when a test run failed, so that this check fails too, rather
+    # than being skipped (a skipped check counts as passed).
+    if: >-
+      !cancelled()
+      && github.base_ref == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Every test run passed
+        if: needs.unittest.result != 'success'
+        run: |
+          echo "A test run did not pass (${{ needs.unittest.result }})."
+          exit 1
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        # dasha too, so the report also counts modules no test imported.
+        run: python -m pip install -e . "coverage>=7.10"
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: coverage-*
+          path: coverage-data
+          merge-multiple: true
+      - name: Coverage of every run together
+        # [tool.coverage.paths] in pyproject.toml maps each runner's
+        # checkout onto this one.
+        run: |
+          python -m coverage combine coverage-data
+          python -m coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
+          python -m coverage report --fail-under=95
