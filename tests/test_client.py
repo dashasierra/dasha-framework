@@ -1,6 +1,4 @@
-"""More tests for the application's side of the desktop (``dasha.client``):
-the requests it makes, messages it acts on, its loop, and starting up.
-``test_hosting`` has the rest."""
+"""More tests for the application side of the desktop."""
 
 import json
 import os
@@ -47,12 +45,19 @@ class Client(unittest.TestCase):
         drain(self.desktop)
 
     def tell(self, kind: str, **fields: object) -> None:
-        """Send the application a message and let it act on it."""
+        """Send a message and let it act.
+
+        :param kind: Message type.
+        :param fields: Message fields.
+        """
         send(self.desktop, kind, **fields)
         self.manager.pump()
 
     def number(self, window: Window) -> int:
-        """The id the desktop knows a window by."""
+        """The desktop's id for a window.
+
+        :param window: The window.
+        """
         return self.manager.window_id(window)
 
 
@@ -176,8 +181,7 @@ class LoopTests(Client):
         self.assertFalse(self.manager.can_show_dialogs)
 
     def test_dialog_ended_by_quitting(self) -> None:
-        """A dialog waiting when the desktop says quit answers None, and is
-        taken away; centred dialogs are put in the middle."""
+        """Quitting answers a waiting dialog with None."""
         dialog = Dialog("Question", 20, 6)
         send(self.desktop, "quit")
         self.assertIsNone(self.manager.execute(dialog))
@@ -192,8 +196,7 @@ class LoopTests(Client):
         self.assertTrue(self.app_end.closed)
 
     def test_call_when_running(self) -> None:
-        """Held until serving starts, then called; while serving, called
-        straight away."""
+        """``call_when_running`` waits for serving."""
         called: list[str] = []
         self.manager.call_when_running(lambda: called.append("held"))
         self.assertEqual(called, [])
@@ -214,7 +217,7 @@ class LoopTests(Client):
         self.assertFalse(self.manager.can_show_dialogs)
 
     def test_cannot_send(self) -> None:
-        """A failed send ends it too, and nothing more is sent once closed."""
+        """A failed send ends the client."""
         with mock.patch.object(client, "send", side_effect=OSError):
             self.manager.request_exit()
         self.assertFalse(self.manager.can_show_dialogs)
@@ -237,10 +240,11 @@ class RunHostedTests(unittest.TestCase):
         self.addCleanup(watching.stop)
 
     def run_with(self, *answers: Message, close: bool = False) -> int:
-        """Run Hello hosted, the desktop (a thread, as a real one is another
-        process) answering with ``answers`` and reading what it sends
-        (``sent``), so neither side waits on the other; or, with ``close``,
-        gone before it starts."""
+        """Run Hello hosted against a scripted desktop.
+
+        :param answers: Messages the desktop sends.
+        :param close: Whether the desktop is gone before it starts.
+        """
         desktop, app_end = pipe()
         self.sent: list[Message] = []  # pylint: disable=attribute-defined-outside-init
         thread = threading.Thread(
@@ -258,10 +262,11 @@ class RunHostedTests(unittest.TestCase):
         return code
 
     def _desktop(self, desktop: Connection, answers: tuple[Message, ...]) -> None:
-        """Send the answers, then read everything the application sends,
-        until it hangs up. An application may hang up before every answer
-        is sent (one turned away ends at once); what it sent before that is
-        still read."""
+        """Send the answers and read everything sent.
+
+        :param desktop: The desktop's connection end.
+        :param answers: Messages to send.
+        """
         for answer in answers:
             fields = {k: v for k, v in answer.items() if k != "type"}
             try:
@@ -304,8 +309,7 @@ class RunHostedTests(unittest.TestCase):
         self.assertIn("went away", self.err.getvalue())
 
     def test_welcomed_with_a_theme(self) -> None:
-        """Welcomed with the desktop's colours, it runs until told to quit,
-        watching the desktop by the process id it was given."""
+        """Welcomed with a theme, it runs until told to quit."""
         colours = theme.theme_to_json(theme.MONOCHROME_THEME, base="monochrome")
         welcome = dict(WELCOME, theme=colours, key_releases=True)
         with mock.patch.dict(os.environ, {DESKTOP_PID_VARIABLE: "321"}):

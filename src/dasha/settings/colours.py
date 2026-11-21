@@ -1,5 +1,4 @@
-"""The Custom colour dialog in Settings...: an RGB colour, typed as
-``#rrggbb`` or set by its red, green and blue."""
+"""The custom colour dialog."""
 
 from dasha.dialog import Dialog
 from dasha.style import Rgb, Style
@@ -10,9 +9,10 @@ SWATCH_WIDTH = 30
 
 
 class ColourDialog(Dialog):
-    """Asks for an RGB colour, starting from ``colour``. The text box and
-    the three spin boxes keep in step, and the sample below them shows the
-    colour. ``colour`` is the colour chosen, once answered ``"ok"``."""
+    """Asks for an RGB colour.
+
+    :param colour: Starting colour, if any.
+    """
 
     def __init__(self, colour: Rgb | None = None) -> None:
         super().__init__(
@@ -65,8 +65,7 @@ class ColourDialog(Dialog):
         self.swatch.style = Style(foreground=self.colour)
 
     def _typed(self) -> None:
-        """The text changed: the spin boxes and sample follow it, if it is a
-        colour."""
+        """Follow the typed colour."""
         try:
             self.colour = Rgb.parse(self.text.text.strip())
         except ValueError:
@@ -84,7 +83,10 @@ class ColourDialog(Dialog):
         self._show()
 
     def button_pressed(self, button: Widget) -> None:
-        """OK only with a colour typed; otherwise it says what to type."""
+        """Accept only a valid colour.
+
+        :param button: The button pressed.
+        """
         if button.name == "ok":
             try:
                 self.colour = Rgb.parse(self.text.text.strip())

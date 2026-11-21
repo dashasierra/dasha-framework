@@ -1,6 +1,4 @@
-"""Tests for Settings...: each page changes what the command line and the
-settings files configure, shows the change at once, and saves it to the
-usual file with OK or Apply; Cancel puts it back."""
+"""Tests for the Settings dialog."""
 
 # Settings... runs other dialogs (file dialogs, questions, a key to press)
 # through its manager, so these tests answer them from a script.
@@ -35,13 +33,11 @@ from tests.test_hosting import WELCOME, drain, of_type
 from tests.test_manager import FakeTerminal
 
 type Answer = Callable[[Dialog], str | None]
-"""How a test answers a dialog: it may fill the dialog in, and returns the
-answer."""
+"""Fills in a dialog and returns the answer."""
 
 
 class Answering(PresentationManager):
-    """A desktop that answers each dialog it is asked to show with the next
-    of ``answers``, noting each dialog's title."""
+    """A desktop answering each dialog from a list."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -54,21 +50,33 @@ class Answering(PresentationManager):
 
 
 def press(dialog: Dialog, name: str) -> None:
-    """Press one of a dialog's buttons."""
+    """Press a dialog button.
+
+    :param dialog: The dialog.
+    :param name: Button name.
+    """
     button = dialog.widget(name)
     assert isinstance(button, Button)
     button.activate()
 
 
 def choose(dialog: Dialog, name: str, item: str) -> None:
-    """Choose an item in one of a dialog's combo boxes, as the user does."""
+    """Choose a combo box item.
+
+    :param dialog: The dialog.
+    :param name: Combo box name.
+    :param item: The item.
+    """
     box = dialog.widget(name)
     assert isinstance(box, ComboBox)
     box.choose(box.items.index(item))
 
 
 def file_chosen(path: Path) -> Answer:
-    """Answer a file dialog with a file."""
+    """An answer choosing a file.
+
+    :param path: The file.
+    """
 
     def answer(dialog: Dialog) -> str:
         assert isinstance(dialog, FileDialog)
@@ -79,7 +87,10 @@ def file_chosen(path: Path) -> Answer:
 
 
 def answered(result: str) -> Answer:
-    """Answer a dialog with this result, as a button of its would."""
+    """An answer with a result.
+
+    :param result: The result.
+    """
     return lambda dialog: result
 
 
@@ -120,8 +131,7 @@ class OpeningTests(Settings):
         self.assertEqual(self.manager.asked, ["Settings"])
 
     def test_from_the_keyboard(self) -> None:
-        """F10 and E open it, Ctrl+PgDn turns to the Shortcuts page, and
-        Escape closes it, changing nothing."""
+        """From the keyboard."""
         manager = PresentationManager()
         manager.settings_path = self.manager.settings_path
         keys = ["\x1b[21~", "e", "\x1b[6;5~", "\x1b", "", "\x11", "\r"]
@@ -135,19 +145,17 @@ class OpeningTests(Settings):
         self.assertFalse(manager.settings_path.exists())
 
     def test_fits_the_smallest_screen(self) -> None:
-        """80 by 24: the dialog fits between the menu bar and status bar."""
+        """Fits the smallest screen."""
         dialog = self.dialog()
         self.assertLessEqual(dialog.rect.height, self.manager.workspace.height)
         self.assertLessEqual(dialog.rect.width, 80)
 
 
 class DoubleClickTests(Settings):
-    """A double-click on an item in a list chooses it, which in a dialog
-    otherwise presses OK; in Settings... it must not close the dialog."""
+    """Double-clicks in lists."""
 
     def test_the_lists_keep_it_open(self) -> None:
-        """Roles, start-up applications and installed applications: the
-        dialog stays open, unanswered."""
+        """The lists keep it open."""
         self.manager.register(AppEntry(id="notepad", name="Notepad", target="n.py"))
         dialog = self.dialog()
         for name in ("roles", "autostart", "applications"):
@@ -159,7 +167,7 @@ class DoubleClickTests(Settings):
         self.assertEqual(self.manager.asked, [])
 
     def test_an_action_adds_a_key(self) -> None:
-        """On the Shortcuts page, choosing an action asks for a key to add."""
+        """An action adds a key."""
         dialog = self.dialog()
         self.manager.answers = [answered("cancel")]
         dialog.shortcuts.table.choose()
@@ -194,8 +202,7 @@ class AppearanceTests(Settings):
         self.assertFalse(self.manager.colours_path.exists())  # type: ignore[union-attr]
 
     def test_a_colour_changed(self) -> None:
-        """A role's colour changes at once, and OK keeps the colours in the
-        colours file, which the desktop then starts with."""
+        """A colour changed."""
         dialog = self.dialog()
         dialog.appearance.roles.move_to(list(theme.ROLES).index("window.body"))
         choose(dialog, "foreground", "red")
@@ -234,8 +241,7 @@ class AppearanceTests(Settings):
         self.assertIn("ocean", dialog.appearance.theme_box.items)
 
     def test_load_a_theme(self) -> None:
-        """A theme file from elsewhere: its colours, to keep as changed
-        colours."""
+        """Load a theme."""
         path = self.home / "elsewhere.json"
         path.write_text(theme.theme_to_json(theme.DARK_THEME, "dark"), "utf-8")
         dialog = self.dialog()
@@ -260,7 +266,11 @@ class ShortcutsTests(Settings):
     """The keys of every action."""
 
     def select(self, dialog: SettingsDialog, action: str) -> None:
-        """Highlight an action."""
+        """Highlight an action.
+
+        :param dialog: The settings dialog.
+        :param action: The action.
+        """
         dialog.shortcuts.table.move_to(list(DEFAULTS).index(action))
 
     def test_a_key_added_works_at_once(self) -> None:
@@ -288,8 +298,7 @@ class ShortcutsTests(Settings):
         self.assertEqual((key_dialog.key, key_dialog.result), ("escape", "ok"))
 
     def test_no_way_out_is_refused(self) -> None:
-        """Taking every key from both exit and open_menu is refused, saying
-        why."""
+        """No way out is refused."""
         dialog = self.dialog()
         self.select(dialog, "exit")
         press(dialog, "remove_keys")
@@ -333,8 +342,7 @@ class ShortcutsTests(Settings):
         self.assertIn("ctrl", self.manager.shortcuts.keys("menu_mnemonic_modifiers"))
 
     def test_save_as_and_load(self) -> None:
-        """Saved elsewhere, a file holds only what differs from the
-        defaults, and loading it brings the keys back."""
+        """Save as and load."""
         dialog = self.dialog()
         self.select(dialog, "exit")
         press(dialog, "remove_keys")
@@ -374,8 +382,7 @@ class CustomColourTests(Settings):
         return found
 
     def test_a_custom_colour(self) -> None:
-        """Typed in, it is used at once, offered in the box, and kept in the
-        colours file as #rrggbb."""
+        """A custom colour."""
         dialog = self.dialog()
         dialog.appearance.roles.move_to(list(theme.ROLES).index("window.body"))
 
@@ -411,8 +418,7 @@ class CustomColourTests(Settings):
         self.assertFalse(dialog.appearance.edited)
 
     def test_the_parts_set_the_text(self) -> None:
-        """Red, green and blue make the #rrggbb, and OK refuses text that
-        is not a colour, saying why."""
+        """The parts set the text."""
         asked = ColourDialog(Rgb(1, 2, 3))
         self.assertEqual(asked.text.text, "#010203")
         asked.parts[0].set(255)
@@ -461,8 +467,7 @@ class DesktopTests(Settings):
         self.assertNotIn("autostart", self.settings())
 
     def test_colour_depth(self) -> None:
-        """Changes how colours are drawn at once; OK keeps it, and Cancel
-        puts it back."""
+        """Colour depth."""
         dialog = self.dialog()
         self.assertEqual(dialog.desktop.depth.selected_item, "Automatic")
         choose(dialog, "colour_depth", "16 colours (CGA)")
@@ -480,8 +485,7 @@ class DesktopTests(Settings):
         self.assertIn('colour_depth = "24bit"', self.settings())
 
     def test_escape_wait(self) -> None:
-        """How long Escape waits for a key changes at once; OK keeps it,
-        and Cancel puts it back."""
+        """Escape wait."""
         dialog = self.dialog()
         self.assertEqual(dialog.desktop.escape_wait.value, 100)
         dialog.desktop.escape_wait.set(300)
@@ -495,7 +499,7 @@ class DesktopTests(Settings):
         self.assertIn("escape_timeout = 300", self.settings())
 
     def test_show_the_mouse(self) -> None:
-        """On or off at once; OK keeps it, and Cancel puts it back."""
+        """Show the mouse."""
         dialog = self.dialog()
         self.assertFalse(dialog.desktop.show_mouse.on)
         dialog.desktop.show_mouse.set(True)
@@ -520,8 +524,13 @@ class ApplicationsTests(Settings):
     def install(
         self, dialog: SettingsDialog, script: Path, name: str, *then: Answer
     ) -> None:
-        """Install a script, with a name, through Install..., answering any
-        dialogs that follow with ``then``."""
+        """Install a script through Install.
+
+        :param dialog: The settings dialog.
+        :param script: The script.
+        :param name: Application name.
+        :param then: Answers to later dialogs.
+        """
 
         def fill(asked: Dialog) -> str | None:
             assert isinstance(asked, InstallDialog)
@@ -535,9 +544,7 @@ class ApplicationsTests(Settings):
         press(dialog, "install")
 
     def test_install_and_uninstall(self) -> None:
-        """Installed: its manifest written, offered in the Applications
-        menu and to start with the desktop; uninstalled: all of that
-        undone."""
+        """Install and uninstall."""
         script = self.home / "snake.py"
         script.write_text("", "utf-8")
         dialog = self.dialog()
@@ -587,8 +594,7 @@ class ApplicationsTests(Settings):
         self.assertFalse((self.home / "apps").exists())
 
     def test_never_called_desktop(self) -> None:
-        """A name that would make the id desktop, which dasha desktop means,
-        is said to be refused, and nothing installed."""
+        """Never called desktop."""
         script = self.home / "desktop.py"
         script.write_text("", "utf-8")
         dialog = self.dialog()

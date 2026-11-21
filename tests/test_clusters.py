@@ -11,18 +11,30 @@ from dasha.window import Window
 
 
 def keys(widget: Cluster, *names: str) -> list[bool]:
-    """Offer keys to a group with the default shortcuts."""
+    """Offer keys to a group.
+
+    :param widget: The group.
+    :param names: The keys.
+    """
     shortcuts = Shortcuts()
     return [widget.handle_key(name, shortcuts) for name in names]
 
 
 def click(widget: Cluster, row: int) -> bool:
-    """A left press on a row of the window's interior."""
+    """A left press on a row.
+
+    :param widget: The group.
+    :param row: Interior row.
+    """
     return widget.handle_mouse(MouseEvent("press", "left", row, 3), row, 3)
 
 
 def paint(widget: Cluster, focused: bool = True) -> Canvas:
-    """Paint a group at the top left of a canvas just big enough."""
+    """Paint a group on a canvas of its size.
+
+    :param widget: The group.
+    :param focused: Whether it has the focus.
+    """
     canvas = Canvas(widget.rect.right, widget.rect.bottom)
     widget.paint(canvas, canvas.bounds, focused)
     return canvas
@@ -48,14 +60,13 @@ class CheckBoxTests(unittest.TestCase):
         self.assertEqual(self.boxes.checked_labels, ["Italic"])
 
     def test_space_toggles_the_current_one(self) -> None:
-        """Up and Down move; Space checks and unchecks; any number can be on."""
+        """Space toggles the current option."""
         keys(self.boxes, " ", "down", "down", " ", "up", " ")
         self.assertEqual(self.boxes.value, (0, 2))
         self.assertEqual(self.changes, [(0, 1), (0, 1, 2), (0, 2)])
 
     def test_moving_stops_at_the_ends(self) -> None:
-        """Up from the first or Down from the last stays put, and is still
-        used up, so the window does not scroll instead."""
+        """Moving stops at the ends."""
         self.assertEqual(keys(self.boxes, "up"), [True])
         self.assertEqual(self.boxes.current, 0)
         keys(self.boxes, "down", "down", "down")
@@ -80,8 +91,7 @@ class CheckBoxTests(unittest.TestCase):
         self.assertEqual((self.boxes.current, self.boxes.value), (2, (1, 2)))
 
     def test_paint(self) -> None:
-        """Rows of " [X] Label", the current one highlighted when focused,
-        and no terminal cursor."""
+        """Painting the options."""
         canvas = paint(self.boxes)
         self.assertEqual(
             [canvas.text(row) for row in range(3)],
@@ -159,7 +169,7 @@ class InWindowTests(unittest.TestCase):
     """Groups among other widgets."""
 
     def test_tab_stops_once_per_group(self) -> None:
-        """Tab goes to a group as a whole, then on to the next widget."""
+        """Tab stops once per group."""
         window = Window("W", Rect(0, 0, 10, 30))
         radio = window.add(RadioButtons(["&A", "&B"], 0, 0))
         boxes = window.add(CheckBoxes(["&C", "&D"], 3, 0))
@@ -172,9 +182,7 @@ class InWindowTests(unittest.TestCase):
         self.assertIs(window.focused, button)
 
     def test_dialog_letters_and_values(self) -> None:
-        """In a dialog a letter alone picks an option in any group, moving
-        the focus there; Enter still presses the default button, and the
-        caller reads the groups back."""
+        """Dialog letters and values."""
         dialog = Dialog("Q", 30, 12)
         dialog.add(RadioButtons(["&Yes", "&No"], 0, 1, name="answer"))
         boxes = dialog.add(CheckBoxes(["&Red", "&Green"], 3, 1, name="colours"))
@@ -234,8 +242,7 @@ class DisabledTests(unittest.TestCase):
         self.assertEqual(canvas.cell(1, 0)[1], self.boxes.selected_style)
 
     def test_disable_and_enable_later(self) -> None:
-        """Disabling the current option moves off it; enabling brings an
-        option back."""
+        """Disabling and enabling later."""
         self.boxes.disable(1)
         self.assertEqual(self.boxes.current, 2)
         self.boxes.enable(0, 1)
@@ -245,8 +252,7 @@ class DisabledTests(unittest.TestCase):
             self.boxes.disable(7)
 
     def test_all_disabled_cannot_take_the_focus(self) -> None:
-        """Tab skips a group with nothing to choose, and it shows no
-        current option."""
+        """An all-disabled group cannot take the focus."""
         window = Window("W", Rect(0, 0, 10, 30))
         first = window.add(Button("&One", 0, 0))
         dead = window.add(CheckBoxes(["&X", "&Y"], 2, 0, disabled=[0, 1]))
@@ -279,8 +285,7 @@ class ColumnTests(unittest.TestCase):
         self.boxes = CheckBoxes(["&A", "&B", "&C", "&D", "&E"], 0, 0, columns=2)
 
     def test_layout(self) -> None:
-        """Rows are the options per column; columns sit side by side, and
-        the empty cell at the bottom right is part of the block."""
+        """Column layout."""
         self.assertEqual((self.boxes.rows, self.boxes.rect.height), (3, 3))
         self.assertEqual(self.boxes.rect.width, 14)
         canvas = paint(self.boxes, focused=False)
@@ -291,8 +296,7 @@ class ColumnTests(unittest.TestCase):
         self.assertEqual(canvas.cell(2, 10)[1], self.boxes.style)
 
     def test_columns_fit_their_own_labels(self) -> None:
-        """Each column is as wide as its own longest label needs; width
-        widens the last one."""
+        """Columns fit their own labels."""
         boxes = CheckBoxes(["Longer", "x", "y"], 0, 0, columns=2)
         self.assertEqual(boxes.rect.width, 6 + 6 + 6 + 1)
         self.assertEqual(
@@ -303,8 +307,7 @@ class ColumnTests(unittest.TestCase):
             CheckBoxes(["a"], 0, 0, columns=0)
 
     def test_left_and_right(self) -> None:
-        """Right and Left move a column; from below a short last column,
-        Right lands on its last option."""
+        """Left and Right move between columns."""
         keys(self.boxes, "right")
         self.assertEqual(self.boxes.current, 3)
         keys(self.boxes, "down", "down")
@@ -316,7 +319,7 @@ class ColumnTests(unittest.TestCase):
         self.assertEqual(self.boxes.current, 4)  # from C to E
 
     def test_up_and_down_run_through_the_columns(self) -> None:
-        """Down from the bottom of a column goes on to the next one."""
+        """Up and Down run through the columns."""
         keys(self.boxes, "down", "down", "down")
         self.assertEqual(self.boxes.current, 3)
 
@@ -326,16 +329,14 @@ class ColumnTests(unittest.TestCase):
         self.assertEqual(keys(boxes, "left", "right"), [False, False])
 
     def test_click_in_a_column(self) -> None:
-        """A click finds the option by row and column; the empty cell is
-        nothing."""
+        """Clicking in a column."""
         self.assertEqual(self.boxes.index_at(1, 8), 4)
         self.assertIsNone(self.boxes.index_at(2, 8))
         self.boxes.handle_mouse(MouseEvent("press", "left", 0, 9), 0, 9)
         self.assertEqual(self.boxes.value, (3,))
 
     def test_sideways_finds_the_nearest_enabled(self) -> None:
-        """Moving sideways goes to the nearest enabled option in the next
-        column, passing over a column with nothing enabled."""
+        """Sideways moves find the nearest enabled option."""
         boxes = CheckBoxes(list("ABCDEF"), 0, 0, columns=2, disabled=[5])
         boxes.current = 2  # C, beside the disabled F
         keys(boxes, "right")

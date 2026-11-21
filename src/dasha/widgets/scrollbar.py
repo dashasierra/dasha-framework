@@ -1,10 +1,4 @@
-"""Scroll bars as widgets in their own right.
-
-A window's frame draws its own scroll bars; this widget is a scroll bar that
-can be placed anywhere, or owned by another widget (as a ``ListBox`` owns
-its scroll bars). Both kinds are drawn and hit-tested by
-``dasha.scrollbar.ScrollBarLayout``.
-"""
+"""Scroll bar widgets."""
 
 import time
 from collections.abc import Callable
@@ -17,24 +11,19 @@ from dasha.widgets.base import Widget
 
 
 class ScrollBar(Widget):  # pylint: disable=too-many-instance-attributes
-    """A vertical or horizontal scroll bar: ``▲`` or ``◄``, a ``▒`` track
-    with a ``■`` thumb, and ``▼`` or ``►``.
+    """A vertical or horizontal scroll bar.
 
-    ``value`` runs from 0 to ``maximum``. ``page`` is how much of whatever the
-    bar scrolls is shown at once, and ``line`` is how far an arrow moves it.
-    Clicks on the arrows move it by a ``line``, and clicks on the track by a
-    page less one line (so that a line stays in view); the thumb can be
-    dragged, and the mouse wheel over the bar moves it too. Holding the
-    button down on an arrow or the track repeats the click
-    (``dasha.scrollbar.AutoRepeat`` sets how fast). Whenever the user
-    moves the bar, ``on_change(bar)`` is called; setting ``value`` from code
-    does not call it, and ``set_range(maximum, page)`` changes the range. A
-    scroll bar never takes the keyboard focus, because the widget it scrolls
-    handles the keys.
-
-    A list box's scroll bars are owned by the list box (``box.scroll_bar``),
-    rather than being widgets added to the window, but a scroll bar can also
-    be placed in a window on its own.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param length: Length in cells.
+    :param vertical: Whether it is vertical.
+    :param value: Initial position.
+    :param maximum: Largest position.
+    :param page: Amount shown at once.
+    :param line: Amount an arrow moves.
+    :param on_change: Called with the bar when the user moves it.
+    :param name: Widget name.
+    :param status: Status bar text.
     """
 
     style: Style = Style(foreground=BLUE, background=CYAN)
@@ -71,8 +60,7 @@ class ScrollBar(Widget):  # pylint: disable=too-many-instance-attributes
 
     @property
     def value(self) -> int:
-        """The bar's position, from 0 to ``maximum``. Setting it from code
-        keeps it within range, and does not call ``on_change``."""
+        """Position, from 0 to ``maximum``."""
         return self._value
 
     @value.setter
@@ -88,23 +76,32 @@ class ScrollBar(Widget):  # pylint: disable=too-many-instance-attributes
         return self.rect.height if self.vertical else self.rect.width
 
     def set_range(self, maximum: int, page: int | None = None) -> None:
-        """Change the range (and the page), keeping the value within it."""
+        """Change the range.
+
+        :param maximum: Largest position.
+        :param page: Amount shown at once, if changing.
+        """
         self.maximum = max(0, maximum)
         if page is not None:
             self.page = max(1, page)
         self.value = self._value
 
     def scroll_to(self, value: int) -> None:
-        """Move the bar as the user does, keeping it within range and calling
-        ``on_change`` if it moved."""
+        """Move the bar, as the user does.
+
+        :param value: New position.
+        """
         before = self._value
         self.value = value
         if self._value != before and self.on_change is not None:
             self.on_change(self)
 
     def layout(self, row: int, column: int) -> ScrollBarLayout:
-        """The bar in its current state, with its first cell at ``row``,
-        ``column``."""
+        """The bar's layout.
+
+        :param row: First cell's row.
+        :param column: First cell's column.
+        """
         return ScrollBarLayout(
             self.vertical,
             row,
@@ -121,8 +118,12 @@ class ScrollBar(Widget):  # pylint: disable=too-many-instance-attributes
         self.layout(row, column).paint(canvas, self.style)
 
     def handle_mouse(self, event: MouseEvent, row: int, column: int) -> bool:
-        """The arrows and track step the bar, the thumb can be dragged, and the
-        mouse wheel scrolls."""
+        """Step, drag or scroll with the mouse.
+
+        :param event: The mouse event.
+        :param row: Row in the window's interior.
+        :param column: Column in the window's interior.
+        """
         layout = self.layout(self.rect.row, self.rect.column)
         if event.action == "scroll":
             back = event.button in ("up", "left")
@@ -151,8 +152,10 @@ class ScrollBar(Widget):  # pylint: disable=too-many-instance-attributes
         return self._repeat.wake_time()
 
     def on_timer(self, now: float) -> None:
-        """Repeat a click held down on an arrow or the track, while the pointer
-        stays on it."""
+        """Repeat a held click.
+
+        :param now: The current ``time.monotonic``.
+        """
         repeat = self._repeat
         layout = self.layout(self.rect.row, self.rect.column)
         if repeat.due(now, layout.part_at(repeat.row, repeat.column)):

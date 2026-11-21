@@ -1,6 +1,4 @@
-"""Tests for a text area's line numbers: a column at its left, right-
-aligned, widening past 999 lines, by each line's first row with word wrap,
-and staying in view as the window scrolls sideways."""
+"""Tests for text area line numbers."""
 
 import unittest
 
@@ -16,22 +14,31 @@ TEXT = "The quick brown fox jumps over the lazy dog\nshort\n\nlast"
 
 
 def editor(text: str = TEXT, word_wrap: bool = False) -> tuple[Window, TextArea]:
-    """A window whose interior is 24 columns by 6 rows, holding a text area
-    with line numbers (and word wrap, if asked)."""
+    """A window with a numbered text area.
+
+    :param text: The text.
+    :param word_wrap: Whether lines wrap.
+    """
     window = Window("W", Rect(0, 0, 8, 26), resizable=True)
     area = window.add(TextArea(0, 0, text=text, line_numbers=True, word_wrap=word_wrap))
     return window, area
 
 
 def painted(window: Window) -> Canvas:
-    """The window, painted."""
+    """The window, painted.
+
+    :param window: The window.
+    """
     canvas = Canvas(window.rect.width, window.rect.height)
     window.paint(canvas, True)
     return canvas
 
 
 def rows(window: Window) -> list[str]:
-    """The window's interior, a row at a time, without trailing spaces."""
+    """The interior's rows, trimmed.
+
+    :param window: The window.
+    """
     canvas = painted(window)
     interior = window.interior
     return [
@@ -52,8 +59,7 @@ class NumbersTests(unittest.TestCase):
         self.assertEqual(rows(window)[0], "The quick brown fox ju")
 
     def test_numbers_right_aligned_before_a_bar(self) -> None:
-        """Three columns of numbers, right-aligned, then the bar and the
-        text; the bar goes on below the last line."""
+        """Numbers are right-aligned before a bar."""
         window, _ = editor()
         edge = NUMBERS_BAR
         self.assertEqual(
@@ -79,8 +85,7 @@ class NumbersTests(unittest.TestCase):
         self.assertEqual(area.numbers_width, 4)
 
     def test_wrapped_line_numbered_on_its_first_row(self) -> None:
-        """With word wrap, a line's number is by its first row only, and
-        the rows are as wide as what is left beside the numbers."""
+        """A wrapped line is numbered once."""
         window, area = editor(word_wrap=True)
         edge = NUMBERS_BAR
         self.assertEqual(
@@ -96,8 +101,7 @@ class NumbersTests(unittest.TestCase):
         self.assertEqual(area.rect.width, 24)
 
     def test_widening_wraps_again(self) -> None:
-        """A wider column of numbers leaves less for the text, which wraps
-        again to fit."""
+        """Widening the numbers rewraps."""
         _, area = editor("word " * 4 + "\n" * 998, word_wrap=True)
         self.assertEqual(area.lines[0], "word " * 4)
         self.assertEqual(area.rect.width, 24)
@@ -113,8 +117,7 @@ class NumbersTests(unittest.TestCase):
         self.assertEqual(painted(window).cursor, (2, 1 + 4 + 2))
 
     def test_numbers_stay_as_the_window_scrolls_sideways(self) -> None:
-        """Scrolled to a long line's end, the numbers still show at the
-        left, and the text goes on from beside them."""
+        """Numbers stay while scrolling sideways."""
         window, area = editor()
         area.handle_key("end", Shortcuts())
         self.assertGreater(window.scroll_column, 0)
@@ -127,8 +130,7 @@ class NumbersTests(unittest.TestCase):
         self.assertGreater(canvas.cursor[1], 4)
 
     def test_clicks(self) -> None:
-        """A click in the text goes there, beside the numbers; a click on
-        the numbers goes to the start of the row."""
+        """Clicks on text and numbers."""
         window, area = editor()
         window.handle_mouse(MouseEvent("press", "left", 1, 7))
         self.assertEqual(area.cursor, (0, 2))

@@ -1,5 +1,4 @@
-"""The Windows pseudo-terminal: a pseudoconsole (ConPTY), through ctypes,
-which needs Windows 10 version 1809 or later."""
+"""The Windows pseudoconsole."""
 
 import ctypes
 import os
@@ -168,18 +167,17 @@ def _check(succeeded: object) -> None:
 
 
 def _environment_block(env: Mapping[str, str]) -> ctypes.Array[ctypes.c_wchar]:
-    """An environment as CreateProcessW wants it: ``NAME=value`` for
-    each, sorted, each ended by a NUL, then one more."""
+    """An environment block for CreateProcessW.
+
+    :param env: The environment.
+    """
     entries = sorted(env.items(), key=lambda item: item[0].upper())
     text = "".join(f"{name}={value}\0" for name, value in entries) + "\0"
     return ctypes.create_unicode_buffer(text, len(text))
 
 
 class WindowsConPty(PseudoTerminal):  # pylint: disable=too-many-instance-attributes
-    """A pseudo-terminal on Windows: a pseudoconsole (ConPTY), which
-    turns what console programs do into terminal output, and terminal
-    input into what they read. Needs Windows 10 version 1809 or
-    later."""
+    """A pseudo-terminal on Windows."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -286,9 +284,7 @@ class WindowsConPty(PseudoTerminal):  # pylint: disable=too-many-instance-attrib
         self.pid = information.dwProcessId
 
     def _wait_for_end(self) -> None:
-        """The waiting thread: once the program ends, close the
-        pseudoconsole, which ends its output (and the reading thread's
-        wait for more)."""
+        """Close the pseudoconsole when the program ends."""
         assert self._process is not None
         _WaitForSingleObject(self._process, _INFINITE)
         code = wintypes.DWORD()

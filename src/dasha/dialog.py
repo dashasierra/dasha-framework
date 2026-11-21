@@ -1,19 +1,4 @@
-"""Dialog boxes: modal windows that must be answered before anything else
-can be done.
-
-A dialog is shown with ``PresentationManager.execute(dialog)``. That call
-puts the dialog on top, lets nothing but the dialog respond until it has
-been answered, and returns the answer: the ``result`` of the button pressed
-(``"ok"``, ``"cancel"``, or any other result a button was given), or
-``Dialog.cancel_result`` if the dialog was cancelled with Escape or its
-close button. The dialog itself can still be read afterwards, so the caller
-can look at every widget in it (``dialog.widget(name)``, ``dialog.values``)
-to decide what to do::
-
-    dialog = confirm(title="Delete", message="Delete notes.txt?")
-    if manager.execute(dialog=dialog) == "ok":
-        delete(path="notes.txt")
-"""
+"""Modal dialog boxes."""
 
 from collections.abc import Sequence
 
@@ -36,7 +21,13 @@ LINE = SINGLE.horizontal
 
 
 class Dialog(Window):
-    """A modal window, grey by default, that ends with a result."""
+    """A modal window that ends with a result.
+
+    :param title: Title text.
+    :param width: Width in columns.
+    :param height: Height in rows.
+    :param status: Status bar text.
+    """
 
     frame_style = Style(foreground=BRIGHT_WHITE, background=WHITE, bold=True)
     inactive_frame_style = Style(foreground=BLACK, background=WHITE)
@@ -49,11 +40,9 @@ class Dialog(Window):
     cancel_result: str = "cancel"
     """The answer that ``execute`` returns when the dialog is cancelled."""
     centred: bool = True
-    """Whether ``execute`` puts the dialog in the middle of the work area. A
-    popup placed next to something turns this off."""
+    """Whether ``execute`` centres the dialog."""
     takes_every_key: bool = False
-    """Whether every key goes to the dialog, even those the desktop would
-    otherwise take wherever the focus is (such as ``show_mouse``)."""
+    """Whether every key goes to the dialog."""
 
     def __init__(
         self, title: str, width: int, height: int, *, status: str = ""
@@ -63,8 +52,10 @@ class Dialog(Window):
         """The answer, once the dialog has been answered; ``None`` before."""
 
     def button_pressed(self, button: Widget) -> None:
-        """Answer the dialog with the result of the button pressed, if the
-        button has one."""
+        """Answer with the pressed button's result.
+
+        :param button: The button pressed.
+        """
         if isinstance(button, Button) and button.result is not None:
             self.result = button.result
 
@@ -78,7 +69,10 @@ class Dialog(Window):
         return False  # execute() takes it off the screen
 
     def centre(self, area: Rect) -> None:
-        """Move the dialog to the middle of ``area``."""
+        """Centre the dialog in an area.
+
+        :param area: The area.
+        """
         self.move_to(
             area.row + max(0, (area.height - self.rect.height) // 2),
             area.column + max(0, (area.width - self.rect.width) // 2),
@@ -86,9 +80,7 @@ class Dialog(Window):
 
 
 class Popup(Dialog):
-    """A dialog that drops down next to something, such as a drop-down
-    list. It is framed in single lines, and a click outside it cancels it.
-    The desktop frames popups from applications in the same way."""
+    """A dialog that drops down next to something."""
 
     centred = False
     close_on_outside_click = True
@@ -96,11 +88,13 @@ class Popup(Dialog):
 
 
 class ListPopup(Popup):
-    """A list that drops down next to something (such as a combo box's
-    field), from which to choose one item. Enter, or a click on an item,
-    chooses it and answers ``"ok"``; Escape, or a click outside the list,
-    cancels it. ``chosen`` is then the index of the chosen item.
-    ``PresentationManager.pick`` shows these lists."""
+    """A drop-down list to choose one item from.
+
+    :param items: The items.
+    :param selected: Index of the initial item.
+    :param width: Width in columns.
+    :param rows: Most rows shown.
+    """
 
     def __init__(self, items: list[str], selected: int, width: int, rows: int) -> None:
         super().__init__("", width, rows + 2)
@@ -113,8 +107,7 @@ class ListPopup(Popup):
 
     @property
     def chosen(self) -> int | None:
-        """The highlighted item (which is the chosen one, once the answer is
-        ``"ok"``)."""
+        """The highlighted item."""
         return self.list.value if isinstance(self.list.value, int) else None
 
     def _chosen(self, box: ListBox) -> None:
@@ -128,8 +121,10 @@ class ListPopup(Popup):
         return super().handle_key(key, shortcuts)
 
     def handle_mouse(self, event: MouseEvent) -> bool:
-        """A press on an item chooses it (while a press on the scroll bar only
-        scrolls)."""
+        """Choose the item clicked.
+
+        :param event: The mouse event.
+        """
         used = super().handle_mouse(event)
         if event.action == "press" and event.button == "left":
             interior = self.interior
@@ -141,9 +136,11 @@ class ListPopup(Popup):
 
 
 class _BoxView(Widget):
-    """An autocomplete box shown (and typed in) inside its suggestions'
-    popup, which covers it: it draws the box, with the cursor, and passes
-    the mouse on to it."""
+    """An autocomplete box drawn inside its popup.
+
+    :param box: The autocomplete box.
+    :param row: Row in the popup.
+    """
 
     focusable = True
 
@@ -152,7 +149,11 @@ class _BoxView(Widget):
         self.box = box
 
     def _shift(self, row: int, column: int) -> tuple[int, int]:
-        """A position here, as one in the box's own window."""
+        """A position in the box's own window.
+
+        :param row: Row here.
+        :param column: Column here.
+        """
         box = self.box.rect
         return row - self.rect.row + box.row, column - self.rect.column + box.column
 
@@ -178,8 +179,13 @@ class _BoxView(Widget):
 
 
 class _SuggestionList(Widget):
-    """The suggestions under (or over) an autocomplete box, one a row, with
-    one highlighted (or none, ``highlight`` -1) in the list box's colours."""
+    """The suggestions list in a popup.
+
+    :param items: The suggestions.
+    :param row: Row in the popup.
+    :param width: Width in columns.
+    :param rows: Most rows shown.
+    """
 
     def __init__(self, items: list[str], row: int, width: int, rows: int) -> None:
         super().__init__(row, 0, width, rows)
@@ -191,7 +197,11 @@ class _SuggestionList(Widget):
         """Whether a click has chosen the highlighted item."""
 
     def set_items(self, items: list[str], rows: int) -> None:
-        """Show other items, keeping the highlighted one if it is still there."""
+        """Show other suggestions.
+
+        :param items: The suggestions.
+        :param rows: Most rows shown.
+        """
         current = self.items[self.highlight] if self.highlight >= 0 else None
         self.items = items
         self.rect = Rect(self.rect.row, 0, rows, self.rect.width)
@@ -200,8 +210,10 @@ class _SuggestionList(Widget):
         self.move(0)
 
     def move(self, step: int) -> None:
-        """Highlight the item ``step`` on (or back: from the first, back to
-        none), keeping it in view."""
+        """Move the highlight.
+
+        :param step: Items to move by.
+        """
         self.highlight = max(-1, min(self.highlight + step, len(self.items) - 1))
         rows = self.rect.height
         if 0 <= self.highlight < self.first:
@@ -225,7 +237,12 @@ class _SuggestionList(Widget):
             )
 
     def handle_mouse(self, event: MouseEvent, row: int, column: int) -> bool:
-        """A press on an item chooses it; the wheel moves the highlight."""
+        """Choose or scroll with the mouse.
+
+        :param event: The mouse event.
+        :param row: Row in the window's interior.
+        :param column: Column in the window's interior.
+        """
         del column
         if event.action == "scroll":
             self.move(1 if event.button == "down" else -1)
@@ -239,17 +256,12 @@ class _SuggestionList(Widget):
 
 
 class SuggestionPopup(Popup):
-    """An autocomplete box's suggestions, dropped down below the box (or
-    above it, with ``above``, near the bottom of the screen). The popup
-    covers the box, with a row lined up over the box itself, so that typing
-    carries on there while the suggestions follow it.
+    """An autocomplete box's suggestions popup.
 
-    Down and Up (``suggest_down``, ``suggest_up``) move through the
-    suggestions, and Enter (``suggest_choose``) or a click takes the
-    highlighted one. When none is highlighted, Enter is passed on to the
-    window (to press its default button, for example), as Tab is; Escape, or
-    a click outside, just closes the popup. ``PresentationManager.suggest``
-    shows these popups.
+    :param box: The autocomplete box.
+    :param items: The suggestions.
+    :param rows: Most rows shown.
+    :param above: Whether it opens above the box.
     """
 
     def __init__(
@@ -260,9 +272,9 @@ class SuggestionPopup(Popup):
         self.box = box
         self.above = above
         self.max_rows = rows
-        """The most suggestions shown at once (as many as there is room for)."""
+        """Most suggestions shown at once."""
         self.passed_key: str | None = None
-        """A key that closed the popup, to go on to the box's window."""
+        """A key that closed the popup, to pass on."""
         self.view = self.add(_BoxView(box, rows if above else 0))
         self.list = self.add(
             _SuggestionList(items, 0 if above else 1, box.rect.width, rows)
@@ -270,14 +282,12 @@ class SuggestionPopup(Popup):
 
     @property
     def chosen(self) -> str | None:
-        """The highlighted suggestion (which is the one taken, once the answer is
-        ``"ok"``)."""
+        """The highlighted suggestion."""
         highlight = self.list.highlight
         return self.list.items[highlight] if highlight >= 0 else None
 
     def refresh(self) -> None:
-        """Handle a change to the box's text: show the suggestions that match
-        it now, and close if none do."""
+        """Update the suggestions for the box's text."""
         items = self.box.matches()
         if not items:
             self.cancel()
@@ -291,12 +301,19 @@ class SuggestionPopup(Popup):
         self.list.set_items(items, rows)
 
     def pass_on(self, key: str) -> None:
-        """Close, and pass the key on to the box's window."""
+        """Close and pass a key to the box's window.
+
+        :param key: The key.
+        """
         self.passed_key = key
         self.cancel()
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """Move through the suggestions, take one, or type into the box."""
+        """Move, take or type.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         if shortcuts.matches("suggest_down", key):
             self.list.move(1)
         elif shortcuts.matches("suggest_up", key):
@@ -332,9 +349,11 @@ class SuggestionPopup(Popup):
 
 
 class _MenuItems(Widget):
-    """A menu's items, one a row, in the menu bar's colours: labels with
-    their letters, shortcuts on the right, ``►`` for a submenu, ``─`` for a
-    separator, greyed out where they cannot be chosen."""
+    """A menu's items in a popup.
+
+    :param menu: The menu.
+    :param width: Width in columns.
+    """
 
     focusable = True
 
@@ -345,8 +364,10 @@ class _MenuItems(Widget):
         self.move(1)
 
     def move(self, step: int) -> None:
-        """Highlight the next item (or previous: ``step`` -1) that can be
-        chosen, round the ends."""
+        """Highlight the next choosable item.
+
+        :param step: 1 for next, -1 for previous.
+        """
         items = self.menu.items
         if not any(item.is_available for item in items):
             self.highlight = -1
@@ -359,8 +380,11 @@ class _MenuItems(Widget):
                 return
 
     def _styles(self, number: int, item: MenuItem) -> tuple[Style, Style]:
-        """An item's colours, and its letter's: greyed out where it cannot
-        be chosen, lit where highlighted, as in the menu bar's menus."""
+        """An item's style and letter style.
+
+        :param number: Item index.
+        :param item: The item.
+        """
         if not item.is_available:
             return MenuBar.disabled_style, MenuBar.disabled_style
         if number == self.highlight:
@@ -392,21 +416,21 @@ class _MenuItems(Widget):
                 )
 
     def item_at(self, row: int) -> int | None:
-        """The item at a row of the content, if one can be chosen there."""
+        """The choosable item at a row, if any.
+
+        :param row: Content row.
+        """
         index = row - self.rect.row
         items = self.menu.items
         return index if 0 <= index < len(items) and items[index].is_available else None
 
 
 class MenuPopup(Popup):
-    """A menu that pops up next to something, such as a widget's context
-    menu, opened with a right-click or Shift+F10. Down and Up
-    (``menu_down``, ``menu_up``) move through the items that can be chosen.
-    Enter (``menu_choose``), an item's letter or a click on an item chooses
-    it, and Right (``menu_right``) opens a submenu beside it. Escape, Left
-    in a submenu, or a click outside closes the menu. ``chosen`` is then the
-    chosen item, if any. ``PresentationManager.context_menu`` shows these
-    menus, and runs the chosen item once the menu has closed."""
+    """A pop-up menu, such as a context menu.
+
+    :param menu: The menu.
+    :param submenu: Whether it is a submenu.
+    """
 
     def __init__(self, menu: Menu, *, submenu: bool = False) -> None:
         items = menu.items
@@ -442,7 +466,10 @@ class MenuPopup(Popup):
         del status  # always the highlighted item's
 
     def choose(self, index: int) -> None:
-        """Choose an item: open its submenu, or make it the answer."""
+        """Choose an item or open its submenu.
+
+        :param index: Item index.
+        """
         item = self.menu.items[index]
         if not item.is_available:
             return
@@ -454,7 +481,11 @@ class MenuPopup(Popup):
         self.result = "ok"
 
     def _open_submenu(self, index: int, menu: Menu) -> None:
-        """Show a submenu beside the item; what it chooses is the answer."""
+        """Show a submenu beside an item.
+
+        :param index: Item index.
+        :param menu: The submenu.
+        """
         manager = self.manager
         if manager is None:
             return
@@ -492,7 +523,10 @@ class MenuPopup(Popup):
         return True
 
     def handle_mouse(self, event: MouseEvent) -> bool:
-        """A click on an item that can be chosen chooses it."""
+        """Choose the item clicked.
+
+        :param event: The mouse event.
+        """
         interior = self.interior
         if event.action == "press" and interior.contains(event.row, event.column):
             index = self.items.item_at(event.row - interior.row)
@@ -502,7 +536,13 @@ class MenuPopup(Popup):
 
 
 def _place_in_row(buttons: list[Button], row: int, width: int, gap: int = 2) -> None:
-    """Centre buttons side by side on one row of an interior ``width`` wide."""
+    """Centre buttons on one row.
+
+    :param buttons: The buttons.
+    :param row: The row.
+    :param width: Interior width.
+    :param gap: Columns between buttons.
+    """
     total = sum(button.rect.width for button in buttons) + gap * (len(buttons) - 1)
     column = (width - total) // 2
     for button in buttons:
@@ -517,8 +557,14 @@ def _message_dialog(  # pylint: disable=too-many-arguments
     status: str,
     align: str = "left",
 ) -> Dialog:
-    """A dialog of a message, a line per ``Label`` lined up by ``align``,
-    above a row of buttons."""
+    """A message dialog with buttons.
+
+    :param title: Title text.
+    :param message: The message.
+    :param buttons: The buttons.
+    :param status: Status bar text.
+    :param align: Message alignment.
+    """
     lines = message.splitlines() or [""]
     buttons_width = sum(button.rect.width for button in buttons) + 2
     text_width = max(max(len(line) for line in lines), buttons_width)
@@ -544,14 +590,14 @@ def confirm(
     status: str = "",
     align: str = "left",
 ) -> Dialog:
-    """A dialog with a message, and OK and Cancel buttons.
+    """An OK/Cancel dialog.
 
-    It answers ``"ok"`` or ``"cancel"``. OK is the default button, and
-    starts with the focus. The widgets are named ``"message"`` (with one
-    ``Label`` for each line: ``"message"``, ``"message2"`` and so on),
-    ``"ok"`` and ``"cancel"``. ``align`` sets the alignment of the message:
-    ``"left"`` (the default), ``"centre"``, ``"right"`` or ``"justify"`` (see
-    ``align_lines``).
+    :param title: Title text.
+    :param message: The message.
+    :param ok_label: OK button label.
+    :param cancel_label: Cancel button label.
+    :param status: Status bar text.
+    :param align: Message alignment.
     """
     buttons = [
         Button(ok_label, 0, 0, result="ok", default=True, name="ok"),
@@ -568,12 +614,14 @@ def question(  # pylint: disable=too-many-arguments
     status: str = "",
     align: str = "left",
 ) -> Dialog:
-    """A dialog with a message and a button for each answer, with the
-    answers given as (label, result) pairs: ``[("&Save", "save"),
-    ("&Don't save", "discard"), ("&Cancel", "cancel")]``. The first button is
-    the default, and starts with the focus; Escape answers ``"cancel"``. The
-    buttons are named after their results, and ``align`` sets the alignment
-    of the message, as for ``confirm``."""
+    """A dialog with a button per answer.
+
+    :param title: Title text.
+    :param message: The message.
+    :param answers: (label, result) pairs; the first is the default.
+    :param status: Status bar text.
+    :param align: Message alignment.
+    """
     if not answers:
         raise ValueError("a question needs at least one answer")
     buttons = [
@@ -591,14 +639,13 @@ def information(
     status: str = "",
     align: str = "left",
 ) -> Dialog:
-    """A dialog with a message and only an OK button, to tell the user
-    something. ``align`` sets the alignment of the message, as for
-    ``confirm``.
+    """A message dialog with an OK button.
 
-    It answers ``"ok"``, or ``"cancel"`` if it is closed with Escape or its
-    close button instead. OK is the default button, and starts with the
-    focus. The widgets are named ``"message"`` (with one ``Label`` for each
-    line: ``"message"``, ``"message2"`` and so on) and ``"ok"``.
+    :param title: Title text.
+    :param message: The message.
+    :param ok_label: OK button label.
+    :param status: Status bar text.
+    :param align: Message alignment.
     """
     buttons = [Button(ok_label, 0, 0, result="ok", default=True, name="ok")]
     return _message_dialog(title, message, buttons, status, align)

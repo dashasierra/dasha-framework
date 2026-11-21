@@ -10,54 +10,37 @@ from dasha.widgets.base import Widget
 
 SHADOW_BELOW = "\N{UPPER HALF BLOCK}"
 SHADOW_RIGHT = "\N{LOWER HALF BLOCK}"
-"""The characters of a button's shadow: code page 437 characters 223 (▀)
-and 220 (▄)."""
+"""Shadow characters (half blocks)."""
 
 OUTLINE_TOP_RIGHT = "\N{BOX DRAWINGS LIGHT DOWN AND LEFT}"
 OUTLINE_BOTTOM_LEFT = "\N{BOX DRAWINGS LIGHT UP AND RIGHT}"
 OUTLINE_BOTTOM_RIGHT = "\N{BOX DRAWINGS LIGHT UP AND LEFT}"
 OUTLINE_HORIZONTAL = "\N{BOX DRAWINGS LIGHT HORIZONTAL}"
-"""The characters of the outline shadow (code page 437 characters 191,
-192, 217 and 196)."""
+"""Outline shadow characters."""
 
 SHADOW_SHAPES = ("solid", "outline")
-"""The ways a button's shadow can be drawn: with half blocks, or as a
-single-line outline (which looks neater without colour, where solid blocks
-look like part of the button)."""
+"""Ways to draw a button's shadow."""
 
 
 class Button(Widget):
-    """A push button: a green face with a ``▄``/``▀`` shadow (code page
-    437 glyphs 220 and 223). Unless it is given a ``width``, its face is
-    four columns wider than its label, and at least 10 columns wide; the
-    shadow takes a column more. ``label`` can mark a mnemonic letter with
-    ``&``.
+    """A push button with a shadow.
 
-    - **Enter or Space** (``press_button``) presses the focused button, or
-      the ``default`` button if the focus is not on a button.
-    - **Holding Space.** Where the terminal reports keys being released
-      (the Windows console), Space pushes in the focused button, just as a
-      mouse press does, and the button stays pushed in while Space is held
-      down; releasing Space presses it. The key's own repeats while it is
-      held do nothing more, and if the focus moves on first, the button
-      simply springs back. Elsewhere, Space presses the button straight
-      away. Enter always presses the button straight away.
-    - **Mnemonic letter.** Alt with the button's letter presses it. In a
-      dialog, the letter on its own does.
-    - **Mouse.** A press pushes the button in, moving it into its shadow.
-      Releasing the mouse button over it presses it, and releasing it
-      elsewhere cancels the press.
-
-    Pressing the button calls ``action(button)``, and then the window's
-    ``button_pressed(button)``; in a dialog, that ends the dialog with the
-    button's ``result``.
+    :param label: Button text; ``&`` marks the mnemonic letter.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param width: Face width, or ``None`` to fit the label.
+    :param action: Called with the button when pressed.
+    :param result: The dialog's answer when pressed.
+    :param default: Whether Enter presses it from elsewhere.
+    :param name: Widget name.
+    :param status: Status bar text.
     """
 
     focusable = True
     face_style: Style = Style(foreground=BLACK, background=GREEN)
     """The style of the face and its label."""
     focused_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
-    """The style of the face and its label while the button has the focus."""
+    """Face style while focused."""
     mnemonic_style: Style = Style(foreground=BRIGHT_YELLOW, background=GREEN)
     """The style of the label's mnemonic letter."""
     focused_mnemonic_style: Style = Style(
@@ -65,12 +48,9 @@ class Button(Widget):
     )
     """The style of the mnemonic letter while the button has the focus."""
     shadow_style: Style = Style(foreground=BLACK)
-    """The shadow's colours. Its background is always the window's, so
-    that the shadow sits on the window."""
+    """Shadow style."""
     shadow_shape: str = "solid"
-    """``"solid"`` (``▄``/``▀`` half blocks) or ``"outline"`` (single box
-    lines around where the shadow falls). The monochrome theme uses the
-    outline."""
+    """Shadow shape: ``"solid"`` or ``"outline"``."""
     min_width: int = 10
 
     def __init__(
@@ -104,8 +84,7 @@ class Button(Widget):
 
     @property
     def face(self) -> Rect:
-        """The button's face (without its shadow), relative to the window's
-        interior."""
+        """The face, without its shadow."""
         return Rect(self.rect.row, self.rect.column, 1, self.rect.width - 1)
 
     @property
@@ -116,20 +95,22 @@ class Button(Widget):
         return mnemonic_key(self.label)
 
     def press_with_key(self, key: str, held: bool = True) -> None:
-        """Handle Enter or Space (``press_button``) pressed while the button
-        has the focus (``held``) or is the default. Where the terminal reports
-        keys being released (``key_releases``), Space pushes in the focused
-        button, as a mouse press does, and releasing Space presses it;
-        repeats while Space is held do nothing more. Otherwise, and for
-        Enter, the button is pressed straight away, with nothing to show."""
+        """Handle Enter or Space.
+
+        :param key: The key pressed.
+        :param held: Whether the button has the focus.
+        """
         if key == " " and held and self.key_releases:
             self._pressed = True  # until handle_key_release
             return
         self.activate()
 
     def handle_key_release(self, key: str, focused: bool) -> None:
-        """Handle the release of Space: a button pushed in by it springs
-        back, and is pressed if it still has the focus."""
+        """Handle the release of Space.
+
+        :param key: The key released.
+        :param focused: Whether the button has the focus.
+        """
         if key != " " or not self._pressed or not self.key_releases:
             return
         self._pressed = False
@@ -165,7 +146,13 @@ class Button(Widget):
     def _paint_shadow(
         self, canvas: Canvas, origin: Rect, row: int, column: int
     ) -> None:
-        """The shadow beside and below the face at ``row``, ``column``."""
+        """Draw the shadow.
+
+        :param canvas: Canvas to draw on.
+        :param origin: The window's interior on screen.
+        :param row: Face row.
+        :param column: Face column.
+        """
         background = self.window.body_style.background if self.window else None
         paint_shadow(
             canvas,
@@ -176,9 +163,12 @@ class Button(Widget):
         )
 
     def handle_mouse(self, event: MouseEvent, row: int, column: int) -> bool:
-        """A press on the face pushes the button in; releasing the mouse
-        button over the face presses it, and releasing it elsewhere cancels
-        the press."""
+        """Push in, press or cancel with the mouse.
+
+        :param event: The mouse event.
+        :param row: Row within the button.
+        :param column: Column within the button.
+        """
         if event.button != "left":
             return False
         over = self.face.contains(row, column)
@@ -202,11 +192,14 @@ def paint_shadow(
     background: Colour | None,
     looks: tuple[Style, str],
 ) -> None:
-    """Draw a button's shadow beside and below a one-row ``face`` at (row,
-    column, width) on the screen, on the window's ``background``, as
-    ``looks`` describes (the shadow's style, and its shape, ``"solid"`` or
-    ``"outline"``). Anything that wants to look raised in the same way (such
-    as a ``Switch``) uses this too."""
+    """Draw a raised-looking shadow.
+
+    :param canvas: Canvas to draw on.
+    :param origin: The window's interior on screen.
+    :param face: The face's row, column and width.
+    :param background: The window's background colour.
+    :param looks: Shadow style and shape.
+    """
     row, column, width = face
     style, shape = looks
     shadow = Style(foreground=style.foreground, background=background, bold=style.bold)

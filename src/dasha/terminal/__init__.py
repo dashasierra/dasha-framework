@@ -1,19 +1,4 @@
-"""Cross-platform full-screen terminal access.
-
-``Terminal`` is a context manager. Entering it prepares the console (raw
-input, and on Windows, support for ANSI output), switches to the alternate
-screen, hides the cursor and (where it can) the terminal's scroll bar, and
-turns on bracketed paste and mouse reporting. Leaving it, even because of
-an exception, undoes all of this, so that the user's original screen and
-shell come back untouched.
-
-``Terminal.suspended`` gives the terminal back for a while (for a command
-prompt, say) and then takes it again, as leaving and entering would.
-
-``Terminal.wake``, called from any thread, cuts short a ``read`` that is
-waiting for input, so that another thread can have the desktop's loop come
-round (see ``PresentationManager.call_from_thread``).
-"""
+"""Cross-platform full-screen terminal access."""
 
 import os
 import sys
@@ -40,7 +25,10 @@ class _Console(Protocol):
         """Undo ``enable``."""
 
     def read(self, timeout: float | None = None) -> str:
-        """Wait (forever, or up to ``timeout`` seconds) and return input."""
+        """Wait for and return input.
+
+        :param timeout: Seconds to wait, or ``None`` for ever.
+        """
 
     def wake(self) -> None:
         """Cut short a ``read`` that is waiting, from any thread."""
@@ -50,8 +38,7 @@ class _Console(Protocol):
         """Whether the last ``read`` ended early: woken, or resized."""
 
     def refit(self) -> None:
-        """Fit the main screen to the window again, after a resize that
-        set ``has_outgrown_window`` (only the Windows console sets it)."""
+        """Refit the main screen to the window."""
 
 
 def _make_console() -> _Console:
@@ -71,7 +58,11 @@ def _make_console() -> _Console:
 
 
 class Terminal:
-    """A full-screen session on the alternate screen of the current terminal."""
+    """A full-screen session on the alternate screen.
+
+    :param stream: Output stream, or ``None`` for standard output.
+    :param mouse: Whether to report the mouse.
+    """
 
     def __init__(self, stream: TextIO | None = None, mouse: bool = True) -> None:
         self._stream = stream if stream is not None else sys.stdout
@@ -97,12 +88,7 @@ class Terminal:
 
     @contextmanager
     def suspended(self) -> Iterator[None]:
-        """While held, give the terminal back as leaving does: the user's own
-        screen and shell's settings return, for another program to use. Then
-        take it again as entering does, onto a cleared alternate screen,
-        even if that program failed. Whatever was drawn before is gone (the
-        program may have used the alternate screen too), so everything must
-        be drawn again."""
+        """Give the terminal back while held."""
         self._give_back()
         try:
             yield
@@ -143,12 +129,7 @@ class Terminal:
             self._console.restore()
 
     def size(self) -> os.terminal_size:
-        """The terminal's current size, in columns and lines.
-
-        Some terminals (serial lines and some SSH sessions) report a size of
-        0x0, or no size at all; for those, the size falls back to the
-        traditional 80x24.
-        """
+        """The terminal's (columns, lines)."""
         try:
             columns, lines = os.get_terminal_size(self._stream.fileno())
         except (AttributeError, ValueError, OSError):
@@ -158,9 +139,10 @@ class Terminal:
         )
 
     def write(self, text: str) -> None:
-        """Queue text (including escape sequences) for output. A character
-        that the terminal's encoding cannot represent is sent as ``?``,
-        rather than stopping the program."""
+        """Queue text for output.
+
+        :param text: The text.
+        """
         try:
             self._stream.write(text)
         except UnicodeEncodeError:
@@ -174,22 +156,13 @@ class Terminal:
 
     @property
     def can_report_key_releases(self) -> bool:
-        """Whether releasing Space arrives as a ``KeyReleaseEvent``. On
-        Windows, the console's input records report it; terminals on other
-        systems, and over SSH, report only key presses."""
+        """Whether Space releases are reported."""
         return bool(getattr(self._console, "can_report_key_releases", False))
 
     def read(self, timeout: float | None = None) -> str:
-        """Wait for input and return whatever is available.
+        """Wait for and return input.
 
-        Waits indefinitely when ``timeout`` is ``None``, and otherwise for
-        up to ``timeout`` seconds, returning ``""`` if nothing arrived. It
-        also returns ``""`` early when the terminal is resized, or when
-        ``wake`` is called.
-
-        A resize can leave the classic Windows console's screen larger than
-        its window, and drawing in the wrong place; the alternate screen is
-        then entered afresh, which clears it (see ``take_cleared``).
+        :param timeout: Seconds to wait, or ``None`` for ever.
         """
         text = self._console.read(timeout)
         if getattr(self._console, "has_outgrown_window", False):
@@ -197,8 +170,7 @@ class Terminal:
         return text
 
     def _renew_screen(self) -> None:
-        """Leave the alternate screen and enter it again, so that it fits
-        the window once more, refitting the main screen in between."""
+        """Re-enter the alternate screen to fit the window."""
         self.write(ansi.LEAVE_ALT_SCREEN)
         self.flush()
         self._console.refit()
@@ -214,23 +186,15 @@ class Terminal:
         self._cleared = True
 
     def take_cleared(self) -> bool:
-        """Whether the terminal cleared the screen by itself since this was
-        last called (after a resize, say), so that everything must be drawn
-        again."""
+        """Whether the terminal cleared the screen since last asked."""
         cleared, self._cleared = self._cleared, False
         return cleared
 
     def wake(self) -> None:
-        """Make a ``read`` that is waiting return ``""`` straight away (or,
-        if none is, the next one). Safe to call from any thread, which is
-        what it is for: another thread uses it to have the loop that reads
-        input come round."""
+        """Make a waiting ``read`` return; thread-safe."""
         self._console.wake()
 
     @property
     def is_woken(self) -> bool:
-        """Whether the last ``read`` returned early, because of ``wake`` or
-        a resize, rather than because input arrived or time ran out. A wait
-        for the rest of an escape sequence uses this to carry on waiting
-        (see ``dasha.events.read_events``)."""
+        """Whether the last ``read`` was woken early."""
         return self._console.is_woken

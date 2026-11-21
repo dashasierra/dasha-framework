@@ -1,4 +1,4 @@
-"""List boxes: a list of items from which to choose."""
+"""List boxes."""
 
 import time
 from collections.abc import Callable, Iterable
@@ -12,114 +12,36 @@ from dasha.widgets.scrollbar import ScrollBar
 
 
 class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
-    """A ``ListBox`` is a list of items, one per line, from which to choose,
-    such as a list of file names.
+    """A list of items to choose from.
 
-    ::
-
-        # Pick one, from two columns:
-        ListBox(items=names, row=0, column=0, width=32, height=7, columns=2)
-        # Pick several:
-        ListBox(
-            items=names,
-            row=2,
-            column=2,
-            width=34,
-            height=8,
-            multiple=True,
-            name="files",
-        )
-
-    - **Single selection** (the default). The highlighted item is the selected
-      one: moving onto an item selects it, and it stays selected. ``value`` is its
-      index (``None`` for an empty list).
-    - **Multiple selection** (``multiple=True``). Moving only moves the
-      highlight. Space, or a click, selects or deselects the highlighted item, so
-      any number of items can be selected. ``value`` is a tuple of their indexes,
-      and ``selected`` is the set of them. ``selected=`` sets which items start
-      selected (or, with single selection, which one).
-
-    ``selected_items`` holds the selected items themselves, and ``on_change(box)``
-    is called whenever the selection changes. ``set_items(items)`` shows other
-    items, keeping the highlight and any selections that still exist.
-
-    **Columns and scrolling.** With one column, the items run down the box, and a
-    vertical scroll bar takes up its right edge when there are more items than
-    fit. With ``columns=2`` or more, the items fill each column from top to
-    bottom and then the next, with the columns separated by ``│``. When there
-    are more columns of items than can be shown, a horizontal scroll bar takes up
-    the bottom row and scrolls one column at a time. The bars appear only when
-    needed, and scrolling with them, or with the mouse wheel, moves the view
-    without moving the highlight. Items too long for their column are cut
-    off.
-
-    - Up / Down (``list_up`` / ``list_down``): move by one item
-    - Left / Right (``list_left`` / ``list_right``): move by one column (with
-      one column, these keys are left for the window)
-    - PgUp / PgDn (``list_page_up`` / ``list_page_down``): move by a page, which
-      is every item showing
-    - Home / End (``list_home`` / ``list_end``): go to the first / last item
-    - Space (``list_toggle``): select or deselect the item, with multiple
-      selection (with single selection it does nothing, so that it does not
-      press a button)
-    - Ctrl+A (``list_select_all``): with multiple selection, select every item,
-      or, if every item is already selected, deselect them all
-    - Typing: go to the first item starting with what has been typed (see
-      below)
-    - A click on an item: highlight it, and with multiple selection, also
-      select or deselect it
-    - Shift and a click on an item: with multiple selection, select every item
-      from the one last clicked or toggled to this one
-    - A double-click on an item: choose it, by calling ``on_choose(box)``, or
-      otherwise by pressing the window's default button
-    - The scroll bar or mouse wheel: scroll the view
-
-    **Typing to find an item.** Typing the start of an item goes straight to
-    it: in a list of files, typing ``tur`` goes to ``turtle.exe``, or to whichever
-    item is the first to start with ``tur``. Each character typed narrows the
-    search. After ``ListBox.type_ahead_timeout`` seconds (1) without typing,
-    what was typed is forgotten and the next character starts a new search, so
-    a wrong key can be undone by waiting a moment. Typing the same letter again
-    and again (``t``, ``t``, ``t``) steps through the items starting with it
-    instead. Finding an item only moves the highlight: with multiple selection,
-    nothing is selected (with single selection, the highlighted item is the
-    selected one, as with the arrow keys). Matching ignores case, unless the list
-    box is created with ``case_sensitive=True``. ``type_ahead(character)`` does
-    the same from code.
-
-    A double-click chooses an item, as in a file dialog: the list box calls
-    ``on_choose(box)`` if it was given one, and otherwise presses the window's
-    default button, so that in a dialog a double-click is the same as OK. With
-    multiple selection, the first press of the double-click has already toggled
-    the item, and the second press does not toggle it back. ``choose()`` does
-    the same from code, and ``select_range(first, last)`` does what Shift and
-    a click do.
-
-    Tab, Escape and Enter are left for the window, so Enter presses a dialog's
-    default button. The colours are ``listbox``, ``listbox.focused`` (the
-    highlighted item while the box has the focus), ``listbox.selected`` and
-    ``scrollbar``.
+    :param items: The items.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param width: Width in columns.
+    :param height: Height in rows.
+    :param columns: Number of columns.
+    :param multiple: Whether several items can be selected.
+    :param case_sensitive: Whether type-ahead matches case.
+    :param selected: Initially selected index or indexes.
+    :param on_change: Called with the box when the selection changes.
+    :param on_choose: Called with the box on a double-click.
+    :param name: Widget name.
+    :param status: Status bar text.
     """
 
     focusable = True
     style: Style = Style(foreground=BLACK, background=CYAN)
     """The style of the items."""
     focused_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
-    """The style of the highlighted item, while the list box has the
-    focus."""
+    """Highlighted item style while focused."""
     selected_style: Style = Style(foreground=BRIGHT_YELLOW, background=CYAN, bold=True)
-    """The style of selected items (with single selection, when the box does
-    not have the focus)."""
+    """Selected item style."""
     divider: str = "\N{BOX DRAWINGS LIGHT VERTICAL}"
-    """The line between columns of items: ``│`` (code page 437 glyph
-    179)."""
+    """Column divider character."""
     type_ahead_timeout: float = 1.0
-    """How many seconds without typing before what was typed is forgotten,
-    so that typing starts a new search. Set ``ListBox.type_ahead_timeout`` to
-    change it for a whole project."""
+    """Seconds before type-ahead resets."""
     wheel_rows: int = 3
-    """How many rows one notch of the mouse wheel scrolls, with one column
-    (with more columns, it scrolls by one column)."""
+    """Rows per mouse wheel notch."""
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
@@ -173,8 +95,10 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
     # Items and selection
 
     def set_items(self, items: Iterable[str]) -> None:
-        """Show these items instead, keeping the highlight (and, with multiple
-        selection, the selected items) where they still exist."""
+        """Show other items.
+
+        :param items: The new items.
+        """
         self.items = list(items)
         self.selected = {index for index in self.selected if self._valid(index)}
         self.cursor = max(0, min(self.cursor, len(self.items) - 1))
@@ -197,22 +121,27 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
         return [self.items[self.cursor]] if self.items else []
 
     def is_selected(self, index: int) -> bool:
-        """Whether an item is selected."""
+        """Whether an item is selected.
+
+        :param index: Item index.
+        """
         if self.multiple:
             return index in self.selected
         return bool(self.items) and index == self.cursor
 
     def choose(self) -> None:
-        """Do what a double-click does: call ``on_choose``, or otherwise press
-        the window's default button (OK in a dialog), if it has one."""
+        """Choose the highlighted item, as a double-click does."""
         if self.on_choose is not None:
             self.on_choose(self)
         elif self.window is not None and (button := self.window.default_button):
             button.activate()
 
     def select_range(self, first: int, last: int) -> None:
-        """With multiple selection, select every item from ``first`` to
-        ``last`` (in either order), adding to what is already selected."""
+        """Select a range of items.
+
+        :param first: One end of the range.
+        :param last: The other end.
+        """
         if not self.multiple:
             return
         low, high = sorted((first, last))
@@ -222,8 +151,7 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
             self._changed()
 
     def toggle_all(self) -> None:
-        """With multiple selection, select every item, or if every item is
-        already selected, deselect them all (Ctrl+A)."""
+        """Select or deselect every item."""
         if not self.multiple or not self.items:
             return
         everything = set(range(len(self.items)))
@@ -231,15 +159,20 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
         self._changed()
 
     def toggle(self, index: int) -> None:
-        """With multiple selection, select or deselect an item."""
+        """Select or deselect an item.
+
+        :param index: Item index.
+        """
         if self.multiple and self._valid(index):
             self.selected ^= {index}
             self._anchor = index
             self._changed()
 
     def move_to(self, index: int) -> None:
-        """Highlight an item (kept within range), scrolling it into view. With
-        single selection, this also selects it."""
+        """Highlight an item and scroll to it.
+
+        :param index: Item index.
+        """
         if not self.items:
             return
         before = self.cursor
@@ -298,8 +231,10 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
         return self._first
 
     def scroll_to(self, first: int) -> None:
-        """Show the items from this row (with one column) or column onwards,
-        without moving the highlight."""
+        """Scroll without moving the highlight.
+
+        :param first: First row or column to show.
+        """
         self._first = max(0, min(first, self._max_first()))
 
     def _scroll_to_cursor(self) -> None:
@@ -314,8 +249,10 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
         self.scroll_to(self._first)
 
     def _slot(self, index: int) -> tuple[int, int] | None:
-        """Where an item shows within the box (row, column offset), or
-        ``None`` if it is scrolled out of view."""
+        """An item's (row, column offset), or ``None``.
+
+        :param index: Item index.
+        """
         if self._multicolumn:
             item_column, row = divmod(index, self.rows)
             shown = item_column - self._first
@@ -327,7 +264,11 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
         return row, sum(widths[:shown]) + shown
 
     def index_at(self, row: int, column: int) -> int | None:
-        """The item at a position within the box, if there is one."""
+        """The item at a position, if any.
+
+        :param row: Row in the box.
+        :param column: Column in the box.
+        """
         if not 0 <= row < self.rows:
             return None
         left = 0
@@ -342,8 +283,7 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
         return None
 
     def _sync_bar(self) -> None:
-        """Put the scroll bar along the right or bottom edge, showing where
-        the list is scrolled to."""
+        """Update the scroll bar."""
         rect, scroll_bar = self.rect, self.scroll_bar
         if self._multicolumn:
             scroll_bar.rect = Rect(rect.bottom - 1, rect.column, 1, rect.width)
@@ -401,7 +341,13 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
     def _paint_dividers(
         self, canvas: Canvas, origin: Rect, top: int, left: int
     ) -> None:
-        """The ``│`` lines between the columns."""
+        """Draw the column dividers.
+
+        :param canvas: Canvas to draw on.
+        :param origin: The window's interior on screen.
+        :param top: Box's top row.
+        :param left: Box's left column.
+        """
         offset = 0
         for width in self._column_widths()[:-1]:
             offset += width
@@ -412,7 +358,10 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
             offset += 1
 
     def _shown_column(self, offset: int) -> int:
-        """Which shown column starts at an offset from the box's left edge."""
+        """The shown column at an offset.
+
+        :param offset: Columns from the left edge.
+        """
         left = 0
         for shown, width in enumerate(self._column_widths()):
             if offset < left + width:
@@ -423,9 +372,11 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
     # Input
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """Move the highlight, select with Space, or jump to the next item
-        starting with a typed letter. Tab, Escape and Enter are left for the
-        window, so that Enter presses a dialog's default button."""
+        """Move, select or type ahead.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         if shortcuts.matches("list_toggle", key):
             self.toggle(self.cursor)
             return True  # with single selection too, so Space is not a button
@@ -456,11 +407,10 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
         return False
 
     def type_ahead(self, character: str) -> None:
-        """Find an item by typing: what has been typed so far (forgotten after
-        ``type_ahead_timeout`` seconds without typing) moves to the first item
-        that starts with it. Typing the same letter over and over instead steps
-        through the items starting with that letter, as in Windows. This moves
-        only the highlight: with multiple selection, nothing is selected."""
+        """Find an item by typing.
+
+        :param character: The character typed.
+        """
         now = time.monotonic()
         if now - self._typed_at > self.type_ahead_timeout:
             self._typed = ""
@@ -475,12 +425,18 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
             self.move_to(found)
 
     def _fold(self, text: str) -> str:
-        """Text as matching compares it: as it is, or in either case."""
+        """Text folded for matching.
+
+        :param text: The text.
+        """
         return text if self.case_sensitive else text.casefold()
 
     def _first_starting(self, prefix: str, start: int) -> int | None:
-        """The first item from ``start`` on (wrapping round) that starts
-        with ``prefix``, if any."""
+        """The first item starting with a prefix, if any.
+
+        :param prefix: Text to match.
+        :param start: Index to start from.
+        """
         count = len(self.items)
         for step in range(count):
             index = (start + step) % count
@@ -489,9 +445,12 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
         return None
 
     def handle_mouse(self, event: MouseEvent, row: int, column: int) -> bool:
-        """A click highlights an item (and with multiple selection, toggles
-        it). The scroll bar and the mouse wheel scroll without moving the
-        highlight."""
+        """Highlight, toggle or scroll with the mouse.
+
+        :param event: The mouse event.
+        :param row: Row in the window's interior.
+        :param column: Column in the window's interior.
+        """
         if self._needs_bar():
             self._sync_bar()
             on_bar = self.scroll_bar.rect.contains(row, column)
@@ -512,15 +471,21 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
         return event.action in ("press", "drag", "release")
 
     def point_at(self, row: int, column: int) -> None:
-        """A right-click on an item highlights it, for its context menu (with
-        multiple selection, without selecting anything more)."""
+        """Highlight the right-clicked item.
+
+        :param row: Row clicked.
+        :param column: Column clicked.
+        """
         index = self.index_at(row - self.rect.row, column - self.rect.column)
         if index is not None:
             self.move_to(index)
 
     def _click(self, index: int, event: MouseEvent) -> None:
-        """A press on an item: highlight it, then toggle it, select a range
-        (Shift), or on the second press of a double-click, choose it."""
+        """Handle a press on an item.
+
+        :param index: Item index.
+        :param event: The mouse event.
+        """
         double = event.clicks >= 2 and index == self.cursor
         self.move_to(index)
         if double:
@@ -539,8 +504,10 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
         self.scroll_bar.on_timer(now)
 
     def _wheel(self, event: MouseEvent) -> bool:
-        """Scroll for the mouse wheel; ``False`` if there is nothing to
-        scroll, so the window can scroll instead."""
+        """Scroll for the wheel; return whether it scrolled.
+
+        :param event: The mouse event.
+        """
         if not self._needs_bar():
             return False
         notch = 1 if self._multicolumn else self.wheel_rows

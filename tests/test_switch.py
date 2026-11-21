@@ -12,7 +12,10 @@ from dasha.window import Window
 
 
 def paint(window: Window) -> Canvas:
-    """Paint a window on a canvas just big enough."""
+    """Paint a window on a canvas of its size.
+
+    :param window: The window.
+    """
     canvas = Canvas(window.rect.right, window.rect.bottom)
     window.paint(canvas, active=True)
     return canvas
@@ -37,12 +40,14 @@ class SwitchTests(unittest.TestCase):
         self.shortcuts = Shortcuts()
 
     def keys(self, *names: str) -> list[bool]:
-        """Offer keys to the window."""
+        """Offer keys to the window.
+
+        :param names: The keys.
+        """
         return [self.window.handle_key(name, self.shortcuts) for name in names]
 
     def test_drawn_off_and_on(self) -> None:
-        """The knob on the left when off, on the right when on, in the
-        switch's colours, with a button's shadow and the label after it."""
+        """Drawn off and on."""
         canvas = paint(self.window)
         top, left = 2, 2  # interior row 1, column 1
         self.assertEqual(canvas.text(top)[left : left + 3], KNOB + TRACK + TRACK)
@@ -72,8 +77,7 @@ class SwitchTests(unittest.TestCase):
         )
 
     def test_focus_reverses_the_label(self) -> None:
-        """The focused switch's label is drawn in reverse video, its letter
-        underlined; unfocused it is in the window's colours."""
+        """Focus reverses the label."""
         canvas = paint(self.window)  # the switch is focused (added first)
         self.assertTrue(canvas.cell(2, 8)[1].reverse)
         self.assertTrue(canvas.cell(2, 7)[1].underline)  # the D
@@ -82,8 +86,7 @@ class SwitchTests(unittest.TestCase):
         self.assertEqual(canvas.cell(2, 8)[1], self.window.body_style)
 
     def test_keys(self) -> None:
-        """Space flips it; Right turns it on and Left off, again and again
-        changing nothing more; Enter and Tab are left for the window."""
+        """Keys."""
         self.keys(" ")
         self.assertTrue(self.switch.on)
         self.keys(" ", "right", "right")
@@ -102,8 +105,7 @@ class SwitchTests(unittest.TestCase):
         self.assertFalse(self.switch.on)
 
     def test_mnemonic_and_dialog_values(self) -> None:
-        """In a dialog its letter alone flips it, and the caller reads a
-        true-or-false value."""
+        """Mnemonic and dialog values."""
         dialog = Dialog("Q", 30, 8)
         dialog.add(Button("&OK", 4, 1, result="ok", default=True))
         dialog.add(Switch("&Dark mode", 1, 1, name="dark"))
@@ -111,8 +113,7 @@ class SwitchTests(unittest.TestCase):
         self.assertEqual(dialog.values["dark"], True)
 
     def test_disabled(self) -> None:
-        """A disabled switch is greyed out, takes no focus, and nothing
-        changes it, not even its letter."""
+        """Disabled."""
         switch = Switch("&Sound", 0, 0, disabled=True)
         self.assertFalse(switch.can_focus())
         self.assertFalse(switch.handle_key(" ", self.shortcuts))

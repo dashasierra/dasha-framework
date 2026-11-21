@@ -1,4 +1,4 @@
-"""Frame characters for windows, menus and other boxes."""
+"""Frame characters."""
 
 from dataclasses import dataclass
 

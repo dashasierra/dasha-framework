@@ -1,7 +1,4 @@
-"""Tests for RGB colours: ``style.Rgb``, drawn in 24-bit colour or as the
-nearest 256-palette colour, read and written in colours files, sent in
-messages, and the colour depth chosen on the command line or in
-``settings.toml``."""
+"""Tests for RGB colours and colour depth."""
 
 import json
 import os
@@ -31,7 +28,10 @@ from tests.support import isolated_home, started_desktop
 
 
 def depth_put_back(case: unittest.TestCase) -> None:
-    """Put the colour depth back as it was, after a test."""
+    """Restore the colour depth after a test.
+
+    :param case: The test.
+    """
     case.addCleanup(setattr, style, "DRAWN_DEPTH", style.DRAWN_DEPTH)
 
 
@@ -106,8 +106,7 @@ class DrawnTests(unittest.TestCase):
         self.assertEqual(Style(foreground=Rgb(255, 0, 0)).sgr(), "\x1b[0;38;5;196m")
 
     def test_16(self) -> None:
-        """Every colour as the nearest of the 16 standard colours: RGB
-        colours, and palette colours above 15; those up to 15 as before."""
+        """Drawn in 16 colours."""
         set_colour_depth("16")
         self.assertEqual(Style(foreground=Rgb(255, 0, 0)).sgr(), "\x1b[0;31m")
         self.assertEqual(Style(background=Rgb(0, 0, 0xA0)).sgr(), "\x1b[0;44m")
@@ -122,8 +121,7 @@ class DrawnTests(unittest.TestCase):
             self.assertEqual(Style(background=200).sgr(), "\x1b[0;48;5;200m")
 
     def test_automatic(self) -> None:
-        """24-bit when COLORTERM says so, or on Windows; 16 for the Linux
-        console and the like; otherwise 256."""
+        """The automatic depth."""
         for colour_term, term, name, expected in (
             ("truecolor", "xterm-256color", "posix", "24bit"),
             ("24bit", "linux", "posix", "24bit"),
@@ -194,8 +192,7 @@ class DepthSettingTests(unittest.TestCase):
         self.path = self.home / "settings.toml"
 
     def test_read_and_saved(self) -> None:
-        """Automatic, unless the file says otherwise; automatic is never
-        written."""
+        """The setting is read and saved."""
         self.assertEqual(read_colour_depth_setting(self.path), "auto")
         save_colour_depth_setting("256", self.path)
         self.assertEqual(self.path.read_text("utf-8"), 'colour_depth = "256"\n')
@@ -210,8 +207,10 @@ class DepthSettingTests(unittest.TestCase):
             read_colour_depth_setting(self.path)
 
     def started_with(self, *arguments: str) -> tuple[int, str | None, str]:
-        """The exit code of the command line, the colour depth the desktop
-        started with, and what it said."""
+        """Exit code, starting depth and messages.
+
+        :param arguments: Command-line arguments.
+        """
         code, desktop, said = started_desktop(*arguments)
         depth = desktop.call_args.kwargs["colour_depth"] if desktop.called else None
         return code, depth, said
@@ -224,8 +223,7 @@ class DepthSettingTests(unittest.TestCase):
         self.assertEqual(self.started_with("--colour-depth", "256")[:2], (0, "256"))
 
     def test_the_command_line_is_remembered(self) -> None:
-        """A depth given with -d (--colour-depth) is kept in settings.toml
-        for next time, as Settings... keeps it; -d auto forgets it."""
+        """The command line is remembered."""
         self.assertEqual(self.started_with("-d", "16")[:2], (0, "16"))
         self.assertEqual(read_colour_depth_setting(registry.SETTINGS_PATH), "16")
         self.assertEqual(self.started_with()[:2], (0, "16"))

@@ -1,14 +1,4 @@
-"""Sphinx configuration for Dasha Framework's documentation.
-
-The guides are Markdown (read by MyST); the API reference is generated from
-the package's docstrings and type hints (autodoc and autosummary), and the
-colour and shortcut tables from ``dasha.theme`` and
-``dasha.shortcuts`` (``_ext/dasha_tables.py``).
-
-Build it with::
-
-    python -m sphinx -W --keep-going -b html docs docs/_build/html
-"""
+"""Sphinx configuration for Dasha Framework's documentation."""
 
 # Sphinx reads these lower-case names.
 # pylint: disable=invalid-name
@@ -17,11 +7,9 @@ import os
 import sys
 from pathlib import Path
 
-# Values made from the home folder (``~/.dasha`` and the files in it)
-# are worked out when autodoc imports Dasha Framework. Their docstrings give them
-# as ``~/...`` and hide the value (``:meta hide-value:``), which differs
-# from system to system; should one be missed, a made-up home still keeps
-# the real one, and its user name, out of the pages, whoever builds them.
+# Home-folder paths (``~/.dasha`` and its files) are computed on import.
+# Their docstrings hide the value (``:meta hide-value:``); a made-up home
+# keeps the real one out of the pages if one is missed.
 os.environ["HOME"] = "/home/username"
 os.environ["USERPROFILE"] = r"C:\Users\username"
 

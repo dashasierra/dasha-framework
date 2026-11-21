@@ -1,8 +1,4 @@
-"""Dasha Framework - a text-mode desktop and application framework.
-
-A text-mode desktop and application framework for local and SSH terminals,
-built entirely on the Python standard library.
-"""
+"""Dasha Framework: a text-mode desktop and application framework."""
 
 from pkgutil import extend_path
 

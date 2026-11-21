@@ -20,7 +20,11 @@ DOWN = "\x1b[B"
 
 
 def keys(box: ComboBox, *names: str) -> None:
-    """Offer keys to a combo box."""
+    """Offer keys to a combo box.
+
+    :param box: The combo box.
+    :param names: The keys.
+    """
     shortcuts = Shortcuts()
     for name in names:
         box.handle_key(name, shortcuts)
@@ -80,8 +84,11 @@ class DropDownTests(unittest.TestCase):
     """Dropping the list down, through a running manager."""
 
     def run_with(self, inputs: list[str], row: int = 2) -> ComboBox:
-        """A window with a combo box at ``row``, run on scripted input that
-        is followed by Ctrl+Q and Shutdown."""
+        """Run a window with a combo box.
+
+        :param inputs: Input to read.
+        :param row: The box's row.
+        """
         window = Window("W", Rect(1, 0, 18, 40))
         box = window.add(ComboBox(TYPES, row, 2, 20))
         manager = PresentationManager(windows=[window])
@@ -101,9 +108,7 @@ class DropDownTests(unittest.TestCase):
         self.assertEqual(box.value, 0)
 
     def test_click_to_open_and_choose(self) -> None:
-        """A click on the field drops it down; a click on an item chooses.
-        The field is on screen row 4 (interior row 2), so the list's first
-        item is on row 6, under the list's frame."""
+        """Clicks open the list and choose."""
         box = self.run_with(["\x1b[<0;5;5M", "\x1b[<0;5;5m", "\x1b[<0;5;8M"])
         self.assertEqual(box.value, 1)
 
@@ -117,7 +122,11 @@ class PlacementTests(unittest.TestCase):
     """Where the list drops down."""
 
     def placed(self, below: Rect, items: int = 3) -> Rect:
-        """The rect a list would be shown at, under (or over) ``below``."""
+        """Where a list would be shown.
+
+        :param below: The field's screen rect.
+        :param items: Number of items.
+        """
         seen: list[Rect] = []
 
         class Recording(PresentationManager):

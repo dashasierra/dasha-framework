@@ -1,5 +1,4 @@
-"""Tests for waking the loop from another thread: ``call_from_thread``,
-``Terminal.wake``, and escape sequences that a wake must not cut short."""
+"""Tests for waking the loop from another thread."""
 
 import os
 import sys
@@ -20,13 +19,11 @@ from tests.test_hosting import WELCOME
 from tests.support import pipe
 
 PATIENCE = 5.0
-"""How long a test waits for a wake that never comes, before it fails
-rather than hangs."""
+"""Seconds to wait before failing."""
 
 
 class WakeableTerminal:
-    """A terminal with no input, whose ``read`` waits, as a real one does,
-    until its time is up or it is woken."""
+    """A terminal whose ``read`` waits until woken."""
 
     def __init__(self) -> None:
         self.screen_size = (80, 24)
@@ -39,14 +36,20 @@ class WakeableTerminal:
         return self.screen_size
 
     def write(self, text: str) -> None:
-        """Drop output."""
+        """Drop output.
+
+        :param text: The output.
+        """
         del text
 
     def flush(self) -> None:
         """Nothing to flush."""
 
     def read(self, timeout: float | None = None) -> str:
-        """Wait for a wake, for ``timeout`` (``PATIENCE`` at the most)."""
+        """Wait for a wake or the timeout.
+
+        :param timeout: Seconds to wait, at most ``PATIENCE``.
+        """
         limit = PATIENCE if timeout is None else min(timeout, PATIENCE)
         self.is_woken = self._woken.wait(limit)
         self._woken.clear()
@@ -60,7 +63,11 @@ class WakeableTerminal:
 
 
 def later(action: Callable[[], object], delay: float = 0.05) -> threading.Thread:
-    """Start a thread that does ``action()`` after ``delay`` seconds."""
+    """Do an action on a thread after a delay.
+
+    :param action: The action.
+    :param delay: Seconds to wait.
+    """
 
     def run() -> None:
         time.sleep(delay)
@@ -75,8 +82,7 @@ class ManagerTests(unittest.TestCase):
     """``call_from_thread`` on a desktop of its own."""
 
     def test_wakes_the_loop_and_calls_on_its_thread(self) -> None:
-        """A callback from another thread is called promptly, on the
-        loop's thread, though no input arrives."""
+        """Wakes the loop and calls on its thread."""
         manager = PresentationManager()
         terminal = WakeableTerminal()
         called: list[int] = []
@@ -111,8 +117,7 @@ class ManagerTests(unittest.TestCase):
         self.assertEqual(calls, ["first", "second", "third"])
 
     def test_without_wake_waits_for_input(self) -> None:
-        """On a terminal that cannot be woken, a callback runs once input
-        (or a timeout) comes round."""
+        """Without wake, waits for input."""
         manager = PresentationManager()
         calls: list[str] = []
         manager.call_from_thread(lambda: calls.append("called"))
@@ -126,14 +131,20 @@ class ManagerTests(unittest.TestCase):
                 return (80, 24)
 
             def write(self, text: str) -> None:
-                """Drop output."""
+                """Drop output.
+
+                :param text: The output.
+                """
                 del text
 
             def flush(self) -> None:
                 """Nothing to flush."""
 
             def read(self, timeout: float | None = None) -> str:
-                """A key press, at once."""
+                """A key press, at once.
+
+                :param timeout: Ignored.
+                """
                 del timeout
                 return "z"
 
@@ -177,14 +188,20 @@ class ClientTests(unittest.TestCase):
 
 
 class ScriptedReader:  # pylint: disable=too-few-public-methods
-    """Scripted reads, where ``None`` is an empty read that was woken."""
+    """Scripted reads; ``None`` is a woken empty read.
+
+    :param inputs: The reads.
+    """
 
     def __init__(self, inputs: list[str | None]) -> None:
         self.inputs = inputs
         self.is_woken = False
 
     def read(self, timeout: float | None = None) -> str:
-        """The next scripted input."""
+        """The next scripted input.
+
+        :param timeout: Ignored.
+        """
         del timeout
         data = self.inputs.pop(0)
         self.is_woken = data is None
@@ -192,7 +209,7 @@ class ScriptedReader:  # pylint: disable=too-few-public-methods
 
 
 class EscapeTests(unittest.TestCase):
-    """A wake in the middle of an escape sequence does not split it."""
+    """A wake does not split an escape sequence."""
 
     def test_woken_waits_for_the_rest(self) -> None:
         """Woken after ESC, the read waits again, and the rest arrives."""
@@ -205,7 +222,7 @@ class EscapeTests(unittest.TestCase):
         self.assertEqual(read_events(reader, InputDecoder(), 10.0), ["escape"])
 
     def test_woken_wait_still_ends(self) -> None:
-        """Woken over and over, the wait still ends when its time is up."""
+        """A woken wait still ends."""
         reader = ScriptedReader(["\x1b"] + [None] * 1000)
         self.assertEqual(read_events(reader, InputDecoder(), 0.0), ["escape"])
 

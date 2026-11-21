@@ -1,21 +1,4 @@
-"""The applications that Dasha Framework knows about, which are installed with
-manifest files, and the desktop's settings.
-
-A manifest is a TOML file in ``~/.dasha/apps/``, one for each
-application, named after the application's id (``hello.toml`` is the
-application ``hello``)::
-
-    name = "Hello"                     # what the Applications menu says
-    module = "hello.app"               # an importable module ...
-    class = "Hello"                    # ... and the Application in it
-    # script = "C:/apps/hello.py"      # or a script (class is then optional)
-    venv = "C:/venvs/hello"            # optional: run with this venv's Python
-    group = "Games"                    # optional: an Applications submenu
-    single_instance = false            # optional: one at a time
-
-``dasha install-app`` writes manifests, ``dasha uninstall-app``
-removes them, and ``dasha list-apps`` lists the installed applications.
-"""
+"""Installed applications and desktop settings."""
 
 import hashlib
 import json
@@ -34,38 +17,27 @@ from dasha.config import write_atomically
 from dasha.style import COLOUR_DEPTHS
 
 SETTINGS_FOLDER = Path.home() / ".dasha"
-"""The folder where Dasha Framework keeps its settings: ``~/.dasha``, in the
-user's home folder (``Path.home()``) on every system.
+"""Dasha Framework's settings folder.
 
 :meta hide-value:
 """
 MANIFEST_FOLDER = SETTINGS_FOLDER / "apps"
-"""The folder holding the manifests of installed applications:
-``~/.dasha/apps``.
+"""Folder of application manifests.
 
 :meta hide-value:
 """
 VENV_FOLDER = SETTINGS_FOLDER / "venvs"
-"""The folder where ``install-app --create-venv`` creates virtual
-environments: ``~/.dasha/venvs``.
+"""Folder of created virtual environments.
 
 :meta hide-value:
 """
 LEND_FOLDER = SETTINGS_FOLDER / "lend"
-"""The folder where copies of Dasha Framework are kept, to lend to virtual
-environments: ``~/.dasha/lend``.
+"""Folder of lent copies of Dasha Framework.
 
 :meta hide-value:
 """
 SETTINGS_PATH = SETTINGS_FOLDER / "settings.toml"
-"""The desktop settings file, ``~/.dasha/settings.toml``. It can hold
-``autostart = ["notepad", ...]``; ``theme = "dark"``, the theme last chosen
-from the system menu; ``animations = false``, if animations were last
-turned off there; ``escape_timeout = 250``, how many milliseconds to wait
-after a lone ESC for the rest of a key, if not ``ESCAPE_TIMEOUT``;
-``show_mouse = true``, if the cell under the mouse was
-last left inverted; and ``colour_depth = "16"``, ``"256"`` or ``"24bit"``,
-how to draw colours, if not as the terminal seems to allow.
+"""The desktop settings file.
 
 :meta hide-value:
 """
@@ -74,8 +46,7 @@ _KEYS = ("name", "module", "class", "script", "venv", "group", "single_instance"
 
 
 class ManifestError(ValueError):
-    """A manifest (or settings file) that cannot be used. The message says
-    why: for a manifest, it lists every problem with it, one to a line."""
+    """An unusable manifest or settings file."""
 
 
 @dataclass(frozen=True)
@@ -83,31 +54,29 @@ class AppEntry:  # pylint: disable=too-many-instance-attributes
     """An application that the desktop can start."""
 
     id: str
-    """The name used for the application on the command line
-    (``dasha notepad``)."""
+    """Command-line id."""
     name: str
     """The name shown for the application in the Applications menu."""
     target: str
-    """What is run: ``"module:Class"``, ``"path/app.py"`` or
-    ``"path/app.py:Class"``."""
+    """What is run."""
     venv: str | None = None
-    """A virtual environment whose Python runs the application, if it does
-    not use Dasha Framework's own Python."""
+    """Virtual environment folder, if any."""
     single_instance: bool = False
-    """Whether only one copy of the application can run at a time. If so,
-    starting it again switches to the copy that is running."""
+    """Whether only one copy may run."""
     group: str = ""
-    """The Applications submenu the application is listed in (``""`` for
-    none)."""
+    """Applications submenu, or ""."""
     application: type[Application] | None = None
-    """The application class itself, for an application that can also run in
-    the desktop's own process."""
+    """The application class, if importable."""
     manifest: Path | None = None
     """The manifest file the entry came from, if it was installed."""
 
     @classmethod
     def of(cls, application: type[Application], id_: str | None = None) -> "AppEntry":
-        """The entry for an application class that Dasha Framework can import."""
+        """The entry for an application class.
+
+        :param application: The class.
+        :param id_: Its id, or ``None`` to derive one.
+        """
         return cls(
             id=id_ or slug(application.name),
             name=application.name,
@@ -127,8 +96,10 @@ DESKTOP_ID = "desktop"
 
 
 def reserved_id_problem(app_id: str) -> str | None:
-    """Why an application cannot be installed with this id, or ``None`` if
-    it can."""
+    """Why an id is reserved, or ``None``.
+
+    :param app_id: The id.
+    """
     if app_id == DESKTOP_ID:
         return (
             f'"{DESKTOP_ID}" cannot be an application\'s id, as '
@@ -138,19 +109,26 @@ def reserved_id_problem(app_id: str) -> str | None:
 
 
 def slug(text: str) -> str:
-    """An id made from a name; for example, ``"Widget Gallery"`` becomes
-    ``"widget-gallery"``."""
+    """An id made from a name.
+
+    :param text: The name.
+    """
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-") or "app"
 
 
 def is_script(target: str) -> bool:
-    """Whether a target names a script (``app.py`` or ``app.py:Class``)."""
+    """Whether a target names a script.
+
+    :param target: The target.
+    """
     return target.endswith(".py") or ".py:" in target
 
 
 def split_script(target: str) -> tuple[str, str | None]:
-    """A script target's path and class name (``None`` if the class is to be
-    found in the script)."""
+    """A script target's path and class name.
+
+    :param target: The target.
+    """
     if target.endswith(".py"):
         return target, None
     path, _, class_name = target.rpartition(":")
@@ -161,7 +139,10 @@ def split_script(target: str) -> tuple[str, str | None]:
 
 
 def read_manifest(path: Path) -> AppEntry:
-    """The application a manifest describes. Raises ``ManifestError``."""
+    """Read a manifest.
+
+    :param path: The manifest.
+    """
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
@@ -206,8 +187,10 @@ def read_manifest(path: Path) -> AppEntry:
 
 
 def load_manifests(folder: Path = MANIFEST_FOLDER) -> tuple[list[AppEntry], list[str]]:
-    """Every installed application, together with the problems with any
-    manifests that could not be read (which are left out)."""
+    """Installed applications and manifest problems.
+
+    :param folder: The manifest folder.
+    """
     entries: list[AppEntry] = []
     problems: list[str] = []
     if not folder.is_dir():
@@ -226,7 +209,10 @@ def _toml_string(text: str) -> str:
 
 
 def manifest_text(entry: AppEntry) -> str:
-    """The text of the manifest file for an application."""
+    """A manifest file's text.
+
+    :param entry: The application.
+    """
     lines = [f"name = {_toml_string(entry.name)}"]
     if entry.is_script:
         path, class_name = split_script(entry.target)
@@ -246,8 +232,11 @@ def manifest_text(entry: AppEntry) -> str:
 
 
 def write_manifest(entry: AppEntry, folder: Path = MANIFEST_FOLDER) -> Path:
-    """Install an application by writing its manifest, and return the
-    manifest's path."""
+    """Write a manifest; return its path.
+
+    :param entry: The application.
+    :param folder: The manifest folder.
+    """
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / f"{entry.id}.toml"
     write_atomically(path, manifest_text(entry), newline="\n")
@@ -267,16 +256,16 @@ _SETTINGS_KEYS = (
 )
 
 ESCAPE_TIMEOUT = 100
-"""How many milliseconds the desktop waits, after a lone ESC, for the rest
-of an escape sequence, unless ``settings.toml`` says otherwise."""
+"""Default milliseconds to wait after a lone ESC."""
 ESCAPE_TIMEOUT_RANGE = range(10, 2001)
 """The waits that ``escape_timeout`` may be, in milliseconds."""
 
 
 def _read_settings(path: Path) -> dict[str, object]:
-    """``settings.toml``'s contents (empty if there is no file). Raises
-    ``ManifestError`` for a file that cannot be read, or a setting it does
-    not know."""
+    """The settings file's contents.
+
+    :param path: The settings file.
+    """
     if not path.exists():
         return {}
     try:
@@ -290,8 +279,10 @@ def _read_settings(path: Path) -> dict[str, object]:
 
 
 def read_autostart(path: Path = SETTINGS_PATH) -> list[str]:
-    """The ids of the applications that ``settings.toml`` says to start with
-    the desktop (none if there is no file). Raises ``ManifestError``."""
+    """Application ids to autostart.
+
+    :param path: The settings file.
+    """
     autostart = _read_settings(path).get("autostart", [])
     if not isinstance(autostart, list) or not all(
         isinstance(i, str) for i in autostart
@@ -301,9 +292,10 @@ def read_autostart(path: Path = SETTINGS_PATH) -> list[str]:
 
 
 def read_theme_setting(path: Path = SETTINGS_PATH) -> str | None:
-    """The theme that ``settings.toml`` says to start with, which is the one
-    last chosen from the system menu (or ``None`` if it names none). Raises
-    ``ManifestError``."""
+    """The saved theme, or ``None``.
+
+    :param path: The settings file.
+    """
     name = _read_settings(path).get("theme")
     if name is not None and (not isinstance(name, str) or not name):
         raise ManifestError(f'{path.name}: "theme" must be the name of a theme')
@@ -311,24 +303,29 @@ def read_theme_setting(path: Path = SETTINGS_PATH) -> str | None:
 
 
 def save_theme_setting(name: str | None, path: Path = SETTINGS_PATH) -> None:
-    """Remember a theme to start with, in ``settings.toml`` (``None``
-    forgets it). Only the ``theme = ...`` line is changed, so everything else
-    in the file, including comments, stays as it was."""
+    """Save the theme setting.
+
+    :param name: Theme name, or ``None`` to forget it.
+    :param path: The settings file.
+    """
     _save_setting("theme", None if name is None else _toml_string(name), path)
 
 
 def save_autostart_setting(ids: Sequence[str], path: Path = SETTINGS_PATH) -> None:
-    """Remember the applications to start with the desktop, in
-    ``settings.toml`` (none takes the setting out). Only the ``autostart =
-    ...`` line is changed, as with ``save_theme_setting``."""
+    """Save the autostart setting.
+
+    :param ids: Application ids.
+    :param path: The settings file.
+    """
     value = "[" + ", ".join(_toml_string(app_id) for app_id in ids) + "]"
     _save_setting("autostart", value if ids else None, path)
 
 
 def read_animations_setting(path: Path = SETTINGS_PATH) -> bool:
-    """Whether ``settings.toml`` says to start with animations on, as they
-    were last turned on or off from the system menu. If it does not say,
-    animations are on. Raises ``ManifestError``."""
+    """Whether animations start on.
+
+    :param path: The settings file.
+    """
     animations = _read_settings(path).get("animations", True)
     if not isinstance(animations, bool):
         raise ManifestError(f'{path.name}: "animations" must be true or false')
@@ -336,17 +333,19 @@ def read_animations_setting(path: Path = SETTINGS_PATH) -> bool:
 
 
 def save_animations_setting(on: bool, path: Path = SETTINGS_PATH) -> None:
-    """Remember whether to start with animations on, in ``settings.toml``.
-    Animations start on anyway, so only ``animations = false`` is ever
-    written, and only that line is changed, as with
-    ``save_theme_setting``."""
+    """Save the animations setting.
+
+    :param on: Whether animations are on.
+    :param path: The settings file.
+    """
     _save_setting("animations", None if on else "false", path)
 
 
 def read_show_mouse_setting(path: Path = SETTINGS_PATH) -> bool:
-    """Whether ``settings.toml`` says to show where the mouse is, as it was
-    last left. If it does not say, it is not shown. Raises
-    ``ManifestError``."""
+    """Whether the mouse cell is shown.
+
+    :param path: The settings file.
+    """
     show = _read_settings(path).get("show_mouse", False)
     if not isinstance(show, bool):
         raise ManifestError(f'{path.name}: "show_mouse" must be true or false')
@@ -354,16 +353,19 @@ def read_show_mouse_setting(path: Path = SETTINGS_PATH) -> bool:
 
 
 def save_show_mouse_setting(on: bool, path: Path = SETTINGS_PATH) -> None:
-    """Remember whether to show where the mouse is, in ``settings.toml``.
-    It is off anyway, so only ``show_mouse = true`` is ever written, and only
-    that line is changed, as with ``save_theme_setting``."""
+    """Save the show-mouse setting.
+
+    :param on: Whether it is shown.
+    :param path: The settings file.
+    """
     _save_setting("show_mouse", "true" if on else None, path)
 
 
 def read_escape_timeout_setting(path: Path = SETTINGS_PATH) -> int:
-    """How many milliseconds ``settings.toml`` says to wait after a lone ESC
-    for the rest of an escape sequence (``ESCAPE_TIMEOUT`` if it does not
-    say). Raises ``ManifestError``."""
+    """Milliseconds to wait after a lone ESC.
+
+    :param path: The settings file.
+    """
     wait = _read_settings(path).get("escape_timeout", ESCAPE_TIMEOUT)
     if isinstance(wait, bool) or wait not in ESCAPE_TIMEOUT_RANGE:
         raise ManifestError(
@@ -375,16 +377,19 @@ def read_escape_timeout_setting(path: Path = SETTINGS_PATH) -> int:
 
 
 def save_escape_timeout_setting(wait: int, path: Path = SETTINGS_PATH) -> None:
-    """Remember how many milliseconds to wait after a lone ESC, in
-    ``settings.toml`` (the default takes the setting out); only that line is
-    changed, as with ``save_theme_setting``."""
+    """Save the ESC wait setting.
+
+    :param wait: Milliseconds.
+    :param path: The settings file.
+    """
     _save_setting("escape_timeout", None if wait == ESCAPE_TIMEOUT else str(wait), path)
 
 
 def read_colour_depth_setting(path: Path = SETTINGS_PATH) -> str:
-    """How ``settings.toml`` says to draw colours (one of
-    ``style.COLOUR_DEPTHS``), or ``"auto"`` if it does not say. Raises
-    ``ManifestError``."""
+    """The saved colour depth, or ``"auto"``.
+
+    :param path: The settings file.
+    """
     depth = _read_settings(path).get("colour_depth", "auto")
     if depth not in COLOUR_DEPTHS:
         raise ManifestError(
@@ -395,17 +400,23 @@ def read_colour_depth_setting(path: Path = SETTINGS_PATH) -> str:
 
 
 def save_colour_depth_setting(depth: str, path: Path = SETTINGS_PATH) -> None:
-    """Remember how to draw colours, in ``settings.toml``. ``"auto"`` is
-    the default, so saving it takes the setting out; only that line is changed, as
-    with ``save_theme_setting``."""
+    """Save the colour depth setting.
+
+    :param depth: The depth.
+    :param path: The settings file.
+    """
     _save_setting(
         "colour_depth", None if depth == "auto" else _toml_string(depth), path
     )
 
 
 def _save_setting(key: str, value: str | None, path: Path) -> None:
-    """Set one top-level setting to a TOML value (``None`` takes it out),
-    leaving the rest of the file as it was."""
+    """Set one top-level setting.
+
+    :param key: Setting name.
+    :param value: TOML value, or ``None`` to remove it.
+    :param path: The settings file.
+    """
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
     except FileNotFoundError:
@@ -426,7 +437,10 @@ def _save_setting(key: str, value: str | None, path: Path) -> None:
 
 
 def venv_python(venv: str | Path) -> Path:
-    """The path of a virtual environment's Python."""
+    """A virtual environment's Python.
+
+    :param venv: The environment folder.
+    """
     folder = Path(venv)
     if os.name == "nt":
         return folder / "Scripts" / "python.exe"
@@ -439,8 +453,10 @@ def _site_packages(venv: Path) -> Iterable[Path]:
 
 
 def venv_has_dasha(venv: str | Path) -> bool:
-    """Whether a virtual environment has its own copy of Dasha Framework
-    installed."""
+    """Whether a virtual environment has Dasha Framework.
+
+    :param venv: The environment folder.
+    """
     for folder in _site_packages(Path(venv)):
         if folder.is_dir() and any("dasha" in p.name for p in folder.iterdir()):
             return True
@@ -448,12 +464,10 @@ def venv_has_dasha(venv: str | Path) -> bool:
 
 
 def lend_folder(base: Path = LEND_FOLDER) -> Path:
-    """A folder holding a copy of this version of Dasha Framework and
-    nothing else, to put on a virtual environment's path without lending it
-    anything more. It is made once for each version of the code, and named
-    after the contents of the files rather than when they were written,
-    because a one-file build of dasha unpacks fresh copies of them every
-    time it starts."""
+    """A folder with only this Dasha Framework version.
+
+    :param base: Parent folder.
+    """
     package = Path(dasha.__file__).resolve().parent
     files = sorted(
         path

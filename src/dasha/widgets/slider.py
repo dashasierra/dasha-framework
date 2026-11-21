@@ -1,5 +1,4 @@
-"""Sliders: a knob that slides along a track to choose a number within a
-range, such as a volume, a brightness, or a position in a piece of music."""
+"""Sliders."""
 
 from collections.abc import Callable
 
@@ -13,39 +12,24 @@ from dasha.widgets.base import Widget
 ACROSS = "\N{BOX DRAWINGS LIGHT HORIZONTAL}"
 UP_AND_DOWN = "\N{BOX DRAWINGS LIGHT VERTICAL}"
 KNOB = "\N{MEDIUM SHADE}"
-"""The tracks ``─`` and ``│`` (code page 437 glyphs 196 and 179), and the
-knob ``▒`` (177)."""
+"""Track and knob characters."""
 
 
 class Slider(Widget):  # pylint: disable=too-many-instance-attributes
-    """A ``Slider`` is a knob that slides along a track to choose a whole
-    number from ``minimum`` to ``maximum`` (0 and 100 by default), in steps of
-    ``step``, such as a volume or a position in a piece of music. By default it
-    is horizontal, with its minimum at the left; ``vertical=True`` makes it
-    vertical, with its minimum at the bottom and its maximum at the top, as on
-    a mixing desk.
+    """A knob that slides along a track.
 
-    ::
-
-        ──────▒─────────
-
-    - Left or Down (``slider_decrease``): one ``step`` towards the minimum
-    - Right or Up (``slider_increase``): one ``step`` towards the maximum
-    - Page Down / Page Up (``slider_page_decrease`` / ``slider_page_increase``):
-      one ``page`` (a tenth of the range, unless given) either way
-    - Home / End (``slider_minimum`` / ``slider_maximum``): to either end
-    - A click or drag on it: the knob moves to the pointer
-    - The mouse wheel: one ``step`` either way
-
-    ``value`` is the number, which is kept within range and on a step when code
-    sets it. ``slide_to(value)`` moves the knob as the user does, and
-    ``on_change(slider)`` is called for every change the user makes. The track is
-    ``─`` or ``│``, and the knob ``▒``
-    (code page 437 glyphs 196, 179 and 177). Its colours are ``slider`` and
-    ``slider.focused`` for the track, and ``slider.knob`` and
-    ``slider.knob.focused`` for the knob. A slider shares its track arithmetic with
-    scroll bars: ``dasha.scrollbar.track_position`` and ``track_value`` turn a
-    value into a cell along a track and back.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param length: Length in cells.
+    :param vertical: Whether it is vertical.
+    :param value: Initial value.
+    :param minimum: Smallest value.
+    :param maximum: Largest value.
+    :param step: Amount of one step.
+    :param page: Amount of one page, if not a tenth of the range.
+    :param on_change: Called with the slider when the user moves it.
+    :param name: Widget name.
+    :param status: Status bar text.
     """
 
     focusable = True
@@ -94,8 +78,7 @@ class Slider(Widget):  # pylint: disable=too-many-instance-attributes
 
     @property
     def value(self) -> int:
-        """The chosen number. Setting it from code keeps it within range and on
-        a step, and does not call ``on_change``."""
+        """The chosen number."""
         return self._value
 
     @value.setter
@@ -103,14 +86,19 @@ class Slider(Widget):  # pylint: disable=too-many-instance-attributes
         self._value = self._fit(value)
 
     def _fit(self, value: int) -> int:
-        """``value`` kept within range, on the nearest step."""
+        """A value kept in range, on a step.
+
+        :param value: The value.
+        """
         value = max(self.minimum, min(value, self.maximum))
         steps = round((value - self.minimum) / self.step)
         return min(self.minimum + steps * self.step, self.maximum)
 
     def slide_to(self, value: int) -> None:
-        """Move the knob as the user does, keeping the value within range and
-        on a step, and calling ``on_change`` if it moved."""
+        """Move the knob, as the user does.
+
+        :param value: New value.
+        """
         before = self._value
         self.value = value
         if self._value != before and self.on_change is not None:
@@ -132,9 +120,11 @@ class Slider(Widget):  # pylint: disable=too-many-instance-attributes
         )
 
     def value_at(self, row: int, column: int) -> int:
-        """The value the knob would have at a position in the window, for a
-        click or drag there; a position beyond either end gives that end's
-        value."""
+        """The value at a position.
+
+        :param row: Row in the window.
+        :param column: Column in the window.
+        """
         if self.vertical:
             along = self.rect.bottom - 1 - row
         else:
@@ -160,7 +150,11 @@ class Slider(Widget):  # pylint: disable=too-many-instance-attributes
                 canvas.write(row, column + along, char, style, clip=origin)
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """Slide the knob by a step or a page, or to either end."""
+        """Slide with the keys.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         moves = {
             "slider_decrease": self._value - self.step,
             "slider_increase": self._value + self.step,
@@ -176,8 +170,12 @@ class Slider(Widget):  # pylint: disable=too-many-instance-attributes
         return False
 
     def handle_mouse(self, event: MouseEvent, row: int, column: int) -> bool:
-        """A press moves the knob to the pointer, and a drag takes it along;
-        the mouse wheel moves it by a step."""
+        """Slide with the mouse.
+
+        :param event: The mouse event.
+        :param row: Row in the window's interior.
+        :param column: Column in the window's interior.
+        """
         if event.action == "scroll":
             down = event.button in ("down", "left")
             self.slide_to(self._value + (-self.step if down else self.step))

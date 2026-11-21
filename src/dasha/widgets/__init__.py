@@ -1,14 +1,4 @@
-"""Widgets: the controls inside windows and dialogs.
-
-Each kind of widget has a module of its own, and every widget can be
-imported from here::
-
-    from dasha.widgets import Button, CheckBoxes, Label, TextBox
-
-A widget is positioned relative to its window's interior, so row 0,
-column 0 is the first cell inside the frame. To create a new kind of
-control, subclass ``Widget`` (in ``dasha.widgets.base``).
-"""
+"""Widgets for windows and dialogs."""
 
 from dasha.widgets.autocomplete import AutoCompleteBox, match_suggestions
 from dasha.widgets.base import Grow, Widget

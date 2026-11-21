@@ -1,5 +1,4 @@
-"""Splitters: two panes of widgets, side by side or one above the other,
-with a divider between them that can be dragged."""
+"""Splitters."""
 
 from collections.abc import Callable
 
@@ -13,15 +12,15 @@ from dasha.widgets.label import on_window
 
 ACROSS = "\N{BOX DRAWINGS LIGHT VERTICAL}"
 STACKED = "\N{BOX DRAWINGS LIGHT HORIZONTAL}"
-"""The divider: ``│`` between panes side by side, and ``─`` between
-stacked panes (code page 437 glyphs 179 and 196)."""
+"""Divider characters."""
 
 
 class SplitPane(Container):
-    """One of a ``Splitter``'s two panes. ``add`` puts a widget in the pane,
-    positioned relative to it, and the pane moves and stretches its widgets as
-    their window would (each according to its own ``grow``) as the divider
-    moves."""
+    """One of a splitter's two panes.
+
+    :param splitter: The splitter.
+    :param second: Whether this is the second pane.
+    """
 
     noun = "splitter"
     sizes_children = True
@@ -46,52 +45,18 @@ class SplitPane(Container):
 
 
 class Splitter(Widget):  # pylint: disable=too-many-instance-attributes
-    """A ``Splitter`` holds two panes of widgets side by side, with a divider
-    ``│`` between them that can be dragged. With ``vertical=True``, one pane is
-    above the other, and the divider is ``─``:
+    """Two panes with a draggable divider.
 
-    ::
-
-        Documents     │ changes.txt
-        Programs      │ draft.doc
-        Settings      │ help.txt
-
-    ::
-
-        splitter = window.add(
-            widget=Splitter(
-                row=0, column=0, width=58, height=12, position=16, minimum=8
-            ),
-            grow=Grow.ALL,
-        )
-        folders = splitter.first.add(
-            widget=ListBox(items=names, row=0, column=0, width=16, height=12)
-        )
-        folders.grow = Grow.ALL
-        files = splitter.second.add(
-            widget=ListBox(items=items, row=0, column=0, width=41, height=12)
-        )
-        files.grow = Grow.ALL
-
-    - **The panes.** ``first`` and ``second`` are containers (``SplitPane``),
-      and ``pane.add(widget)`` places a widget relative to the pane.
-    - **Moving and stretching.** A pane moves and stretches its widgets as their
-      window would, each according to its own ``grow``, whenever the divider
-      moves or the splitter is resized; changes to the window's own size leave
-      them alone (``Container.sizes_children``). So a list with ``Grow.ALL``
-      fills its pane wherever the divider is.
-    - **The divider.** ``position`` is how far the divider is from the left (or
-      top), and neither pane is made smaller than ``minimum``. Dragging the
-      divider moves it, and so do Left and Right, or Up and Down
-      (``splitter_decrease``, ``splitter_increase``), while the splitter has the
-      focus, which it can take. ``move_divider(position)`` moves it as the user
-      does, and ``on_change(splitter)`` is called for every move the user makes.
-    - **Resizing.** When the splitter itself is resized (through its ``grow``,
-      along with the window), the second pane takes up the room it gains or
-      loses.
-    - **Colours.** The divider uses ``splitter``, and ``splitter.focused`` while
-      the splitter has the focus; colours left as ``default`` are the
-      window's.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param width: Width in columns.
+    :param height: Height in rows.
+    :param vertical: Whether the panes are stacked.
+    :param position: Divider position, if not centred.
+    :param minimum: Smallest pane size.
+    :param on_change: Called with the splitter when the user moves it.
+    :param name: Widget name.
+    :param status: Status bar text.
     """
 
     focusable = True
@@ -133,18 +98,19 @@ class Splitter(Widget):  # pylint: disable=too-many-instance-attributes
 
     @property
     def length(self) -> int:
-        """How many cells the panes and divider take up across (or down, if
-        they are stacked)."""
+        """Cells the panes and divider span."""
         return self.rect.height if self.vertical else self.rect.width
 
     def _fit(self, position: int) -> int:
-        """``position`` kept clear of ``minimum`` from either end."""
+        """A position kept clear of the ends.
+
+        :param position: The position.
+        """
         return max(self.minimum, min(position, self.length - 1 - self.minimum))
 
     @property
     def position(self) -> int:
-        """How far the divider is from the left (or top). Setting it from
-        code moves the panes' widgets, without calling ``on_change``."""
+        """Divider position."""
         return self._position
 
     @position.setter
@@ -157,14 +123,20 @@ class Splitter(Widget):  # pylint: disable=too-many-instance-attributes
         return self._position
 
     def move_divider(self, position: int) -> None:
-        """Move the divider as the user does, calling ``on_change``."""
+        """Move the divider, as the user does.
+
+        :param position: New position.
+        """
         before = self._position
         self.position = position
         if self._position != before and self.on_change is not None:
             self.on_change(self)
 
     def pane_rect(self, second: bool) -> Rect:
-        """Where a pane is in the window's content."""
+        """A pane's rect in the window's content.
+
+        :param second: Whether to give the second pane.
+        """
         rect, at = self.rect, self._position
         if self.vertical:
             if second:
@@ -189,8 +161,7 @@ class Splitter(Widget):  # pylint: disable=too-many-instance-attributes
     # Keeping the panes' widgets in place
 
     def _panes(self) -> tuple[Rect, Rect]:
-        """Both panes, relative to the splitter: what moving the splitter
-        itself (its widgets move with it) leaves alone."""
+        """Both panes, relative to the splitter."""
         rect = self.rect
 
         def relative(pane: Rect) -> Rect:
@@ -228,17 +199,12 @@ class Splitter(Widget):  # pylint: disable=too-many-instance-attributes
         self._placed = self._panes()
 
     def on_resize(self) -> None:
-        """When the splitter grows with the window, the second pane takes up
-        the difference."""
+        """Give the second pane the size change."""
         self._position = self._fit(self._position)
         self._arrange()
 
     def min_size(self) -> tuple[int, int]:
-        """Room for both panes' ``minimum`` and the divider along its length,
-        and one row (or column) across, so that it shrinks with its window in
-        both directions, and what its panes hold (such as a list or a table)
-        scrolls by itself, rather than the window scrolling both panes at
-        once."""
+        """Room for both panes and the divider."""
         least = 2 * self.minimum + 1
         return (1, least) if self.vertical else (least, 1)
 
@@ -256,7 +222,11 @@ class Splitter(Widget):  # pylint: disable=too-many-instance-attributes
                 canvas.write(row + offset, column, ACROSS, style, clip=origin)
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """The arrow keys move the divider by one cell."""
+        """Move the divider with the arrow keys.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         actions: dict[str, Callable[[], object]] = {
             "splitter_decrease": lambda: self.move_divider(self._position - 1),
             "splitter_increase": lambda: self.move_divider(self._position + 1),
@@ -264,8 +234,12 @@ class Splitter(Widget):  # pylint: disable=too-many-instance-attributes
         return run_shortcut(shortcuts, key, actions)
 
     def handle_mouse(self, event: MouseEvent, row: int, column: int) -> bool:
-        """A press on the divider followed by a drag moves the divider; clicks
-        on the panes are not used up."""
+        """Drag the divider.
+
+        :param event: The mouse event.
+        :param row: Row in the window's interior.
+        :param column: Column in the window's interior.
+        """
         if event.button != "left":
             return False
         along = row - self.rect.row if self.vertical else column - self.rect.column

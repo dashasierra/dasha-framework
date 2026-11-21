@@ -1,6 +1,4 @@
-"""Tests for applications in processes of their own: the protocol, the
-application's side (``ClientManager``), the desktop's side (``AppHost``,
-``RemoteWindow``), and real processes."""
+"""Tests for applications in their own processes."""
 
 import os
 import stat
@@ -58,8 +56,10 @@ WELCOME: Message = {
 
 
 def drain(connection: Connection) -> list[Message]:
-    """Every message waiting on a connection (the desktop sends from a
-    thread of its own, so this waits a moment for them)."""
+    """Every message waiting on a connection.
+
+    :param connection: The connection.
+    """
     messages = []
     try:
         while connection.poll(0.1):
@@ -70,7 +70,11 @@ def drain(connection: Connection) -> list[Message]:
 
 
 def of_type(messages: list[Message], kind: str) -> list[Message]:
-    """The messages of one type."""
+    """The messages of one type.
+
+    :param messages: The messages.
+    :param kind: Message type.
+    """
     return [message for message in messages if message["type"] == kind]
 
 
@@ -121,14 +125,16 @@ class ClientTests(unittest.TestCase):
         self.window = self.app.windows[0]
 
     def tell(self, kind: str, **fields: object) -> None:
-        """Send the application a message and let it act on it."""
+        """Send a message and let it act.
+
+        :param kind: Message type.
+        :param fields: Message fields.
+        """
         send(self.desktop, kind, **fields)
         self.manager.pump()
 
     def test_a_change_of_colours_alone_is_sent(self) -> None:
-        """Rows whose text stays the same but whose colours change (the
-        window's body colours, say, as the Demo's Dark mode switch does) are
-        sent again, every one of them: blank rows too."""
+        """A change of colours alone is sent."""
         self.manager.flush()
         drain(self.desktop)
         dark = Style(foreground=CYAN, background=BLUE)
@@ -193,9 +199,7 @@ class ClientTests(unittest.TestCase):
         self.assertEqual((request["id"], request["op"]), (number, "minimise"))
 
     def test_menu_choices(self) -> None:
-        """A path into the application's menus runs that item, in submenus
-        too, if it can be chosen; and the menus go to the desktop, with
-        whether each item can be chosen now."""
+        """Menu choices."""
         chosen: list[str] = []
         sub = Menu("Sub", [MenuItem("&Deep", lambda: chosen.append("deep"))])
         self.app.menus = [
@@ -217,7 +221,7 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(chosen, ["new", "deep"])
 
     def test_no_choices_through_a_greyed_out_submenu(self) -> None:
-        """An item is run only if every item above it can be chosen."""
+        """No choices through a greyed-out submenu."""
         chosen: list[str] = []
         inner = Menu("Inner", [MenuItem("&Deep", lambda: chosen.append("deep"))])
         self.app.menus = [
@@ -254,8 +258,7 @@ class ClientTests(unittest.TestCase):
         self.assertIn({"type": "close", "id": dialog_id}, messages)
 
     def test_typing_ahead_reaches_the_dialog(self) -> None:
-        """Keys sent to a window before the desktop knew its dialog was up
-        go to the dialog, as in one process; a click there is ignored."""
+        """Typing ahead reaches the dialog."""
         dialog = Dialog("Name", 30, 6)
         name = dialog.add(TextBox(1, 1, 20, name="name"))
         dialog.add(Button("&OK", 3, 1, result="ok", default=True))
@@ -274,9 +277,7 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(self.window.widget("text").value, "")
 
     def test_a_shortcut_goes_to_the_dialog(self) -> None:
-        """A menu shortcut chosen just as a dialog opens (the desktop not yet
-        knowing of it) goes to the dialog as its key: Ctrl+A selects the
-        name, and what is typed replaces it."""
+        """A shortcut goes to the dialog."""
         chosen: list[str] = []
         self.app.menus = [
             Menu(
@@ -297,7 +298,7 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(chosen, [])  # the menu item itself did not run
 
     def test_a_menu_choice_without_a_key_is_ignored(self) -> None:
-        """Chosen by mouse, there is no key to pass on: ignored, as before."""
+        """A menu choice without a key is ignored."""
         chosen: list[str] = []
         self.app.menus = [
             Menu("&Edit", [MenuItem("&All", lambda: chosen.append("all"))])
@@ -369,7 +370,10 @@ class DesktopSideTests(unittest.TestCase):
         self.manager.add_application(self.host.application)
 
     def state(self, **changes: object) -> Message:
-        """A window message, with changes."""
+        """A window message, with changes.
+
+        :param changes: Fields to change.
+        """
         state: Message = {
             "type": "window", "id": 1, "title": "Hello", "rect": [2, 2, 6, 30],
             "maximised": False, "flags": [True, True, True, True], "look": "window",
@@ -380,7 +384,10 @@ class DesktopSideTests(unittest.TestCase):
         return state
 
     def open(self, **changes: object) -> RemoteWindow:
-        """Show a window from the application."""
+        """Show a window from the application.
+
+        :param changes: Fields to change.
+        """
         self.host.handle(self.state(**changes))
         window = self.host.windows[int(cast(int, changes.get("id", 1)))]
         return window
@@ -410,8 +417,7 @@ class DesktopSideTests(unittest.TestCase):
         self.assertEqual(canvas.text(2)[2], "╔")
 
     def test_the_help_key_goes_to_its_window(self) -> None:
-        """Like any key that is not the desktop's: the application decides
-        what it means, and may use it itself."""
+        """The help key goes to its window."""
         window = self.open()
         self.manager.handle_event("f1")
         self.assertEqual(
@@ -442,8 +448,7 @@ class DesktopSideTests(unittest.TestCase):
         self.assertEqual(self.manager.windows, ())
 
     def test_the_desktops_dialog_has_the_desktops_help(self) -> None:
-        """With an application active, the desktop's own dialogs still have
-        the desktop's help, not the application's."""
+        """The desktop's dialog has the desktop's help."""
         self.open()
         self.manager.help_folder = DESKTOP_PAGES
         dialog = information("About", "Dasha Framework")
@@ -471,9 +476,7 @@ class DesktopSideTests(unittest.TestCase):
         self.assertEqual([m["type"] for m in messages], ["key", "mouse", "paste"])
 
     def test_a_message_it_cannot_act_on_ends_it_alone(self) -> None:
-        """A malformed message (a style that is not there, a request with
-        no op) ends that application, says so, and leaves the desktop
-        running."""
+        """A bad message ends only that application."""
         for bad in (
             {"type": "paint", "id": 1, "size": [28, 4], "styles": [],
              "rows": [[0, [["Hi", 5]]]], "cursor": None},
@@ -512,8 +515,7 @@ class DesktopSideTests(unittest.TestCase):
         self.assertNotIn(window, self.manager.windows)
 
     def test_menus_stay_behind_its_dialog(self) -> None:
-        """While its dialog waits, the application's menus stay on the bar,
-        inert; the system menu can still be used."""
+        """Menus stay behind its dialog."""
         self.open()
         self.host.set_menus(encode_menus([Menu("&File", [MenuItem("&New", print)])]))
         self.open(id=2, title="Q", look="dialog", modal=True)
@@ -522,8 +524,7 @@ class DesktopSideTests(unittest.TestCase):
         self.assertEqual(self.manager.inert_menus(), [1, 2])
 
     def test_a_shortcut_with_its_dialog_known(self) -> None:
-        """The desktop knows of the dialog: the shortcut goes to it as a key,
-        and the dialog comes forward."""
+        """A shortcut with its dialog known."""
         main = self.open()
         self.host.set_menus(
             encode_menus([Menu("&Edit", [MenuItem("&All", print, "Ctrl+A")])])
@@ -554,8 +555,7 @@ class DesktopSideTests(unittest.TestCase):
         )
 
     def test_a_dialog_blocks_its_own_windows(self) -> None:
-        """Input to the blocked window, or its menus, brings the dialog
-        forward instead; the dialog is not one of the application's windows."""
+        """A dialog blocks its own windows."""
         main = self.open()
         self.host.set_menus(encode_menus([Menu("&File", [MenuItem("&New", print)])]))
         dialog = self.open(id=2, title="Q", look="dialog", modal=True)
@@ -573,8 +573,7 @@ class DesktopSideTests(unittest.TestCase):
         self.assertEqual(drain(self.app_end), [])
 
     def test_greyed_out_submenus_stay_greyed(self) -> None:
-        """A submenu's item that the application greyed out is greyed out
-        on the desktop too, so its submenu cannot be opened."""
+        """Greyed-out submenus stay greyed."""
         self.open()
         inner = Menu("Inner", [MenuItem("&Deep", print)])
         greyed = MenuItem("&More", submenu=inner, enabled=lambda: False)
@@ -584,8 +583,7 @@ class DesktopSideTests(unittest.TestCase):
         self.assertFalse(item.is_available)
 
     def test_a_menu_after_the_window_menu(self) -> None:
-        """A menu that goes after the Window menu does so on the desktop, and
-        choosing from it still names its place in the application's menus."""
+        """A menu after the Window menu."""
         self.open()
         self.host.handle(
             {"type": "menus", "menus": encode_menus(
@@ -600,8 +598,7 @@ class DesktopSideTests(unittest.TestCase):
         self.assertEqual(drain(self.app_end), [{"type": "menu", "path": [0, 0]}])
 
     def test_menus_from_an_earlier_version(self) -> None:
-        """An application that does not send after_window has its menus
-        before the Window menu; only true counts."""
+        """Menus from an earlier version."""
         self.open()
         self.host.handle(
             {"type": "menus", "menus": [
@@ -614,8 +611,7 @@ class DesktopSideTests(unittest.TestCase):
         )
 
     def test_menu_choices_go_back(self) -> None:
-        """The application's menus show on the bar, with the Window menu;
-        choosing an item tells it which."""
+        """Menu choices go back."""
         self.open()
         self.host.handle(
             {"type": "menus", "menus": encode_menus(
@@ -673,8 +669,7 @@ class DesktopSideTests(unittest.TestCase):
         return other, other_end
 
     def test_it_cannot_put_its_window_off_screen(self) -> None:
-        """Moved by the application where it could not be reached, a window
-        is brought back, and the application is told where it is."""
+        """It cannot put its window off screen."""
         window = self.open()
         drain(self.app_end)
         self.host.handle(self.state(rect=[2, 9000, 6, 30]))
@@ -683,8 +678,7 @@ class DesktopSideTests(unittest.TestCase):
         self.assertIn("rect", [m["type"] for m in drain(self.app_end)])
 
     def test_a_click_on_its_hint_presses_the_key(self) -> None:
-        """The status bar's F1 Help, from the application: a click on it
-        sends the application F1."""
+        """A click on its hint presses the key."""
         self.open()
         drain(self.app_end)
         places = self.manager.status_bar.hint_places(
@@ -695,9 +689,7 @@ class DesktopSideTests(unittest.TestCase):
         self.assertIn({"type": "key", "id": 1, "key": "f1"}, drain(self.app_end))
 
     def test_shared_clipboard(self) -> None:
-        """A copy in the active application reaches another only once a
-        window of the other's is active: never while it is in the
-        background."""
+        """The shared clipboard."""
         other, other_end = self.other_application()
         self.host.handle({"type": "clipboard", "text": "shared"})
         self.assertEqual(CLIPBOARD.text, "shared")
@@ -711,8 +703,7 @@ class DesktopSideTests(unittest.TestCase):
         self.assertIn({"type": "clipboard", "text": "shared"}, drain(other_end))
 
     def test_background_application_cannot_set_the_clipboard(self) -> None:
-        """Only the active application, which the user is working in, may
-        change what is on the clipboard."""
+        """A background application cannot set the clipboard."""
         other, _ = self.other_application()
         CLIPBOARD.copy_text("mine")
         other.handle({"type": "clipboard", "text": "rm -rf ~"})
@@ -740,8 +731,11 @@ class DesktopSideTests(unittest.TestCase):
 
 
 class SlowTerminal(FakeTerminal):
-    """Reads nothing but timeouts, really waiting, until ``done()`` or a
-    deadline; then quits the manager."""
+    """A terminal that waits for real until done.
+
+    :param manager: The desktop.
+    :param done: Returns whether to stop.
+    """
 
     def __init__(self, manager: PresentationManager, done: Callable[[], bool]) -> None:
         super().__init__([], sizes=[(80, 24)])
@@ -769,7 +763,10 @@ class ProcessTests(unittest.TestCase):
         self.server.log_folder = Path(folder.name)
 
     def run_until(self, done: Callable[[], bool]) -> None:
-        """Run the desktop until ``done()`` (or a deadline)."""
+        """Run the desktop until done.
+
+        :param done: Returns whether to stop.
+        """
         self.manager.run(cast(Terminal, SlowTerminal(self.manager, done)))
 
     def test_an_application_in_its_own_process(self) -> None:
@@ -781,9 +778,7 @@ class ProcessTests(unittest.TestCase):
         self.assertEqual(self.server.notices, [])
 
     def test_help_in_its_own_process(self) -> None:
-        """F1 goes to the application, which opens its help window there, at
-        the topic of its text box; the desktop draws the frame in cyan, and
-        lists its keys. Escape, also the application's, closes it."""
+        """Help in its own process."""
         self.manager.start(Helpful)
         seen: dict[str, object] = {}
 
@@ -830,8 +825,7 @@ class ProcessTests(unittest.TestCase):
         self.assertIn("RuntimeError: broken on purpose", said)
 
     def test_its_log_is_private(self) -> None:
-        """Its log is named without the launch token, and on POSIX only
-        this user may read it or its folder."""
+        """Its log is private."""
         self.server.log_folder = self.server.log_folder / "logs"
         self.manager.start(Hello)
         host = self.server.hosts[0]
@@ -859,8 +853,7 @@ class ProcessTests(unittest.TestCase):
 
 
 def own_threads() -> list[str]:
-    """The desktop's threads that are still running: sending to
-    applications, and accepting connections."""
+    """The desktop's running threads."""
     return [
         thread.name
         for thread in threading.enumerate()
@@ -873,9 +866,7 @@ class ListenerTests(unittest.TestCase):
     """Accepting connections."""
 
     def test_stop_all_ends_its_threads(self) -> None:
-        """Shutting down ends every thread the server started: each
-        application's sender, connected with a process or without, and the
-        thread waiting to accept connections."""
+        """``stop_all`` ends its threads."""
         # pylint: disable=protected-access
         before = own_threads()
         server = AppServer(PresentationManager())
@@ -890,8 +881,7 @@ class ListenerTests(unittest.TestCase):
         self.assertEqual(own_threads(), before)
 
     def test_accept_failing_over_and_over(self) -> None:
-        """Tried again after a pause, not flat out using a whole core, and
-        ended once the listener is closed."""
+        """A failing accept backs off."""
         # pylint: disable=protected-access
         server = AppServer(PresentationManager())
         self.addCleanup(server.stop_all, 0)

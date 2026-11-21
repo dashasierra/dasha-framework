@@ -1,5 +1,4 @@
-"""Tree views: an outline of items that can be expanded to show the items
-below them, as folders can."""
+"""Tree views."""
 
 # A tree view and a table are both list boxes underneath, and hand their
 # options on to it alike.
@@ -18,18 +17,17 @@ from dasha.widgets.listbox import ListBox
 BRANCH = "\N{BOX DRAWINGS LIGHT VERTICAL AND RIGHT}\N{BOX DRAWINGS LIGHT HORIZONTAL}"
 LAST = "\N{BOX DRAWINGS LIGHT UP AND RIGHT}\N{BOX DRAWINGS LIGHT HORIZONTAL}"
 GOING_ON = "\N{BOX DRAWINGS LIGHT VERTICAL} "
-"""``├─`` before an item with more items after it, ``└─`` before the last
-item, and ``"│ "`` where an outer item's line continues past (code page 437
-glyphs 195, 192, 196 and 179)."""
+"""Tree line characters."""
 
 
 class TreeNode:
-    """One item of a ``TreeView``, together with the items below it.
+    """One item of a tree, with its children.
 
-    ``children`` holds the items below it. ``load``, if given, is called with
-    the node the first time it is expanded, and returns the children instead,
-    for items that are slow to find (such as a folder's files). ``data`` is
-    anything the application wants to keep with the item.
+    :param label: Item text.
+    :param children: Items below it.
+    :param expanded: Whether it starts expanded.
+    :param data: Anything to keep with the item.
+    :param load: Returns the children on first expansion, if given.
     """
 
     def __init__(  # pylint: disable=too-many-arguments
@@ -53,16 +51,17 @@ class TreeNode:
             self.add(child)
 
     def add(self, child: "TreeNode") -> "TreeNode":
-        """Add an item below this one, after its other children, and return
-        it."""
+        """Add a child and return it.
+
+        :param child: The child item.
+        """
         child.parent = self
         self.children.append(child)
         return child
 
     @property
     def has_children(self) -> bool:
-        """Whether the item has items below it, or may have (because they have
-        not been loaded yet)."""
+        """Whether the item has or may have children."""
         return bool(self.children) or self.load is not None
 
     def loaded(self) -> None:
@@ -95,86 +94,28 @@ class TreeNode:
 
 
 class TreeView(ListBox):  # pylint: disable=too-many-instance-attributes
-    """A ``TreeView`` is an outline of items (``TreeNode`` objects) that can be
-    expanded to show the items below them, with lines joining each item to the
-    one above it in the outline:
+    """An expandable outline of items.
 
-    ::
-
-        ▼ C:
-        ├─  Documents
-        ├─► Programs
-        └─  Settings
-
-    ::
-
-        roots = [
-            TreeNode(
-                label="C:",
-                children=[
-                    TreeNode(label="Documents"),
-                    TreeNode(label="Programs", load=find_files),
-                ],
-                expanded=True,
-            )
-        ]
-        folders = window.add(
-            widget=TreeView(
-                roots=roots, row=0, column=0, width=18, height=12, on_change=show_files
-            )
-        )
-        several = TreeView(
-            roots=other_roots, row=0, column=0, width=18, height=12, multiple=True
-        )
-
-    - **Nodes.** A ``TreeNode`` has a ``label``, ``children``, ``expanded``,
-      ``data`` for the application, and optionally ``load``, which is called with
-      the node the first time it is expanded and returns its children then, for
-      items that are slow to find (such as a folder's files). ``parent``,
-      ``depth`` and ``path`` say where the node is.
-    - **Marks.** ``►`` marks an item that can be expanded, and ``▼`` one that is
-      expanded.
-    - **Single selection** (the default). The highlighted item is the selected
-      one, as in a list box.
-    - **Multiple selection** (``multiple=True``). Moving only moves the
-      highlight, and Space (``list_toggle``), or a click, selects or deselects
-      the highlighted item, so any number of items can be selected. Ctrl+A
-      (``list_select_all``) selects every item showing, or deselects them all,
-      and Shift and a click selects a range of the items showing. Items stay
-      selected while the items above them are collapsed. ``value`` is a tuple of
-      the selected items, and ``selected=`` sets which items start selected (or,
-      with single selection, which one is highlighted).
-    - **Keys.** Underneath, a tree is a list box, with its keys (``list_up`` and
-      the rest) and typing to find a visible item. Right (``tree_expand``)
-      expands the highlighted item, or, if it is already expanded, moves to its
-      first child; Left (``tree_collapse``) collapses it, or moves to its parent.
-      Enter (``tree_choose``) chooses it, by calling ``on_choose(tree)``, or
-      otherwise by expanding or collapsing an item that has children; on any
-      other item, Enter is left for the window.
-    - **Mouse.** A click on ``►`` or ``▼`` expands or collapses the item, a
-      click elsewhere highlights it (and with multiple selection, selects or
-      deselects it), and a double-click chooses it.
-    - **From code.** ``value`` (with single selection) and ``selected_node``
-      are the highlighted item, and ``selected_nodes`` holds the selected items,
-      in the order of the outline; ``set_selected_nodes(nodes)`` selects others
-      instead. ``expand(node)``, ``collapse(node)``, ``select(node)`` (which expands the
-      items above it) and ``refresh()`` (after nodes have changed) do the rest.
-      ``on_change(tree)`` is called whenever the selection changes (with
-      single selection, for every move of the highlight), and
-      ``on_expand(tree, node)`` for every item expanded. ``visible_nodes`` holds
-      the items shown. The colours are ``tree``, ``tree.focused``,
-      ``tree.selected`` (highlighted, without the focus, or selected) and
-      ``tree.lines``.
+    :param roots: Top-level items.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param width: Width in columns.
+    :param height: Height in rows.
+    :param multiple: Whether several items can be selected.
+    :param selected: Initially selected item or items.
+    :param on_change: Called with the tree when the selection changes.
+    :param on_choose: Called with the tree when an item is chosen.
+    :param on_expand: Called with the tree and item when expanded.
+    :param name: Widget name.
+    :param status: Status bar text.
     """
 
     style: Style = Style(foreground=BLACK, background=CYAN)
     """The style of the items."""
     focused_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
-    """The style of the highlighted item, while the tree view has the
-    focus."""
+    """Highlighted item style while focused."""
     selected_style: Style = Style(foreground=BRIGHT_YELLOW, background=CYAN, bold=True)
-    """The style of the highlighted item while the tree view does not have
-    the focus, and, with multiple selection, of the selected items."""
+    """Selected item style."""
     lines_style: Style = Style(foreground=BLUE, background=CYAN)
     """The style of the lines joining the items."""
 
@@ -223,9 +164,7 @@ class TreeView(ListBox):  # pylint: disable=too-many-instance-attributes
     # The items showing
 
     def refresh(self) -> None:
-        """Work out the visible items again (after items have been added or
-        removed, for example), keeping the highlight on its item if that item
-        is still visible."""
+        """Recompute the visible items."""
         current = self.selected_node
         shown: list[TreeNode] = []
 
@@ -264,8 +203,7 @@ class TreeView(ListBox):  # pylint: disable=too-many-instance-attributes
 
     @property
     def selected_nodes(self) -> list[TreeNode]:
-        """The selected items, in the order of the outline, including any
-        under collapsed items (with single selection, the highlighted one)."""
+        """The selected items."""
         if not self.multiple:
             node = self.selected_node
             return [node] if node is not None else []
@@ -281,8 +219,10 @@ class TreeView(ListBox):  # pylint: disable=too-many-instance-attributes
         return found
 
     def set_selected_nodes(self, nodes: Iterable[TreeNode]) -> None:
-        """With multiple selection, select these items instead (the items
-        above them are left as they are, expanded or not)."""
+        """Select other items.
+
+        :param nodes: The items.
+        """
         if not self.multiple:
             return
         chosen = set(nodes)
@@ -292,8 +232,7 @@ class TreeView(ListBox):  # pylint: disable=too-many-instance-attributes
             self._changed()
 
     def _changed(self) -> None:
-        """With multiple selection, the list box's selected rows are the
-        selected items showing; the items hidden keep their selection."""
+        """Sync selection with the visible items."""
         if self.multiple:
             shown = set(self.visible_nodes)
             self._selected_nodes = {
@@ -302,8 +241,10 @@ class TreeView(ListBox):  # pylint: disable=too-many-instance-attributes
         super()._changed()
 
     def _reveal(self, node: TreeNode) -> bool:
-        """Expand the items above an item, without working out the visible
-        items again; whether any were collapsed."""
+        """Expand an item's ancestors; return whether any were collapsed.
+
+        :param node: The item.
+        """
         parent = node.parent
         opened = False
         while parent is not None:
@@ -313,16 +254,20 @@ class TreeView(ListBox):  # pylint: disable=too-many-instance-attributes
         return opened
 
     def select(self, node: TreeNode) -> None:
-        """Highlight an item, expanding the items above it so that it is
-        visible (with multiple selection, this does not select it)."""
+        """Highlight an item, expanding its ancestors.
+
+        :param node: The item.
+        """
         if self._reveal(node):
             self.refresh()
         if node in self.visible_nodes:
             self.move_to(self.visible_nodes.index(node))
 
     def expand(self, node: TreeNode | None = None) -> None:
-        """Expand an item (the highlighted one, by default), calling
-        ``on_expand``."""
+        """Expand an item.
+
+        :param node: The item, or ``None`` for the highlighted one.
+        """
         node = node if node is not None else self.selected_node
         if node is None or node.expanded or not node.has_children:
             return
@@ -333,8 +278,10 @@ class TreeView(ListBox):  # pylint: disable=too-many-instance-attributes
             self.on_expand(self, node)
 
     def collapse(self, node: TreeNode | None = None) -> None:
-        """Collapse an item (the highlighted one, by default). If the
-        highlight was on one of its descendants, it moves to the item."""
+        """Collapse an item.
+
+        :param node: The item, or ``None`` for the highlighted one.
+        """
         node = node if node is not None else self.selected_node
         if node is None or not node.expanded:
             return
@@ -347,17 +294,17 @@ class TreeView(ListBox):  # pylint: disable=too-many-instance-attributes
             self.move_to(self.visible_nodes.index(node))
 
     def toggle_node(self, node: TreeNode) -> None:
-        """Expand an item if it is collapsed, or collapse it if it is
-        expanded."""
+        """Expand or collapse an item.
+
+        :param node: The item.
+        """
         if node.expanded:
             self.collapse(node)
         else:
             self.expand(node)
 
     def choose(self) -> None:
-        """Do what Enter or a double-click does: call ``on_choose``, or
-        otherwise expand or collapse an item that has children, or otherwise
-        press the window's default button."""
+        """Choose the highlighted item, as Enter does."""
         node = self.selected_node
         if self.on_choose is not None or node is None or not node.has_children:
             super().choose()
@@ -367,8 +314,10 @@ class TreeView(ListBox):  # pylint: disable=too-many-instance-attributes
     # Drawing
 
     def _lines(self, node: TreeNode) -> str:
-        """The lines before an item: ``│ `` for each item it is under that
-        has more after it, then ``├─`` or ``└─`` (none at the top)."""
+        """The outline lines before an item.
+
+        :param node: The item.
+        """
         if node.parent is None:
             return ""
         parts: list[str] = []
@@ -421,8 +370,11 @@ class TreeView(ListBox):  # pylint: disable=too-many-instance-attributes
     # Input
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """Right expands or moves in, Left collapses or moves out, and Enter
-        chooses; other keys are handled as in a list box."""
+        """Expand, collapse or choose with the keys.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         node = self.selected_node
         if node is not None:
             if shortcuts.matches("tree_expand", key):
@@ -445,9 +397,12 @@ class TreeView(ListBox):  # pylint: disable=too-many-instance-attributes
         return super().handle_key(key, shortcuts)
 
     def handle_mouse(self, event: MouseEvent, row: int, column: int) -> bool:
-        """A press on an item's ``►`` or ``▼`` expands or collapses it;
-        everything else is handled as in a list box (a click highlights, and a
-        double-click chooses)."""
+        """Expand, collapse or select with the mouse.
+
+        :param event: The mouse event.
+        :param row: Row in the window's interior.
+        :param column: Column in the window's interior.
+        """
         if event.button == "left" and event.action == "press" and event.clicks < 2:
             index = self.index_at(row - self.rect.row, column - self.rect.column)
             if index is not None:

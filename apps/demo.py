@@ -1,24 +1,4 @@
-"""Demo: a tour of Dasha Framework's widgets and dialogs.
-
-- The Widgets window: labels, text boxes, buttons, a switch, and a dialog
-  of radio buttons and check boxes.
-- More widgets: progress and column bars, sliders, a spin box and an
-  autocomplete box.
-- Files: a two-column list box of made-up files, scrolling sideways, with
-  Open and Save as file dialogs and a dialog that picks several files.
-- Choose folder...: a dialog of this computer's own folders in a tree, each
-  folder's folders found only when it is first expanded, to pick one.
-- Explorer: a window split in two, a tree of folders beside a table of
-  their files (sorted by a click on a heading, with a context menu), and a
-  divider to drag.
-- Settings...: a dialog of two pages on tabs: a paragraph of wrapped text
-  and group boxes, and a password box with a switch that shows it.
-- Help: pages of Markdown in the ``demo_help`` folder, which F1 opens at the
-  topic of the widget with the focus, in a dialog too.
-
-Run it on its own with ``python apps/demo.py``, or install it on the desktop
-with ``dasha install-app apps/demo.py``.
-"""
+"""Demo: a tour of Dasha Framework's widgets and dialogs."""
 
 # Each example application is meant to be read on its own, so they spell
 # their menus out alike rather than share code.
@@ -88,17 +68,17 @@ DEMO_FILES = [
 
 
 class Demo(Application):
-    """Windows of widgets, one with a button that asks a question in a
-    dialog box and shows the answer it gets back, and a list of files with
-    file dialogs."""
+    """Windows of widgets, dialogs and files."""
 
     name = "Demo"
     help_folder = Path(__file__).parent / "demo_help"
 
     def start(self) -> None:
         def on_files(method: str) -> Callable[[], None]:
-            """Run one of the front Files window's methods (``open_file``,
-            say)."""
+            """Run a method of the front Files window.
+
+            :param method: Method name.
+            """
 
             def action() -> None:
                 window = self.active_window
@@ -194,8 +174,7 @@ class Demo(Application):
         self.new_window()
 
     def settings(self) -> None:
-        """File > Settings...: a dialog of two pages of settings; say what
-        was chosen (of the password, only its length)."""
+        """Show the Settings dialog and its choices."""
         assert self.manager is not None
         dialog = settings_dialog()
         if self.manager.execute(dialog=dialog) != "ok":
@@ -212,8 +191,7 @@ class Demo(Application):
         )
 
     def choose_folder(self) -> None:
-        """File > Choose folder...: pick one of the computer's folders, and
-        say which."""
+        """Pick a folder and say which."""
         assert self.manager is not None
         dialog = folder_dialog(directory=os.getcwd())
         if self.manager.execute(dialog=dialog) == "ok":
@@ -232,8 +210,7 @@ class Demo(Application):
         self.open(window=explorer_window())
 
     def files_in_front(self) -> bool:
-        """Whether the demo's front window is a Files window (the file
-        dialogs' menu items are greyed out otherwise)."""
+        """Whether a Files window is in front."""
         return isinstance(self.active_window, FilesWindow)
 
     def new_window(self) -> None:
@@ -437,8 +414,7 @@ class Demo(Application):
 
 
 def more_widgets_window() -> Window:
-    """A window of a collapsible area of options, progress and column bars,
-    each driven by a slider, a spin box, and an autocomplete box."""
+    """A window of bars, sliders and more."""
     window = Window(
         title="More widgets",
         rect=Rect(row=2, column=2, height=17, width=46),
@@ -533,9 +509,7 @@ def more_widgets_window() -> Window:
 
 
 def settings_dialog() -> Dialog:  # pylint: disable=too-many-locals
-    """A dialog of two pages of settings, on tabs: General, with a paragraph
-    and two group boxes, and Account, with a password box and a switch that
-    shows the password."""
+    """A two-page settings dialog."""
     dialog = Dialog(
         title="Settings",
         width=56,
@@ -675,16 +649,17 @@ KINDS = {
 
 
 def file_row(name: str) -> list[str]:
-    """A file's row in the Explorer's table: its name, kind and a made-up
-    size in kilobytes."""
+    """A file's row in the Explorer table.
+
+    :param name: File name.
+    """
     ending = name[name.rfind(".") :]
     size = sum(ord(char) for char in name) * 7 % 900 + 1
     return [name, KINDS.get(ending, "File"), str(size)]
 
 
 def folder_tree() -> list[TreeNode]:
-    """The made-up folders: Programs has one inside it, found only when it
-    is first opened (as a real folder's would be)."""
+    """The made-up folder tree."""
 
     def tools(_node: TreeNode) -> list[TreeNode]:
         return [TreeNode(label="Tools", data=["install.exe", "zip.exe"])]
@@ -697,9 +672,10 @@ def folder_tree() -> list[TreeNode]:
 
 
 def folder_nodes(path: str) -> list[TreeNode]:
-    """The folders in a folder, in order of name, as items of a tree. Each
-    one's ``data`` is its path, and its own folders are found only when it is
-    first expanded. A folder that cannot be read has none."""
+    """A folder's subfolders as tree items.
+
+    :param path: The folder.
+    """
 
     def load(node: TreeNode) -> list[TreeNode]:
         return folder_nodes(path=node.data)
@@ -716,7 +692,7 @@ def folder_nodes(path: str) -> list[TreeNode]:
 
 
 def folder_roots() -> list[TreeNode]:
-    """The tops of the tree of folders: the drives on Windows, or ``/``."""
+    """The tops of the folder tree."""
     tops = list_drives() or [os.sep]
     return [
         TreeNode(label=top, data=top, load=lambda node: folder_nodes(path=node.data))
@@ -725,11 +701,11 @@ def folder_roots() -> list[TreeNode]:
 
 
 def find_folder(roots: list[TreeNode], directory: str) -> TreeNode | None:
-    """The item of a folder in the tree, finding the folders on the way to
-    it, or if it cannot be found, the nearest folder above it that can
-    (``None`` if none can). The tree holds folders' real names, so the
-    path is resolved first: a Windows short name (``RUNNER~1``) or a link
-    (macOS's ``/var``) would otherwise find only the folders above it."""
+    """A folder's tree item, or the nearest above it.
+
+    :param roots: The tree's top items.
+    :param directory: The folder.
+    """
     target = os.path.normcase(os.path.realpath(directory))
     nodes, found = roots, None
     while True:
@@ -748,9 +724,10 @@ def find_folder(roots: list[TreeNode], directory: str) -> TreeNode | None:
 
 
 def folder_dialog(directory: str) -> Dialog:
-    """A dialog of a tree of the computer's folders, to pick one, starting at
-    ``directory``. The ``folders`` tree view's highlighted item is the folder
-    picked, and its ``data`` is the folder's path."""
+    """A dialog for picking a folder.
+
+    :param directory: Starting folder.
+    """
     dialog = Dialog(
         title="Choose folder",
         width=52,
@@ -788,9 +765,7 @@ def folder_dialog(directory: str) -> Dialog:
 
 
 def explorer_window() -> Window:  # pylint: disable=too-many-locals
-    """A window split in two: a tree of folders on the left, a table of the
-    highlighted folder's files on the right, with a context menu, and the
-    divider between them to drag."""
+    """A folder tree beside a file table."""
     window = Window(
         title="Explorer",
         rect=Rect(row=4, column=8, height=14, width=64),
@@ -890,8 +865,7 @@ def explorer_window() -> Window:  # pylint: disable=too-many-locals
 
 
 def survey_dialog() -> Dialog:
-    """A dialog of radio buttons (pick one) and check boxes (pick any), the
-    check boxes in two columns with one option greyed out."""
+    """A dialog of radio buttons and check boxes."""
     dialog = Dialog(
         title="Question", width=62, height=12, status="Tab between the groups"
     )
@@ -935,8 +909,10 @@ def survey_dialog() -> Dialog:
 
 
 class FilesWindow(Window):
-    """A list of files, and what the demo's File menu does with it. It takes
-    the same keyword arguments as ``Window``."""
+    """A list of files for the File menu.
+
+    :param options: ``Window`` keyword arguments.
+    """
 
     def __init__(self, **options: Any) -> None:
         super().__init__(**options)
@@ -949,7 +925,7 @@ class FilesWindow(Window):
 
 
 def pick_several_dialog() -> Dialog:
-    """A dialog of a list box of files, any number of them to pick."""
+    """A dialog for picking several files."""
     dialog = Dialog(
         title="Pick several",
         width=40,

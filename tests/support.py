@@ -49,7 +49,10 @@ atexit.register(shutil.rmtree, _TEST_LOGS, True)
 
 
 def _test_log_folder(name: str) -> Path:
-    """The tests' stand-in for ``logs.app_log_folder``."""
+    """The tests' stand-in for ``logs.app_log_folder``.
+
+    :param name: Application name.
+    """
     return _TEST_LOGS / logs.log_name(name) / "logs"
 
 
@@ -75,8 +78,11 @@ def pipe() -> tuple[Connection, Connection]:
 
 
 def hosted(server: "AppServer", name: str) -> tuple["AppHost", Connection]:
-    """An application at the end of a pipe, as though it had connected,
-    made the active one; and the application's end of the pipe."""
+    """A connected application and its pipe end.
+
+    :param server: The application server.
+    :param name: Application name.
+    """
     # pylint: disable-next=import-outside-toplevel
     from dasha.hosting import AppHost
 
@@ -89,13 +95,10 @@ def hosted(server: "AppServer", name: str) -> tuple["AppHost", Connection]:
 
 
 def isolated_home(case: unittest.TestCase) -> Path:
-    """For the rest of a test, keep Dasha Framework out of the user's own
-    ``~/.dasha``: its settings (a remembered theme, autostart), colours,
-    themes, shortcuts and installed applications are looked for in an empty
-    folder instead, and the theme in use (and the colour depth) is put back
-    afterwards. So a test
-    that runs the command line does the same on any developer's machine.
-    Returns the folder."""
+    """Use an empty settings folder for a test; return it.
+
+    :param case: The test.
+    """
     # pylint: disable=import-outside-toplevel
     import dasha.__main__
     from dasha import registry, style, theme
@@ -119,9 +122,11 @@ def isolated_home(case: unittest.TestCase) -> Path:
 
 
 def serving(case: unittest.TestCase, manager: "PresentationManager") -> "AppServer":
-    """A server for this desktop's applications, made its ``server``, and
-    shut down when the test ends, so that none of its threads are left
-    behind."""
+    """A server for a desktop, shut down after the test.
+
+    :param case: The test.
+    :param manager: The desktop.
+    """
     # pylint: disable-next=import-outside-toplevel
     from dasha.hosting import AppServer
 
@@ -132,7 +137,10 @@ def serving(case: unittest.TestCase, manager: "PresentationManager") -> "AppServ
 
 
 def started_desktop(*arguments: str) -> tuple[int, mock.MagicMock, str]:
-    """Run ``dasha desktop`` with these arguments (see ``started``)."""
+    """Run ``dasha desktop`` (see ``started``).
+
+    :param arguments: Command-line arguments.
+    """
     # pylint: disable=import-outside-toplevel
     from dasha.__main__ import main
 
@@ -142,11 +150,11 @@ def started_desktop(*arguments: str) -> tuple[int, mock.MagicMock, str]:
 def started(
     command: Callable[[list[str]], int], arguments: list[str]
 ) -> tuple[int, mock.MagicMock, str]:
-    """Run a command line (``dasha.__main__.main``, say) with these
-    arguments, as though in a terminal, with the desktop replaced by a mock
-    (and the screen not taken over). Returns the exit code, the mock of
-    ``_desktop`` (to see how it was called, if it was), and what was said on
-    standard error. Use it with ``isolated_home``."""
+    """Run a command line with a mock desktop.
+
+    :param command: The entry point.
+    :param arguments: Command-line arguments.
+    """
     terminal = mock.MagicMock()
     terminal.isatty.return_value = True
     errors = StringIO()
@@ -163,10 +171,10 @@ def started(
 
 
 def tests_importable(case: unittest.TestCase) -> None:
-    """Let applications started in processes of their own import the tests'
-    modules (``tests.hosted_apps``) for the rest of a test. They start with
-    ``-P``, so the folder the tests run from is not on their import path, as
-    a desktop's folder is not on its applications'."""
+    """Let child processes import the tests' modules.
+
+    :param case: The test.
+    """
     paths = [str(ROOT), os.environ.get("PYTHONPATH", "")]
     patch = mock.patch.dict(
         os.environ, {"PYTHONPATH": os.pathsep.join(path for path in paths if path)}
@@ -176,29 +184,29 @@ def tests_importable(case: unittest.TestCase) -> None:
 
 
 def painted(window: Window) -> Canvas:
-    """A window painted, active, on a canvas just big enough for it."""
+    """A window painted on a canvas of its size.
+
+    :param window: The window.
+    """
     canvas = Canvas(window.rect.right, window.rect.bottom)
     window.paint(canvas, active=True)
     return canvas
 
 
 def without_styles(output: str) -> str:
-    """Terminal output with its colour and style changes taken out, so text
-    that changes colour part-way (a button's letter) reads straight through.
-    Cursor moves stay, so each line drawn is still found on its own."""
+    """Terminal output without style changes.
+
+    :param output: The output.
+    """
     return _STYLE.sub("", output)
 
 
 def assert_lines_shown(test: unittest.TestCase, text: str, output: str) -> None:
-    """Check each line of ``text`` was drawn somewhere in ``output``.
+    """Check each line of text was drawn.
 
-    A message with line breaks is drawn a line at a time, each at its own
-    place on the screen, so it never appears in the output as one piece.
-    Blank lines draw nothing, so they are not looked for; the others are
-    looked for without the spaces at their ends, which alignment may move.
-    Where the screen already showed the spaces between two words, only the
-    words are drawn, with a move of the cursor between them, so that counts
-    as a space too.
+    :param test: The test.
+    :param text: The expected text.
+    :param output: The terminal output.
     """
     shown = without_styles(output)
     gap = r"(?: |\x1b\[\d+;\d+H)+"

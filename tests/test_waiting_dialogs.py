@@ -1,5 +1,4 @@
-"""Tests for dialogs that wait their turn: one application's dialog does not
-take the keyboard from another's that is waiting for an answer."""
+"""Tests for dialogs waiting their turn."""
 
 import unittest
 from multiprocessing.connection import Connection
@@ -18,7 +17,10 @@ DIVIDER = StatusBar.divider
 
 
 def state(**changes: object) -> Message:
-    """A window message from an application."""
+    """A window message from an application.
+
+    :param changes: Fields to change.
+    """
     message: Message = {
         "type": "window", "id": 1, "title": "W", "rect": [2, 2, 8, 40],
         "maximised": False, "flags": [True, True, True, True], "look": "window",
@@ -46,7 +48,10 @@ class WaitingTests(unittest.TestCase):
         self.save = self.dialog(host=self.notepad, title="Save as")
 
     def host(self, name: str) -> tuple[AppHost, Connection]:
-        """An application at the end of a pipe."""
+        """A piped application.
+
+        :param name: Application name.
+        """
         host = AppHost(server=self.server, target="x:Y", name=name)
         app_end, desktop_end = pipe()
         host.connected(connection=desktop_end)
@@ -55,7 +60,11 @@ class WaitingTests(unittest.TestCase):
         return host, app_end
 
     def dialog(self, host: AppHost, title: str) -> RemoteWindow:
-        """A dialog of an application's, waiting for its answer."""
+        """A waiting dialog of an application.
+
+        :param host: The application.
+        :param title: Dialog title.
+        """
         host.handle(message=state(id=2, title=title, look="dialog", modal=True))
         return host.windows[2]
 
@@ -64,8 +73,7 @@ class WaitingTests(unittest.TestCase):
         return self.manager.windows[-1].title
 
     def test_waits_behind(self) -> None:
-        """The Worker's dialog goes just behind Notepad's, without the
-        keyboard; asking to come forward does not get it there either."""
+        """Waits behind."""
         done = self.dialog(host=self.worker, title="Done")
         self.assertEqual(self.front(), "Save as")
         self.assertIs(self.manager.windows[-2], done)
@@ -81,8 +89,7 @@ class WaitingTests(unittest.TestCase):
         self.assertEqual(self.manager.status_owner, f"Notepad {DIVIDER} Worker waiting")
 
     def test_its_turn_comes(self) -> None:
-        """Once Notepad's dialog is answered, the Worker's comes forward, with
-        the keyboard, and the Worker is the active application."""
+        """Its turn comes."""
         self.dialog(host=self.worker, title="Done")
         self.notepad.handle(message={"type": "close", "id": 2})
         self.assertEqual(self.front(), "Done")
@@ -91,10 +98,7 @@ class WaitingTests(unittest.TestCase):
         self.assertEqual(self.manager.waiting, [])
 
     def test_behind_the_active_applications_work(self) -> None:
-        """Nothing waiting for an answer in front, but Notepad is still the
-        active application: the Worker's dialog waits behind Notepad's
-        window, not taking what the user types, and the status bar says so.
-        Switching to the Worker brings it forward."""
+        """Behind the active application's work."""
         self.notepad.handle(message={"type": "close", "id": 2})
         self.dialog(host=self.worker, title="Done")
         self.assertEqual(self.front(), "Untitled")

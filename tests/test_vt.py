@@ -1,5 +1,4 @@
-"""Tests for the VT emulator (``dasha.vt``): what a program's output
-leaves on the screen."""
+"""Tests for the VT emulator."""
 
 import unittest
 
@@ -8,7 +7,10 @@ from dasha.vt import Screen, char_width
 
 
 def texts(screen: Screen) -> list[str]:
-    """Each row's characters, trailing blanks dropped."""
+    """Each row's characters, trimmed.
+
+    :param screen: The screen.
+    """
     return ["".join(cell[0] for cell in row).rstrip() for row in screen.rows]
 
 
@@ -23,8 +25,7 @@ class TextTests(unittest.TestCase):
         self.assertEqual(screen.cursor, (1, 3))
 
     def test_wraps_at_the_last_column_only_when_more_comes(self) -> None:
-        """A full line leaves the cursor on its last column until more text
-        arrives (so a CR LF does not leave a blank line)."""
+        """Wraps only when more comes."""
         screen = Screen(columns=5, lines=3)
         screen.feed("abcde")
         self.assertEqual(screen.cursor, (0, 4))
@@ -61,8 +62,7 @@ class TextTests(unittest.TestCase):
         self.assertEqual(screen.bells, 1)
 
     def test_split_sequences_and_characters(self) -> None:
-        """A sequence, or a UTF-8 character, split between two pieces of
-        output is put back together."""
+        """Split sequences and characters."""
         screen = Screen(columns=10, lines=2)
         screen.feed("\x1b[")
         screen.feed("31mx")
@@ -123,8 +123,7 @@ class CursorTests(unittest.TestCase):
         )
 
     def test_mouse_modes(self) -> None:
-        """The mouse modes are noted; tracking is on with 1000, 1002 or
-        1003, not with 1006 alone."""
+        """Mouse modes."""
         screen = Screen()
         screen.feed("\x1b[?1006h")
         self.assertFalse(screen.is_tracking_mouse)
@@ -201,7 +200,10 @@ class StyleTests(unittest.TestCase):
     """SGR: colours and attributes."""
 
     def style_after(self, sgr: str) -> Style:
-        """The style of a character written after ``CSI sgr m``."""
+        """The style after an SGR sequence.
+
+        :param sgr: The SGR parameters.
+        """
         screen = Screen(columns=5, lines=1)
         screen.feed(f"\x1b[{sgr}mx")
         return screen.rows[0][0][1]
@@ -259,7 +261,7 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(screen.cursor, (0, 4))
 
     def test_title(self) -> None:
-        """OSC 0 and 2 set the title, ended by BEL or ST, without controls."""
+        """Title."""
         screen = Screen()
         screen.feed("\x1b]2;one\x07")
         self.assertEqual(screen.title, "one")
@@ -282,8 +284,7 @@ class ScreenTests(unittest.TestCase):
         )
 
     def test_wide_and_combining_characters(self) -> None:
-        """A wide character takes two cells; a combining mark joins the
-        character before it."""
+        """Wide and combining characters."""
         screen = Screen(columns=6, lines=2)
         screen.feed("\N{CJK UNIFIED IDEOGRAPH-5BEC}xe\N{COMBINING ACUTE ACCENT}")
         row = screen.rows[0]
@@ -304,8 +305,7 @@ class ScreenTests(unittest.TestCase):
         )
 
     def test_resize_keeps_the_cursor_line(self) -> None:
-        """Shrinking puts the top lines into the scrollback; growing brings
-        them back."""
+        """Resize keeps the cursor line."""
         screen = Screen(columns=5, lines=4)
         screen.feed("1\r\n2\r\n3\r\n4")
         screen.resize(columns=3, lines=2)

@@ -1,6 +1,4 @@
-"""Tests for starting applications by name: ``dasha APP ...``, ``dasha
-desktop [APP ...]`` and ``dasha-desktop [APP ...]``, and the Applications menu,
-which offer what is installed."""
+"""Tests for starting applications by name."""
 
 import tempfile
 import unittest
@@ -38,19 +36,24 @@ class CommandLineTests(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
     def install(self, *entries: AppEntry) -> None:
-        """Install applications, as install-app would."""
+        """Install applications.
+
+        :param entries: The applications.
+        """
         for entry in entries:
             write_manifest(entry, registry.MANIFEST_FOLDER)
 
     def offered(self, manager: PresentationManager) -> list[str]:
-        """What the Applications menu lists."""
+        """What the Applications menu lists.
+
+        :param manager: The desktop.
+        """
         submenu = manager.system_menu.items[1].submenu
         assert submenu is not None
         return [item.label for item in submenu.items]
 
     def test_nothing_comes_with_dasha(self) -> None:
-        """With nothing installed, an empty desktop offering nothing: the
-        Applications menu says so, greyed out."""
+        """Nothing comes installed."""
         manager = _desktop(None, [], processes=False)
         self.assertEqual(manager.windows, ())
         submenu = manager.system_menu.items[1].submenu
@@ -65,16 +68,13 @@ class CommandLineTests(unittest.TestCase):
         self.assertEqual(self.offered(manager), ["&Hangs", "&Hello"])
 
     def test_named_apps_start(self) -> None:
-        """Names on the command line start those apps (here in this process:
-        installed ones each start a process of their own)."""
+        """Named applications start."""
         entries = {"hello": AppEntry.of(Hello), "hangs": AppEntry.of(Hangs)}
         manager = _desktop(None, ["hello", "hangs"], processes=False, entries=entries)
         self.assertEqual([type(app) for app in manager.applications], [Hello, Hangs])
 
     def test_named_apps_run_alone(self) -> None:
-        """``dasha hello`` is Hello on its own, as its script runs it: no
-        system menu, the exit key asks to close Hello, and Dasha Framework ends
-        when Hello does."""
+        """``dasha hello`` runs Hello alone."""
         entries = {"hello": AppEntry.of(Hello), "hangs": AppEntry.of(Hangs)}
         manager = _desktop(
             None, ["hello"], processes=False, entries=entries, alone=True
@@ -99,9 +99,7 @@ class CommandLineTests(unittest.TestCase):
         self.assertFalse(manager.quit_when_empty)
 
     def test_by_id_or_by_name(self) -> None:
-        """An application can be named by its id, in any case, or by what it
-        is called, in any case; an id comes first, and the ids are what
-        start."""
+        """Applications are found by id or name."""
         self.install(
             AppEntry.of(Hello),
             replace(AppEntry.of(Hangs), id="dasha-github", name="Git"),
@@ -126,8 +124,7 @@ class CommandLineTests(unittest.TestCase):
         self.assertEqual(found[1], ["git"])  # the id in another case
 
     def test_a_name_too_many_have(self) -> None:
-        """A name more than one application has is refused, with their ids,
-        and nothing starts; an id still picks one."""
+        """An ambiguous name is refused."""
         self.install(
             replace(AppEntry.of(Hello), id="git-one", name="Git"),
             replace(AppEntry.of(Hangs), id="git-two", name="git"),
@@ -154,8 +151,7 @@ class CommandLineTests(unittest.TestCase):
         self.assertEqual(found[1], ["hangs", "hello"])
 
     def test_named_apps_leave_out_autostart(self) -> None:
-        """Applications named alone start without autostart's; the desktop
-        starts autostart's, then those named that are not among them."""
+        """Named applications leave out autostart."""
         self.install(AppEntry.of(Hello), AppEntry.of(Hangs))
         with tempfile.TemporaryDirectory() as folder:
             settings = Path(folder) / "settings.toml"
@@ -169,8 +165,7 @@ class CommandLineTests(unittest.TestCase):
         self.assertEqual(both[1], ["hangs", "hello"])
 
     def test_what_it_could_not_say(self) -> None:
-        """Ended before it could show it (the only application could not
-        start), the desktop's message is said on the terminal."""
+        """Unshown messages are printed."""
         manager = _desktop(None, [], processes=False)
         server = AppServer(manager)
         self.addCleanup(server.stop_all, 0)
@@ -217,8 +212,7 @@ class CommandLineTests(unittest.TestCase):
         self.assertIn("Dasha Framework", out.getvalue())
 
     def test_something_to_run_is_required(self) -> None:
-        """With no application, and not desktop, the usage and an error
-        are shown, as for any mistake in the arguments (exit code 2)."""
+        """Something to run is required."""
         isolated_home(self)
         for arguments in ([], ["--monochrome"], ["-d", "16", "-m"]):
             err = StringIO()
@@ -233,9 +227,7 @@ class CommandLineTests(unittest.TestCase):
             self.assertIn("arguments are required: APP (desktop", err.getvalue())
 
     def test_desktop_or_alone(self) -> None:
-        """desktop, first, is the desktop, with any applications after it
-        started on it; applications without it run alone. dasha-desktop is
-        dasha desktop, and options may come anywhere."""
+        """Desktop or alone."""
         cases: tuple[tuple[list[str], bool, tuple[bool, list[str]]], ...] = (
             (["notepad"], False, (False, ["notepad"])),
             (["notepad", "demo"], False, (False, ["notepad", "demo"])),
@@ -258,8 +250,7 @@ class CommandLineTests(unittest.TestCase):
         self.assertFalse(_parse_arguments(["--init-theme", "Sea"]).desktop)
 
     def test_dasha_desktop(self) -> None:
-        """dasha-desktop starts the desktop, with the named applications on it
-        (not alone), as dasha desktop does; dasha alone runs them alone."""
+        """``dasha-desktop`` starts the desktop."""
         isolated_home(self)
         self.install(AppEntry.of(Hello))
         runs = (
@@ -276,9 +267,7 @@ class CommandLineTests(unittest.TestCase):
         )
 
     def test_unknown_app(self) -> None:
-        """An unknown name is reported before the screen is taken over. (The
-        user's own settings and colours are kept out of it, and the theme it
-        applies is put back.)"""
+        """An unknown name is reported."""
         err = StringIO()
         isolated_home(self)
         with redirect_stderr(err):

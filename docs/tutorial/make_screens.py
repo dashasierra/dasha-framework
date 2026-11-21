@@ -1,25 +1,4 @@
-"""Draw the screens the tutorial shows, by running its steps.
-
-Each screen comes from running a step as a reader would (``Notepad().run()``)
-on a scripted 80 by 24 terminal: the keys a reader would press, then a
-picture of the screen, in colour, as a PNG. Run it from the repository's
-root after changing a step, and the pictures follow::
-
-    python docs/tutorial/make_screens.py
-
-Drawing needs Pillow and a monospaced font with box drawing characters
-(DejaVu Sans Mono, found where systems keep fonts, or ``--font`` and
-``--bold-font``). Install Pillow with the ``docs`` extra:
-``python -m pip install -e ".[docs]"``. Dasha Framework itself never needs it.
-
-Each PNG also holds what it shows as text (``screen_data``), so
-``tests/test_tutorial.py`` can check the pictures are up to date without
-Pillow, or the font.
-
-The steps run in a folder of example files made for the purpose, shown in
-the file dialogs as ``C:\\Users\\you\\notes``. The pictures are of a Windows
-screen: elsewhere a file dialog has no Drive box, and folders end in ``/``.
-"""
+"""Draw the screens the tutorial shows, by running its steps."""
 
 import argparse
 import importlib.util
@@ -76,15 +55,13 @@ FILES = {
     "todo.txt": "Remember the meeting at 10.\n",
     "ideas.md": "# Ideas\n",
 }
-"""The example files, in the folder the steps run in (and a ``letters``
-folder beside them)."""
+"""Example files for the steps."""
 
 WRAPPED = (
     "Word wrap shows a long line on the rows below it, breaking it after a "
     "space, so the whole of it can be read without scrolling sideways."
 )
-"""A line too long for Notepad's window, typed with word wrap and line
-numbers on."""
+"""A line too long for Notepad's window."""
 
 # Name: (step file, the application's arguments, what to type and press).
 # A string in the keys is typed, a KEYS name is pressed.
@@ -118,10 +95,10 @@ SHOTS: dict[str, tuple[str, list[str], list[object]]] = {
 # Drawing
 
 FONT_SIZE = 20
-"""The font's size in pixels: DejaVu Sans Mono makes 12 by 24 cells."""
+"""Font size in pixels."""
 
 FONTS = ("DejaVuSansMono.ttf", "DejaVuSansMono-Bold.ttf")
-"""The fonts to look for (regular, bold), unless named on the command line."""
+"""Fonts to look for (regular, bold)."""
 
 PALETTE: tuple[tuple[int, int, int], ...] = (
     (0, 0, 0),
@@ -144,8 +121,7 @@ PALETTE: tuple[tuple[int, int, int], ...] = (
 """The 16 standard colours, as a text-mode screen shows them."""
 
 DEFAULT_FOREGROUND = 7
-"""The terminal's own colours, for a style that leaves them (light grey on
-black)."""
+"""The terminal's own colours."""
 DEFAULT_BACKGROUND = 0
 
 DATA_KEY = "dasha-screen"
@@ -153,7 +129,10 @@ DATA_KEY = "dasha-screen"
 
 
 def rgb(colour: int) -> tuple[int, int, int]:
-    """One of the 256 terminal colours, as red, green and blue."""
+    """A terminal colour as RGB.
+
+    :param colour: Palette number.
+    """
     if colour < 16:
         return PALETTE[colour]
     if colour < 232:  # the 6 by 6 by 6 colour cube
@@ -165,7 +144,10 @@ def rgb(colour: int) -> tuple[int, int, int]:
 
 
 def colours(style: Style) -> tuple[tuple[int, int, int], tuple[int, int, int]]:
-    """A style's foreground and background, reversed if it says so."""
+    """A style's foreground and background.
+
+    :param style: The style.
+    """
     foreground = DEFAULT_FOREGROUND if style.foreground is None else style.foreground
     background = DEFAULT_BACKGROUND if style.background is None else style.background
     if style.reverse:
@@ -174,7 +156,10 @@ def colours(style: Style) -> tuple[tuple[int, int, int], tuple[int, int, int]]:
 
 
 def find_font(name: str) -> Path:
-    """Where a font file is, among the places systems keep fonts."""
+    """Where a font file is.
+
+    :param name: Font file name.
+    """
     home = Path.home()
     folders = [
         Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts",
@@ -199,7 +184,11 @@ def find_font(name: str) -> Path:
 
 
 def draw(canvas: Canvas, fonts: tuple[Path, Path]) -> "Image":
-    """A canvas as a picture: each cell its colours, character and style."""
+    """A canvas as a picture.
+
+    :param canvas: The canvas.
+    :param fonts: Regular and bold font files.
+    """
     # Only drawing needs Pillow, so only drawing imports it.
     # pylint: disable-next=import-outside-toplevel
     from PIL import Image, ImageDraw, ImageFont
@@ -230,8 +219,14 @@ def draw_cell(
     baseline: int,
     faces: "tuple[ImageFont.FreeTypeFont, ImageFont.FreeTypeFont]",
 ) -> None:
-    """One cell: its background, its character (bold if its style is), and
-    an underline, in ``box`` (left, top, width, height)."""
+    """Draw one cell.
+
+    :param pen: The drawing context.
+    :param cell: Character and style.
+    :param box: (left, top, width, height).
+    :param baseline: Text baseline offset.
+    :param faces: Regular and bold fonts.
+    """
     char, style = cell
     foreground, background = colours(style)
     left, top, width, height = box
@@ -248,8 +243,10 @@ def draw_cell(
 
 
 def screen_data(canvas: Canvas) -> str:
-    """What a picture shows, as text: its rows, and their styles (as the
-    desktop and its applications send them to each other)."""
+    """What a picture shows, as text.
+
+    :param canvas: The canvas.
+    """
     table = StyleTable()
     rows = [
         encode_row([canvas.cell(row, column) for column in range(canvas.width)], table)
@@ -260,8 +257,10 @@ def screen_data(canvas: Canvas) -> str:
 
 
 def read_screen_data(path: Path) -> str | None:
-    """What a PNG ``make_screens`` wrote shows (``screen_data``), read with
-    the standard library alone; ``None`` if it holds none."""
+    """A PNG's screen data, or ``None``.
+
+    :param path: The PNG.
+    """
     data = path.read_bytes()
     position = 8  # after the PNG signature
     while position < len(data):
@@ -282,7 +281,12 @@ def read_screen_data(path: Path) -> str | None:
 
 
 def write_png(path: Path, canvas: Canvas, fonts: tuple[Path, Path]) -> None:
-    """Draw a canvas into a PNG, with what it shows (``screen_data``)."""
+    """Draw a canvas into a PNG.
+
+    :param path: Where to write.
+    :param canvas: The canvas.
+    :param fonts: Regular and bold font files.
+    """
     # pylint: disable-next=import-outside-toplevel
     from PIL.PngImagePlugin import PngInfo
 
@@ -299,8 +303,11 @@ class Stop(Exception):
 
 
 class ScriptedTerminal:
-    """Stands in for the terminal: the keys from a script, and a picture of
-    the screen at each ``SNAP``."""
+    """A terminal stand-in that takes snapshots.
+
+    :param application: The application.
+    :param keys: Scripted keys and snapshots.
+    """
 
     def __init__(self, application: Application, keys: list[object]) -> None:
         self.application = application
@@ -314,14 +321,20 @@ class ScriptedTerminal:
         return self.screen_size
 
     def write(self, text: str) -> None:
-        """Output is not needed: the pictures come from the screen itself."""
+        """Ignore output.
+
+        :param text: The output.
+        """
         self.output.write(text)
 
     def flush(self) -> None:
         """Nothing to flush."""
 
     def read(self, timeout: float | None = None) -> str:
-        """The next key, after taking any pictures due first."""
+        """The next key, after any snapshots.
+
+        :param timeout: Ignored.
+        """
         del timeout
         while self.keys and self.keys[0] is SNAP:
             self.keys.pop(0)
@@ -340,8 +353,10 @@ class ScriptedTerminal:
 
 
 def load(step: str) -> Callable[..., Application]:
-    """The application class a step's file defines (Notepad takes the files
-    to open from step 5 on)."""
+    """A step's application class.
+
+    :param step: The step's file name.
+    """
     path = (FOLDER / step).resolve()
     name = f"tutorial_{path.stem}"  # apart from any other "notepad"
     spec = importlib.util.spec_from_file_location(name, path)
@@ -368,7 +383,10 @@ def example_folder() -> Iterator[str]:
                 file.write(text)
 
         def shown(dialog: FileDialog) -> None:
-            """The dialog's folder line, the example folder renamed."""
+            """The dialog's folder line, renamed.
+
+            :param dialog: The file dialog.
+            """
             directory = dialog.directory
             dialog.directory = directory.replace(folder, SHOWN_FOLDER)
             show(dialog)
@@ -384,7 +402,12 @@ def example_folder() -> Iterator[str]:
 
 
 def take(step: str, arguments: list[str], keys: list[object]) -> Canvas:
-    """Run a step, press its keys, and picture the screen at the end."""
+    """Run a step and picture the screen.
+
+    :param step: The step's file name.
+    :param arguments: Command-line arguments.
+    :param keys: Keys to press.
+    """
     application = load(step)(arguments) if arguments else load(step)()
     script = [KEYS.get(key, key) if isinstance(key, str) else key for key in keys]
     terminal = ScriptedTerminal(application, [*script, SNAP])
@@ -405,7 +428,10 @@ def screens() -> dict[str, Canvas]:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    """Draw the screens."""
+    """Draw the screens.
+
+    :param argv: Arguments, or ``None`` for ``sys.argv``.
+    """
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--font", type=Path, help="the regular font to draw with")
     parser.add_argument("--bold-font", type=Path, help="the bold font")

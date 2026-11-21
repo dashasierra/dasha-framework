@@ -1,23 +1,4 @@
-"""The application's side of an application hosted by the desktop. The
-application's windows live here, and the desktop shows them.
-
-``Application.run()`` comes here when the desktop started the process (and
-set ``DASHA_ADDRESS``). ``ClientManager`` stands in for the
-presentation manager, with the same methods, so that application and
-widget code cannot tell the difference: windows and dialogs open,
-``execute`` waits for an answer, and ``pick`` drops down a list. Whatever
-the desktop must do (drawing the frames, moving windows, showing menus) is
-sent to it as messages, and keys, mouse events and the rest come back the
-same way.
-
-Each window's interior is drawn here, onto a canvas of its own, and the rows
-that have changed since the last time are sent. The desktop draws the frame
-around them.
-
-While it waits for a message, the application can be woken from another of
-its threads (``call_from_thread``): through a pipe of its own, which it
-waits on together with the desktop's connection.
-"""
+"""The application side of a hosted application."""
 
 import json
 import os
@@ -60,8 +41,10 @@ from dasha.window import Window
 
 
 def encode_menus(menus: Sequence[Menu]) -> list[dict[str, object]]:
-    """Menus encoded as data for the desktop to show: their titles, items and
-    submenus, and whether each goes after the Window menu."""
+    """Menus encoded for the desktop.
+
+    :param menus: The menus.
+    """
 
     def items(menu: Menu) -> list[dict[str, object]]:
         return [
@@ -85,16 +68,20 @@ def encode_menus(menus: Sequence[Menu]) -> list[dict[str, object]]:
 
 
 def look_of(window: Window) -> str:
-    """How the desktop should frame a window: ``"window"``, ``"dialog"`` or
-    ``"popup"`` (for a drop-down list or a list of suggestions)."""
+    """A window's frame look.
+
+    :param window: The window.
+    """
     if isinstance(window, Popup):
         return "popup"
     return "dialog" if isinstance(window, Dialog) else "window"
 
 
 def colours_of(window: Window) -> dict[str, list[object]]:
-    """The window's own colours, for the desktop to draw its frame in: those
-    that differ from the theme's for its look. The rest follow the theme."""
+    """A window's colours that differ from the theme.
+
+    :param window: The window.
+    """
     theme_class = Dialog if isinstance(window, Dialog) else Window
     return {
         name: encode_style(getattr(window, name))
@@ -105,7 +92,7 @@ def colours_of(window: Window) -> dict[str, list[object]]:
 
 @dataclass
 class _Sent:
-    """What the desktop was last told about a window, so only changes go."""
+    """What the desktop last knew of a window."""
 
     state: dict[str, object] = field(default_factory=dict)
     rows: list[list[list[object]]] = field(default_factory=list)
@@ -113,9 +100,7 @@ class _Sent:
 
 
 class _Waker:
-    """``call_from_thread``'s wake-ups for an application's loop: a byte
-    down a pipe, which the loop waits on together with the desktop's
-    connection. Only one is sent until the loop has taken it."""
+    """Wake-ups for an application's loop."""
 
     def __init__(self) -> None:
         self.reader, self._writer = Pipe(duplex=False)
@@ -124,8 +109,7 @@ class _Waker:
         self._sent = False
 
     def wake(self) -> None:
-        """End the loop's wait, if a wake-up is not already on its way.
-        Safe to call from any thread."""
+        """End the loop's wait; thread-safe."""
         with self._lock:
             if self._sent or self._writer.closed:
                 return
@@ -136,7 +120,7 @@ class _Waker:
             self._sent = True
 
     def take(self) -> None:
-        """Take the wake-up out of the pipe, so that the next can be sent."""
+        """Clear the pending wake-up."""
         with self._lock:
             self._sent = False
             while self.reader.poll():
@@ -150,8 +134,11 @@ class _Waker:
 
 
 class ClientManager(PresentationManager):
-    """The presentation manager of an application run by a desktop in its
-    own process."""
+    """Presentation manager for a hosted application.
+
+    :param connection: Connection to the desktop.
+    :param welcome: The desktop's welcome message.
+    """
 
     def __init__(self, connection: Connection, welcome: Message) -> None:
         super().__init__(shortcuts=Shortcuts(welcome.get("shortcuts") or {}))
@@ -183,7 +170,10 @@ class ClientManager(PresentationManager):
     # Windows
 
     def window_id(self, window: Window) -> int:
-        """The number by which the desktop identifies a window."""
+        """The desktop's id for a window.
+
+        :param window: The window.
+        """
         number = self._window_ids.get(window)
         if number is None:
             number = self._window_ids[window] = self._next_id
@@ -238,14 +228,11 @@ class ClientManager(PresentationManager):
         self._send("request", id=None, op="exit")
 
     def set_theme(self, name: str | Path, *, remember: bool | None = None) -> bool:
-        """Ask the desktop to change to a theme, as its system menu would. The
-        colours of everything on the desktop change, including this
-        application's, once the desktop has applied the theme (and sent a
-        ``theme`` message back). The desktop does this only while this is
-        the application the user is working in, and remembers the choice as
-        it would for its own menu. A theme file is looked for from this
-        process. Always returns ``True``, because the change was
-        requested."""
+        """Ask the desktop to change theme; always ``True``.
+
+        :param name: Theme name or file path.
+        :param remember: Whether to remember the choice, if specified.
+        """
         del remember  # the desktop's to decide
         text = str(name)
         if isinstance(name, Path) or any(m in text for m in ("/", "\\", ".json")):
@@ -265,8 +252,10 @@ class ClientManager(PresentationManager):
         return self._modal[-1] if self._modal else None
 
     def execute(self, dialog: Dialog) -> str | None:
-        """Show a dialog and wait for its answer. The dialog blocks only this
-        application's other windows; the rest of the desktop carries on."""
+        """Show a dialog and wait for its answer.
+
+        :param dialog: The dialog.
+        """
         dialog.result = None
         if dialog.centred:
             dialog.centre(self.workspace)
@@ -286,8 +275,7 @@ class ClientManager(PresentationManager):
     # The loop
 
     def serve(self) -> None:
-        """Handle messages until the application ends or the desktop goes
-        away. First calls whatever ``call_when_running`` held back."""
+        """Handle messages until the application ends."""
         try:
             self._now_running()
             while self._running:
@@ -300,9 +288,7 @@ class ClientManager(PresentationManager):
             self._waker.close()
 
     def pump(self) -> None:
-        """Bring the desktop up to date, then handle one message (or run the
-        widgets' timers, if one is due first, or what ``call_from_thread``
-        has been given, if woken)."""
+        """Update the desktop and handle one message."""
         wakes = [wake for w in self._widgets() if (wake := w.wake_time()) is not None]
         timeout = max(0.0, min(wakes) - time.monotonic()) if wakes else None
         if self._from_threads:
@@ -323,9 +309,7 @@ class ClientManager(PresentationManager):
         self._call_from_threads()
 
     def wake(self) -> None:
-        """Cut short the wait for a message from the desktop, so that the
-        loop comes round at once (see ``call_from_thread``). Safe to call
-        from any thread."""
+        """Interrupt the wait for a message; thread-safe."""
         self._waker.wake()
 
     def _send(self, kind: str, **fields: object) -> None:
@@ -339,9 +323,7 @@ class ClientManager(PresentationManager):
     # Telling the desktop
 
     def flush(self) -> None:
-        """Send whatever has changed: the application's menus (including
-        whether each item is enabled), and its windows' frames and
-        contents."""
+        """Send changed menus and windows."""
         menus = json.dumps(
             encode_menus([menu for app in self._applications for menu in app.menus])
         )
@@ -413,7 +395,11 @@ class ClientManager(PresentationManager):
             sent.rows, sent.cursor = shown, canvas.cursor
 
     def _told(self, window: Window, **changes: object) -> None:
-        """Note what the desktop already knows, so it is not sent back."""
+        """Record what the desktop knows.
+
+        :param window: The window.
+        :param changes: Known values.
+        """
         sent = self._sent.get(self.window_id(window))
         if sent is not None:
             sent.state.update(changes)
@@ -421,7 +407,10 @@ class ClientManager(PresentationManager):
     # Hearing from the desktop
 
     def handle(self, message: Message) -> None:
-        """Handle one message from the desktop."""
+        """Handle a message from the desktop.
+
+        :param message: The message.
+        """
         handlers: dict[str, Callable[[Message], None]] = {
             "quit": self._quit_message,
             "ping": lambda _: self._send("pong"),
@@ -449,7 +438,10 @@ class ClientManager(PresentationManager):
         self._running = False
 
     def _theme_arrived(self, message: Message) -> None:
-        """The desktop's theme changed: take it on, and draw afresh."""
+        """Apply the desktop's new theme.
+
+        :param message: The theme message.
+        """
         colours = theme.build_theme(json.loads(str(message["theme"])))
         name = message.get("name")
         self.use_theme(colours, name if isinstance(name, str) else None)
@@ -463,9 +455,10 @@ class ClientManager(PresentationManager):
         self._size = (int(message["columns"]), int(message["lines"]))
 
     def _menu_message(self, message: Message) -> None:
-        """A menu item chosen; not while a dialog waits for its answer. Then
-        a shortcut (chosen before the desktop knew of the dialog) goes to
-        the dialog as the key it was, as it would in one process."""
+        """Handle a chosen menu item.
+
+        :param message: The menu message.
+        """
         if not self._modal:
             menus = [menu for app in self._applications for menu in app.menus]
             self._menu_chosen(menus, message["path"])
@@ -473,9 +466,10 @@ class ClientManager(PresentationManager):
             self._input(self._modal[-1], "key", {"type": "key", "key": key})
 
     def looks_active(self, window: Window) -> bool:
-        """As for any presentation manager, except that the active window is
-        the one the desktop says is active (which may belong to another
-        application)."""
+        """Whether a window looks active.
+
+        :param window: The window.
+        """
         number = self._active
         active = self._ids.get(number) if number is not None else None
         return drawn_active(window, active, self._windows)
@@ -487,7 +481,10 @@ class ClientManager(PresentationManager):
             super().bring_to_front(window)  # keep this side's order the same
 
     def _blocked(self, window: Window) -> bool:
-        """Whether a dialog of this application's is waiting, elsewhere."""
+        """Whether a dialog elsewhere blocks a window.
+
+        :param window: The window.
+        """
         return bool(self._modal) and window is not self._modal[-1]
 
     def _window_message(self, window: Window, kind: str, message: Message) -> None:
@@ -540,9 +537,11 @@ class ClientManager(PresentationManager):
 
     @staticmethod
     def _menu_chosen(menus: Sequence[Menu], path: Sequence[Any]) -> None:
-        """Run the menu item at ``path``: a menu's index, then an item's in
-        it, then (for submenus) an item's in that, if it can be chosen: it,
-        and every item whose submenu it is in."""
+        """Run the menu item at a path.
+
+        :param menus: The menus.
+        :param path: Menu and item indexes.
+        """
         if not path:
             return
         try:
@@ -559,10 +558,7 @@ class ClientManager(PresentationManager):
     # The clipboard, shared through the desktop
 
     def stop_listening(self) -> None:
-        """Stop sending clipboard changes to the desktop. The manager listens
-        for them from the start, and ``serve`` stops listening when it ends;
-        code that creates a ``ClientManager`` without serving it (such as a
-        test) calls this itself. Calling it again does nothing."""
+        """Stop sending clipboard changes."""
         if self._clipboard_changed in CLIPBOARD.listeners:
             CLIPBOARD.listeners.remove(self._clipboard_changed)
 
@@ -581,10 +577,7 @@ class ClientManager(PresentationManager):
 
 
 def connect() -> tuple[Connection, str] | None:
-    """Connect to the desktop that started this process, using
-    ``DASHA_ADDRESS`` and the key on standard input. Returns the
-    connection and the launch token with which to introduce this process, or
-    ``None``, after explaining why on standard error."""
+    """Connect to the desktop, or ``None``."""
     address = os.environ.pop(ADDRESS_VARIABLE, "")
     secret, _, token = sys.stdin.readline().strip().partition(" ")
     try:
@@ -598,7 +591,10 @@ def connect() -> tuple[Connection, str] | None:
 
 
 def run_hosted(application: Application) -> int:
-    """Run an application on the desktop that started this process."""
+    """Run an application on the desktop.
+
+    :param application: The application.
+    """
     connected = connect()
     if connected is None:
         return 1

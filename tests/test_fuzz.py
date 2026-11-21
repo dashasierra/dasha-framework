@@ -1,11 +1,4 @@
-"""Fuzz tests: random input where untrusted input arrives.
-
-Terminal input bytes go through ``InputDecoder``; messages from hosted
-applications go through ``protocol.decode`` and then the desktop's
-``AppServer._dispatch``. None of them may ever raise on what arrives. Each
-test uses ``random`` with fixed seeds, so a failure repeats; the seed and
-input are in the failure message.
-"""
+"""Fuzz tests for untrusted input."""
 
 import json
 import random
@@ -35,7 +28,10 @@ _SEEDS = range(20)
 
 
 def _random_text(rng: random.Random) -> str:
-    """Terminal input: mostly real pieces, with random characters among them."""
+    """Random terminal input.
+
+    :param rng: Random source.
+    """
     parts: list[str] = []
     for _ in range(rng.randint(0, 40)):
         roll = rng.random()
@@ -49,7 +45,11 @@ def _random_text(rng: random.Random) -> str:
 
 
 def _split(rng: random.Random, text: str) -> list[str]:
-    """``text`` in pieces cut at random places, as reads over SSH arrive."""
+    """Text cut at random places.
+
+    :param rng: Random source.
+    :param text: The text.
+    """
     cuts = sorted(rng.sample(range(len(text) + 1), min(len(text), rng.randint(0, 6))))
     pieces, start = [], 0
     for cut in cuts:
@@ -75,15 +75,18 @@ class InputDecoderFuzzTests(unittest.TestCase):
     """Random terminal input never makes the decoder raise."""
 
     def check(self, decoder: InputDecoder, events: list[Any], data: str) -> None:
-        """Every event is a real event."""
+        """Every event is a real event.
+
+        :param decoder: The decoder.
+        :param events: Events decoded.
+        :param data: The input.
+        """
         for event in events:
             self.assertTrue(_valid_event(event), f"{event!r} from {data!r}")
         self.assertIsInstance(decoder.is_pending, bool)
 
     def test_random_input_in_random_pieces(self) -> None:
-        """Random input, split anywhere and fed piece by piece, gives only
-        events, with ``flush`` between some pieces as ``read_events`` does
-        when input stops part-way."""
+        """Random input in random pieces."""
         for seed in _SEEDS:
             rng = random.Random(seed)
             for _ in range(200):
@@ -112,8 +115,7 @@ class InputDecoderFuzzTests(unittest.TestCase):
                     self.fail(f"seed {seed}: {data!r} raised {error!r}")
 
     def test_numbers_too_long_to_convert(self) -> None:
-        """A sequence with a number longer than Python converts to an int
-        (over 4300 digits) is an unknown key, not an error."""
+        """Numbers too long to convert."""
         for text in (
             "\x1b[" + "9" * 5000 + "~",
             "\x1b[1;" + "9" * 5000 + "A",
@@ -130,8 +132,11 @@ class InputDecoderFuzzTests(unittest.TestCase):
 
 
 def _random_json(rng: random.Random, depth: int = 0) -> Any:
-    """Any JSON value, including what Python's json reads beyond the
-    standard (``NaN``, ``Infinity``) and numbers far out of range."""
+    """Any JSON value.
+
+    :param rng: Random source.
+    :param depth: Nesting depth.
+    """
     roll = rng.randint(0, 11 if depth < 3 else 7)
     simple: list[Any] = [
         None,
@@ -157,8 +162,10 @@ class ProtocolDecodeFuzzTests(unittest.TestCase):
     """Only ``ProtocolError`` comes out of ``protocol.decode``."""
 
     def decode(self, data: bytes) -> None:
-        """Decode ``data``, failing on anything but a message or a
-        ``ProtocolError``."""
+        """Decode, allowing only messages or ``ProtocolError``.
+
+        :param data: The bytes.
+        """
         try:
             message = decode(data)
         except ProtocolError:
@@ -187,9 +194,7 @@ class ProtocolDecodeFuzzTests(unittest.TestCase):
                 self.decode(json.dumps({"type": value}).encode("utf-8"))
 
     def test_json_python_cannot_read(self) -> None:
-        """Nesting deeper than ``MAX_DEPTH`` (which Python 3.14 can read,
-        but earlier versions cannot), and numbers too long to convert, are
-        protocol errors."""
+        """JSON Python cannot read."""
         for data in (
             b"[" * 100_000,
             b'{"type":"x","a":' + b"[" * 100_000 + b"]" * 100_000 + b"}",
@@ -200,8 +205,7 @@ class ProtocolDecodeFuzzTests(unittest.TestCase):
                     decode(data)
 
     def test_nesting_limit(self) -> None:
-        """Lists and objects may nest ``MAX_DEPTH`` deep, and no deeper;
-        brackets in strings do not count."""
+        """The nesting limit."""
 
         def nested(depth: int) -> bytes:
             inner = b"[" * (depth - 1) + b"]" * (depth - 1)
@@ -261,7 +265,12 @@ _MESSAGES = (
 
 
 def _mutate(rng: random.Random, value: Any, rate: float) -> Any:
-    """``value`` with some of its parts swapped for random JSON or dropped."""
+    """A value with random parts swapped or dropped.
+
+    :param rng: Random source.
+    :param value: The value.
+    :param rate: Mutation rate.
+    """
     if rng.random() < rate:
         return _random_json(rng)
     if isinstance(value, dict):
@@ -278,8 +287,7 @@ def _mutate(rng: random.Random, value: Any, rate: float) -> Any:
 
 
 class DispatchFuzzTests(unittest.TestCase):
-    """Random messages from an application never make the desktop raise:
-    at most, that application is ended with a notice."""
+    """Random messages never make the desktop raise."""
 
     def start(self) -> tuple[PresentationManager, AppServer, AppHost, Connection]:
         """A desktop with one connected application, as ``_greet`` leaves it."""
@@ -298,9 +306,7 @@ class DispatchFuzzTests(unittest.TestCase):
         return manager, server, host, app_end
 
     def test_random_messages(self) -> None:
-        """Runs of real messages with random parts, each followed by what
-        the desktop does next: tell the application, paint the screen, and
-        open the menus it sent."""
+        """Random messages."""
         for seed in _SEEDS:
             rng = random.Random(seed)
             for run in range(15):
@@ -340,9 +346,7 @@ class DispatchFuzzTests(unittest.TestCase):
                     self.assertEqual(notice[0], "Application stopped")
 
     def test_numbers_out_of_reach(self) -> None:
-        """A window or paint with sizes no screen has is kept within reach,
-        so drawing it takes no longer than drawing a screenful; one with
-        infinity in it ends the application."""
+        """Out-of-reach numbers."""
         huge = 10**30
         for changes, ends in (
             ({"rect": [0, 0, huge, huge]}, False),

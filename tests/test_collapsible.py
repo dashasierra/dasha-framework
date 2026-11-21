@@ -1,5 +1,4 @@
-"""Tests for collapsible areas: showing and hiding widgets, and moving
-those below out of the way."""
+"""Tests for collapsible areas."""
 
 import unittest
 
@@ -14,17 +13,16 @@ from dasha.window import Window
 
 
 def press(row: int, column: int) -> MouseEvent:
-    """A left button press at a screen position."""
+    """A left press at a screen position.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    """
     return MouseEvent(action="press", button="left", row=row, column=column)
 
 
 class CollapsibleTests(unittest.TestCase):
-    """A window laid out as though the area were collapsed:
-
-    row 0  Name [....]
-    row 1  ► Advanced           Side
-    row 2  Below [....]         Right
-    """
+    """A window with a collapsible area."""
 
     def setUp(self) -> None:
         self.changes: list[bool] = []
@@ -42,7 +40,10 @@ class CollapsibleTests(unittest.TestCase):
         self.right = self.window.add(Label("Right", 2, 20))
 
     def keys(self, *names: str) -> None:
-        """Keys to the window."""
+        """Send keys to the window.
+
+        :param names: The keys.
+        """
         for name in names:
             self.window.handle_key(name, Shortcuts())
 
@@ -59,10 +60,7 @@ class CollapsibleTests(unittest.TestCase):
         self.assertEqual(self.verbose.rect.column, 3)
 
     def test_label_colours(self) -> None:
-        """Dark grey, its letter yellow, on the window's background; with the
-        focus, the label bright white and the letter as it was, nothing
-        reversed.
-        In monochrome, the letter is underlined, the focused label bold."""
+        """Label colours."""
         self.window.focus(self.name)
         canvas = self.drawn()
         label, letter = canvas.cell(2, 4)[1], canvas.cell(2, 3)[1]  # "d", "A"
@@ -94,9 +92,7 @@ class CollapsibleTests(unittest.TestCase):
         self.assertFalse(self.verbose.is_shown)
 
     def test_expanding_moves_everything_below(self) -> None:
-        """▼; the widgets inside show, and those below move down by the
-        area's two rows, whatever their column; those above or beside the
-        header stay."""
+        """Expanding moves the widgets below."""
         self.area.expand()
         canvas = self.drawn()
         self.assertEqual(canvas.text(2)[1:3], DOWN + " ")
@@ -122,7 +118,7 @@ class CollapsibleTests(unittest.TestCase):
         self.assertIs(self.window.focused, self.verbose)
 
     def test_hidden_widgets_take_no_clicks_or_letters(self) -> None:
-        """A click where a hidden widget would be, or its letter, does nothing."""
+        """Hidden widgets take no clicks or letters."""
         interior = self.window.interior
         self.window.handle_mouse(press(interior.row + 2, interior.column + 5))
         self.assertIs(self.window.focused, self.name)
@@ -144,8 +140,7 @@ class CollapsibleTests(unittest.TestCase):
         self.assertIs(self.window.focused, self.area)
 
     def test_keys_and_clicks(self) -> None:
-        """Space and Enter toggle, Right expands, Left collapses; a click on
-        the header and its letter toggle too."""
+        """Keys and clicks toggle the area."""
         self.window.focus(self.area)
         self.keys(" ", "enter", "right", "right", "left")
         self.assertEqual(self.changes, [True, False, True, False])

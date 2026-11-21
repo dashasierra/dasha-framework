@@ -43,7 +43,11 @@ from demo import (
 
 
 def inside(widget: Widget, container: Widget) -> bool:
-    """Whether ``widget`` is in ``container``, or in a container in it."""
+    """Whether a widget is within a container.
+
+    :param widget: The widget.
+    :param container: The container.
+    """
     parent = widget.parent
     while parent is not None:
         if parent.anchor is container:
@@ -63,7 +67,10 @@ class DemoTests(unittest.TestCase):
         self.demo = demo
 
     def choose(self, label: str) -> None:
-        """Choose an item of the File menu."""
+        """Choose a File menu item.
+
+        :param label: The item's label.
+        """
         item = next(i for i in self.demo.menus[0].items if i.label == label)
         assert item.action is not None and item.is_available, label
         item.action()
@@ -73,8 +80,7 @@ class DemoTests(unittest.TestCase):
         return [window.title for window in self.demo.windows]
 
     def test_no_letter_is_repeated(self) -> None:
-        """No two menus on the bar, and no two items of a menu, share a
-        letter."""
+        """No letter is repeated."""
         menu_bar = MenuBar()
         menu_bar.set_menus(self.manager.bar_menus())
         menu_bar.check_mnemonics()
@@ -85,8 +91,10 @@ class DemoTests(unittest.TestCase):
         self.assertEqual(self.manager.windows[-1].title, "Widgets")
 
     def assert_laid_out(self, window: Window) -> None:
-        """No two widgets overlap, but for a widget inside a container's
-        rect (a group box's), and each is inside the frame."""
+        """Check widgets do not overlap.
+
+        :param window: The window.
+        """
         interior = window.interior
         shown = window.shown_widgets
         for widget in shown:
@@ -138,8 +146,7 @@ class DemoTests(unittest.TestCase):
         self.assertEqual(len(self.demo.windows), 6)
 
     def test_file_dialogs_need_a_files_window(self) -> None:
-        """Open, Save as and Pick several are greyed out unless a Files
-        window is in front."""
+        """File dialogs need a Files window."""
         items = {i.label: i for i in self.demo.menus[0].items}
         self.assertFalse(items["&Open..."].is_available)
         files = next(w for w in self.demo.windows if isinstance(w, FilesWindow))
@@ -149,9 +156,7 @@ class DemoTests(unittest.TestCase):
         self.assertFalse(items["&Save"].is_available)
 
     def test_explorer(self) -> None:
-        """Moving through the folders shows their files; Programs opens
-        to show Tools; the divider moves and the tree and table follow it;
-        the table's menu deletes a file."""
+        """The Explorer."""
         self.choose("&Explorer")
         window = self.demo.windows[-1]
         folders, files = window.widget(name="folders"), window.widget(name="files")
@@ -187,9 +192,7 @@ class DemoTests(unittest.TestCase):
         self.assertEqual(len(files.data), before - 1)
 
     def test_explorer_made_small(self) -> None:
-        """Made too short for the files, the Explorer does not scroll as a
-        whole (moving both panes at once): the table and the tree shrink,
-        and each scrolls by itself."""
+        """The Explorer made small."""
         self.choose("&Explorer")
         window = self.demo.windows[-1]
         rect = window.rect
@@ -204,8 +207,7 @@ class DemoTests(unittest.TestCase):
         self.assertEqual(window.scroll_row, 0)
 
     def test_choose_folder(self) -> None:
-        """File > Choose folder... opens on the current folder, and OK says
-        which folder was chosen; Cancel says nothing."""
+        """Choose folder."""
         said: list[str] = []
         answers = ["ok"]
 
@@ -273,8 +275,7 @@ class DemoTests(unittest.TestCase):
         self.assertEqual(help_topic_of(dialog), "survey")
 
     def test_the_help_pages_hang_together(self) -> None:
-        """Every link goes to a page that is there, and to a heading on it,
-        but for the one page that shows what a missing page looks like."""
+        """The help pages hang together."""
         book = HelpBook(Demo.help_folder or "")
         for topic in book.topics():
             for link in lay_out(parse(book.page(topic)), 60).links:
@@ -325,7 +326,10 @@ class FolderTests(unittest.TestCase):
 
     @staticmethod
     def remove(top: str) -> None:
-        """Delete the test's folder."""
+        """Delete the test's folder.
+
+        :param top: The folder.
+        """
         for path, folders, files in os.walk(top, topdown=False):
             for name in files:
                 os.remove(os.path.join(path, name))
@@ -346,8 +350,7 @@ class FolderTests(unittest.TestCase):
         self.assertEqual(folder_nodes(path=os.path.join(self.top, "none")), [])
 
     def test_find_folder(self) -> None:
-        """A folder is found by loading the folders on the way to it; a
-        folder that is not there finds the nearest one above it."""
+        """``find_folder``."""
         roots = folder_nodes(path=self.top)
         inner = os.path.join(self.top, "beta", "inner")
         node = find_folder(roots=roots, directory=inner)
@@ -358,8 +361,7 @@ class FolderTests(unittest.TestCase):
         self.assertIsNone(find_folder(roots=roots, directory=self.top))
 
     def test_find_folder_through_a_link(self) -> None:
-        """A path through a link finds the folder it leads to, as a Windows
-        short name (``RUNNER~1``) does."""
+        """``find_folder`` through a link."""
         link = os.path.join(self.top, "link")
         try:
             os.symlink(os.path.join(self.top, "beta"), link, target_is_directory=True)
@@ -372,8 +374,7 @@ class FolderTests(unittest.TestCase):
         self.assertEqual(node.path, ["beta", "inner"])
 
     def test_dialog(self) -> None:
-        """The dialog starts on the folder, highlighted and showing, with its
-        path below; moving shows the next one's path."""
+        """The folder dialog."""
         inner = os.path.join(self.top, "beta", "inner")
         dialog = folder_dialog(directory=inner)
         folders, path = dialog.widget(name="folders"), dialog.widget(name="path")

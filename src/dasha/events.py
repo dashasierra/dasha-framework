@@ -1,16 +1,4 @@
-"""Turning raw terminal input into key and mouse events.
-
-Terminals send special keys as escape sequences (for example, the up
-arrow is ``ESC [ A``), and once mouse reporting is switched on, they send
-mouse activity in the same way (``ESC [ < button ; column ; row M``). Keys
-become readable names such as ``"up"``, ``"shift+tab"``, ``"f6"``,
-``"ctrl+q"`` or ``"alt+x"``, while ordinary characters are returned as
-themselves. Mouse activity becomes a ``MouseEvent``. Text pasted through
-the terminal itself arrives wrapped in ``ESC [ 200 ~`` ... ``ESC [ 201 ~``
-(bracketed paste), and becomes a single ``PasteEvent`` rather than a key for
-each character. Windows consoles are switched into VT input mode, so the
-same sequences arrive on every platform, both locally and over SSH.
-"""
+"""Terminal input decoding into events."""
 
 import time
 from dataclasses import dataclass
@@ -23,31 +11,15 @@ _MAX_SEQUENCE_LENGTH = 32
 
 PASTE_START = ESC + "[200~"
 PASTE_END = ESC + "[201~"
-"""The markers that a terminal with bracketed paste turned on puts around
-pasted text."""
+"""Bracketed paste markers."""
 
 PASTE_TIMEOUT = 0.5
-"""How many seconds ``read_events`` waits for more of a paste that has not
-ended.
-
-A big paste over a slow SSH connection arrives over many reads. If no more
-arrives for this long, what has arrived so far is delivered as a paste of
-its own, so that the screen never freezes waiting for an end that never
-comes.
-"""
+"""Seconds to wait for more of an unfinished paste."""
 
 
 @dataclass(frozen=True, slots=True)
 class MouseEvent:
-    """A mouse report. ``row`` and ``column`` are screen positions, counted
-    from 0.
-
-    ``action`` is ``"press"``, ``"release"``, ``"drag"`` (moving with a
-    button held down), ``"move"`` (moving with no button held down) or
-    ``"scroll"``. ``button`` is ``"left"``, ``"middle"``, ``"right"`` or
-    ``"none"``, or, for scrolling, ``"up"``, ``"down"``, ``"left"`` or
-    ``"right"``.
-    """
+    """A mouse report."""
 
     action: str
     button: str
@@ -60,25 +32,19 @@ class MouseEvent:
     ctrl: bool = False
     """Whether Ctrl was held down."""
     clicks: int = 1
-    """For a press, 2 for the second press of a double-click, 3 for a
-    triple-click, and so on. The presentation manager counts these clicks,
-    because the terminal does not."""
+    """Click count for a press."""
 
 
 @dataclass(frozen=True, slots=True)
 class PasteEvent:
-    """Text pasted through the terminal (with its own Ctrl+V, right-click or
-    middle-click), exactly as it arrived. Line breaks and other control
-    characters in it are part of the text, not key presses."""
+    """Text pasted through the terminal."""
 
     text: str
 
 
 @dataclass(frozen=True, slots=True)
 class KeyReleaseEvent:
-    """A key being released. ``key`` is the key's name, as given when it
-    was pressed (``" "`` for Space). Most terminals never report releases;
-    see ``Terminal.can_report_key_releases``."""
+    """A key release."""
 
     key: str
 
@@ -147,19 +113,15 @@ NAMED_KEYS = frozenset(
     | set(_TILDE_KEYS.values())
     | {"space"}
 )
-"""Every key name that ``decode`` can produce, other than single
-characters.
-
-Combined with modifiers, these give names such as ``"ctrl+right"``.
-``"space"`` appears only with a modifier (``"alt+space"``); a plain space is
-``" "``.
-"""
+"""Every multi-character key name."""
 
 
 def _with_modifiers(name: str, parameter: int) -> str:
-    """A key name with the modifiers an xterm parameter (the ``5`` in
-    ``CSI 1 ; 5 C``) stands for, kept in the usual order even when the name
-    has one already (``shift+tab`` with Ctrl is ``shift+ctrl+tab``)."""
+    """A key name with xterm modifiers added.
+
+    :param name: The key name.
+    :param parameter: The xterm modifier parameter.
+    """
     mask = parameter - 1
     for label, bit in _MODIFIER_BITS:
         if mask & bit:
@@ -172,7 +134,11 @@ _SCROLL_DIRECTIONS = ("up", "down", "left", "right")
 
 
 def _decode_mouse(params: str, final: str) -> MouseEvent | None:
-    """Decode an SGR mouse report: ``ESC [ < button ; column ; row M/m``."""
+    """Decode an SGR mouse report.
+
+    :param params: The sequence's parameters.
+    :param final: Its final character.
+    """
     try:
         code, column, row = (int(part) for part in params[1:].split(";"))
     except ValueError:
@@ -194,9 +160,10 @@ def _decode_mouse(params: str, final: str) -> MouseEvent | None:
 
 
 def _parameter(part: str) -> int:
-    """A number in a sequence's parameters: 0 if it is missing, not a
-    number, or too long to be a real one (Python will not convert one of
-    thousands of digits)."""
+    """A sequence parameter as a number, or 0.
+
+    :param part: The parameter text.
+    """
     return int(part) if part.isdigit() and len(part) <= 9 else 0
 
 
@@ -237,9 +204,10 @@ _FUNCTION_KEYS = frozenset(f"f{number}" for number in range(1, 13))
 
 
 def _decode_kitty_key(params: str) -> Event:
-    """``CSI code ; mods : event u``, the kitty keyboard protocol's form with
-    an event type: 1 a press, 2 a repeat, 3 a release. The Windows backend
-    writes Space's release this way too."""
+    """Decode a kitty keyboard protocol key.
+
+    :param params: The sequence's parameters.
+    """
     fields = [field.split(":") for field in params.split(";")]
     try:
         code = int(fields[0][0])
@@ -256,8 +224,11 @@ def _decode_kitty_key(params: str) -> Event:
 
 
 def _add_modifier(key: str, modifier: str) -> str:
-    """``"shift+f3"`` with ``"alt"`` added is ``"shift+alt+f3"``: modifiers
-    stay in the order key names always use."""
+    """A key name with a modifier added.
+
+    :param key: The key name.
+    :param modifier: The modifier.
+    """
     *prefixes, base = key.split("+")
     held = set(prefixes) | {modifier}
     return "".join(f"{label}+" for label in MODIFIERS if label in held) + base
@@ -272,20 +243,7 @@ def _single_key(char: str) -> str:
 
 
 class InputDecoder:
-    """Turns a stream of terminal input into events.
-
-    Input can arrive in pieces, especially over SSH, so an escape
-    sequence may be split across two reads. ``feed`` holds back an unfinished
-    sequence until the rest arrives. A lone ESC is also the start of every
-    sequence, so when input stops with one pending (``is_pending`` is true), the
-    caller should wait briefly for more and then call ``flush``, which treats
-    it as the Escape key.
-
-    A bracketed paste is held back in the same way until its end marker
-    arrives, and then becomes a single ``PasteEvent``. While a paste is under
-    way (``is_pasting``), ``flush`` delivers what has arrived so far as one
-    paste, and anything more, up to the end marker, as another.
-    """
+    """Turns terminal input into events."""
 
     def __init__(self) -> None:
         self._buffer = ""
@@ -305,12 +263,15 @@ class InputDecoder:
         return self._in_paste
 
     def feed(self, data: str) -> list[Event]:
-        """Decode new input, holding back any unfinished escape sequence."""
+        """Decode new input.
+
+        :param data: The input.
+        """
         self._buffer += data
         return self._decode(final=False)
 
     def flush(self) -> list[Event]:
-        """Decode whatever is held back, treating a lone ESC as the Escape key."""
+        """Decode held-back input."""
         return self._decode(final=True)
 
     def _decode(self, final: bool) -> list[Event]:
@@ -340,9 +301,12 @@ class InputDecoder:
     def _escape(
         self, data: str, index: int, final: bool
     ) -> tuple[Event | None, int] | None:
-        """Decode what starts with the ESC at ``index``: the event (``None``
-        for one that makes none, such as the start of a paste) and where the
-        next one begins; ``None`` if the rest has not arrived yet."""
+        """Decode an escape sequence, or ``None`` if incomplete.
+
+        :param data: The input.
+        :param index: Position of the ESC.
+        :param final: Whether no more input is coming.
+        """
         if index + 1 == len(data):
             # Might be the start of a sequence, unless no more is coming.
             return ("escape", index + 1) if final else None
@@ -370,14 +334,12 @@ class InputDecoder:
     def _after_two_escapes(
         data: str, index: int, final: bool
     ) -> tuple[str, int] | None:
-        """Two ESCs at ``index``: the event they start, and where the next
-        one begins; ``None`` if the rest has not arrived yet.
+        """Decode two ESCs, or ``None`` if incomplete.
 
-        ESC followed by a function key's whole sequence (``ESC ESC O R``) is
-        how PuTTY, rxvt and the Linux console send Alt with a function key,
-        so it is ``alt+f3``. Anything else is Escape, then whatever follows:
-        Escape and an arrow pressed quickly can arrive together over SSH,
-        and must not turn into Alt+arrow."""
+        :param data: The input.
+        :param index: Position of the first ESC.
+        :param final: Whether no more input is coming.
+        """
         escape = ("escape", index + 1)
         start = index + 1  # the second ESC
         if start + 1 >= len(data):
@@ -399,12 +361,13 @@ class InputDecoder:
     def _take_paste(
         self, data: str, index: int, final: bool, events: list[Event]
     ) -> tuple[int, bool]:
-        """Add the pasted text starting at ``index`` to ``events`` as a
-        ``PasteEvent``. Return where decoding goes on, and whether the paste
-        ended there. Without the end marker, the text is held back unless
-        ``final``: set aside, but for the last few characters, which may be
-        the start of the end marker, and are searched again with the next
-        read."""
+        """Take pasted text; return where to go on and whether it ended.
+
+        :param data: The input.
+        :param index: Start of the paste.
+        :param final: Whether no more input is coming.
+        :param events: Events to add to.
+        """
         end = data.find(PASTE_END, index)
         if end < 0 and not final:
             keep = max(index, len(data) - (len(PASTE_END) - 1))
@@ -423,14 +386,20 @@ class InputDecoder:
 
 
 def decode(data: str) -> list[Event]:
-    """Decode a complete chunk of input in one go."""
+    """Decode a complete chunk of input.
+
+    :param data: The input.
+    """
     decoder = InputDecoder()
     return decoder.feed(data) + decoder.flush()
 
 
 class _Reader(Protocol):  # pylint: disable=too-few-public-methods
     def read(self, timeout: float | None = None) -> str:
-        """Wait (forever, or up to ``timeout`` seconds) and return input."""
+        """Wait for and return input.
+
+        :param timeout: Seconds to wait, or ``None`` for ever.
+        """
 
 
 def read_events(
@@ -440,16 +409,13 @@ def read_events(
     timeout: float | None = None,
     paste_timeout: float = PASTE_TIMEOUT,
 ) -> list[Event]:
-    """Wait for input from a terminal (indefinitely, or for up to
-    ``timeout`` seconds), and return the events in it.
+    """Wait for input and return its events.
 
-    If the input ends part-way through an escape sequence, wait up to
-    ``escape_timeout`` seconds for the rest; if none arrives, the ESC was the
-    Escape key. Part-way through a paste, wait up to ``paste_timeout``
-    seconds at a time for the rest. Those waits last their whole time even
-    if the reader is woken meanwhile (by ``Terminal.wake`` or a resize), so
-    that a sequence split in two is never cut short. Returns an empty list
-    if the read was woken, or timed out.
+    :param reader: The input source.
+    :param decoder: The decoder.
+    :param escape_timeout: Seconds to wait after a lone ESC.
+    :param timeout: Seconds to wait, or ``None`` for ever.
+    :param paste_timeout: Seconds to wait for more of a paste.
     """
     events = decoder.feed(reader.read(timeout))
     while decoder.is_pending:
@@ -461,9 +427,11 @@ def read_events(
 
 
 def _read_all_of(reader: _Reader, timeout: float) -> str:
-    """Read, waiting up to ``timeout`` seconds, and waiting again for the
-    rest of that time when the read was woken early (where the reader says
-    so with ``is_woken``, as ``Terminal`` does)."""
+    """Read for the whole timeout, despite early wakes.
+
+    :param reader: The input source.
+    :param timeout: Seconds to wait.
+    """
     deadline = time.monotonic() + timeout
     data = reader.read(timeout)
     while not data and getattr(reader, "is_woken", False):

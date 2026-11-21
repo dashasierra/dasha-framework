@@ -1,19 +1,4 @@
-"""Tables for the guides, built from Dasha Framework's own code at build time, so
-they are always the colours and keys Dasha Framework really has:
-
-``colour-roles``
-    Every colour role (``dasha.theme.ROLES``): its default and
-    monochrome styles, and what it colours.
-
-``shortcut-actions``
-    Every action (``dasha.shortcuts.DEFAULTS``): its default keys, and
-    what it does.
-
-In a Markdown guide::
-
-    ```{colour-roles}
-    ```
-"""
+"""Sphinx directives for the colour role and shortcut tables."""
 
 from collections.abc import Sequence
 
@@ -32,18 +17,21 @@ type Cell = str | tuple[str, ...]
 
 
 def colour_name(colour: int | None) -> str:
-    """``"bright white"``, ``"colour 208"``; ``None`` is the window's own
-    colour, which is what a role with no colour of its own draws in."""
+    """A colour's name in words.
+
+    :param colour: The colour, or ``None`` for the window's.
+    """
     if colour is None:
         return "the window's"
     return _COLOUR_NAMES.get(colour, f"colour {colour}")
 
 
 def describe(style: object, *, colours: bool = True) -> str:
-    """A style in words, as the colours guide writes it: ``"bright white
-    on blue, bold"``, ``"white on the window's"``, ``"plain"``. With
-    ``colours`` false (the monochrome theme, which has none), only its
-    attributes are given."""
+    """A style in words.
+
+    :param style: The style.
+    :param colours: Whether to include colours.
+    """
     if style is None:
         return "none"
     if not isinstance(style, Style):
@@ -69,7 +57,11 @@ def describe(style: object, *, colours: bool = True) -> str:
 
 
 def table(headings: Sequence[str], rows: Sequence[Sequence[Cell]]) -> nodes.table:
-    """A docutils table; a cell given as a tuple is a list of code names."""
+    """A docutils table.
+
+    :param headings: Column headings.
+    :param rows: Rows of cells; a tuple cell is code names.
+    """
     group = nodes.tgroup(cols=len(headings))
     group += [nodes.colspec(colwidth=1) for _ in headings]
     head = nodes.thead()
@@ -130,7 +122,10 @@ class ShortcutActions(SphinxDirective):
 
 
 def setup(app: Sphinx) -> dict[str, object]:
-    """Register the directives."""
+    """Register the directives.
+
+    :param app: The Sphinx application.
+    """
     app.add_directive("colour-roles", ColourRoles)
     app.add_directive("shortcut-actions", ShortcutActions)
     return {"parallel_read_safe": True, "parallel_write_safe": True}

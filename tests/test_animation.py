@@ -1,6 +1,4 @@
-"""Tests for animations: menus dropping down from the menu bar, and windows
-zooming as they are minimised, restored and maximised, turned on and off
-from the system menu, and remembered."""
+"""Tests for menu and window animations."""
 
 import tempfile
 import unittest
@@ -34,7 +32,10 @@ class _Screen:  # pylint: disable=too-few-public-methods
         return (COLUMNS, LINES)
 
     def write(self, text: str) -> None:
-        """Drawn, and forgotten."""
+        """Record and drop output.
+
+        :param text: The output.
+        """
         del text
 
     def flush(self) -> None:
@@ -42,7 +43,12 @@ class _Screen:  # pylint: disable=too-few-public-methods
 
 
 def lined(title: str, rect: Rect, count: int = 3) -> Window:
-    """A window with numbered lines of text."""
+    """A window with numbered lines.
+
+    :param title: Title text.
+    :param rect: Position and size.
+    :param count: Number of lines.
+    """
     lines = [f"line {number}" for number in range(1, count + 1)]
     return Window(title, rect, lines, maximisable=True, minimisable=True)
 
@@ -69,14 +75,18 @@ class Animated(unittest.TestCase):
         self.draw()  # the screen as it starts, so nothing is new
 
     def draw(self) -> list[Canvas]:
-        """Draw a frame, as the main loop does; every frame drawn for it."""
+        """Draw a frame; return every frame drawn."""
         self.frames.clear()
         self.manager._draw_frame(self.terminal)  # pylint: disable=protected-access
         return list(self.frames)
 
 
 def frame_corners(canvas: Canvas, corner: str) -> list[tuple[int, int]]:
-    """Where a frame corner character is on a canvas."""
+    """Where a frame corner is on a canvas.
+
+    :param canvas: The canvas.
+    :param corner: The corner character.
+    """
     return [
         (row, column)
         for row in range(canvas.height)
@@ -94,7 +104,7 @@ class GeometryTests(unittest.TestCase):
         self.assertEqual(frame_parts(0), [])
 
     def test_between(self) -> None:
-        """Each edge moves in a straight line; never smaller than 2 by 2."""
+        """Rects between two others."""
         start, end = Rect(2, 4, 6, 10), Rect(1, 0, 10, 40)
         self.assertEqual(between(start, end, 0), start)
         self.assertEqual(between(start, end, 1), end)
@@ -118,8 +128,7 @@ class PaintBetweenTests(unittest.TestCase):
     """A window drawn part-way."""
 
     def test_inside_stays_and_window_is_untouched(self) -> None:
-        """What was inside is shown as it was, at the frame's top-left, and
-        the window keeps its place, scroll and layout."""
+        """The inside is kept and the window untouched."""
         window = lined("W", Rect(1, 1, 6, 12), count=10)
         window.scroll_to(2, 0)
         inside = window.render_interior(True)
@@ -131,8 +140,7 @@ class PaintBetweenTests(unittest.TestCase):
         self.assertEqual(window.scroll_row, 2)
 
     def test_only_the_scroll_bars_allowed(self) -> None:
-        """A scroll bar the content would need part-way is not drawn unless
-        the window has it at the end."""
+        """Only the scroll bars allowed are drawn."""
         window = lined("W", Rect(1, 1, 4, 12), count=10)
         inside = window.render_interior(True)
         without = Canvas(COLUMNS, LINES)
@@ -157,8 +165,7 @@ class WindowAnimationTests(Animated):
         self.assertEqual(len(self.draw()), 1)
 
     def test_minimise_shrinks_into_the_status_bar(self) -> None:
-        """Two frames part-way, each smaller and nearer the middle of the
-        status bar, before the window is gone."""
+        """Minimising shrinks into the status bar."""
         window = lined("W", Rect(2, 2, 6, 16))
         self.manager.add(window)
         self.draw()
@@ -174,8 +181,7 @@ class WindowAnimationTests(Animated):
         self.assertEqual(len(self.draw()), 1)  # done with
 
     def test_restore_grows_out_of_the_status_bar(self) -> None:
-        """Restored from minimised, it grows from the middle of the status
-        bar to where it was."""
+        """Restoring grows from the status bar."""
         window = lined("W", Rect(2, 2, 6, 16))
         self.manager.add(window)
         self.manager.minimise(window)
@@ -190,8 +196,7 @@ class WindowAnimationTests(Animated):
         self.assertIn((2, 2), frame_corners(frames[-1], window.border.top_left))
 
     def test_maximise_and_restore_move_between(self) -> None:
-        """Maximised, it grows to fill the work area; restored, it shrinks
-        back, part-way each time."""
+        """Maximising and restoring animate."""
         window = lined("W", Rect(3, 4, 6, 16))
         self.manager.add(window)
         self.draw()
@@ -222,8 +227,7 @@ class WindowAnimationTests(Animated):
         self.assertEqual(corners, [(first.row, first.column)])
 
     def test_no_scroll_bar_on_the_way_to_a_size_without(self) -> None:
-        """Content too long for the window, but not for the work area: no
-        scroll bar on the way to maximised."""
+        """No scroll bar on the way to a fitting size."""
         window = lined("W", Rect(1, 0, 5, 16), count=8)
         self.manager.add(window)
         self.assertIsNotNone(window.scroll_bars[0])
@@ -247,8 +251,7 @@ class WindowAnimationTests(Animated):
             self.assertEqual(text[corner[1] + 2 : corner[1] + 8], "line 1")
 
     def test_closed_meanwhile_is_not_drawn(self) -> None:
-        """A window restored and closed before the next frame is not drawn
-        coming back."""
+        """A window closed meanwhile is not drawn."""
         window = lined("W", Rect(2, 2, 6, 16))
         self.manager.add(window)
         self.manager.minimise(window)
@@ -258,8 +261,7 @@ class WindowAnimationTests(Animated):
         self.assertEqual(len(self.draw()), 1)
 
     def test_dragged_out_of_maximised_is_not_animated(self) -> None:
-        """Dragging a maximised window's title bar restores it under the
-        pointer, at once."""
+        """Dragging out of maximised is instant."""
         window = lined("W", Rect(3, 4, 6, 16))
         self.manager.add(window)
         self.manager.maximise(window)
@@ -281,8 +283,7 @@ class MenuAnimationTests(Animated):
         self.manager.show_system_menu = True
 
     def test_opening_drops_down(self) -> None:
-        """A drop-down newly opened comes out from under the bar, a part
-        more each frame, then is drawn whole."""
+        """A new drop-down slides out."""
         self.manager.handle_event("f10")
         frames = self.draw()
         self.assertEqual(len(frames), 3)
@@ -327,8 +328,7 @@ class ToggleTests(unittest.TestCase):
         self.settings = Path(directory.name) / "settings.toml"
 
     def test_system_menu_toggles(self) -> None:
-        """Animations says whether they are on; choosing it turns them the
-        other way."""
+        """The system menu toggles animations."""
         manager = PresentationManager()
         manager.settings_path = self.settings
         item = next(i for i in manager.system_menu.items if "nimations" in i.label)
@@ -363,8 +363,7 @@ class ToggleTests(unittest.TestCase):
             read_animations_setting(self.settings)
 
     def test_saved_setting_used(self) -> None:
-        """An application on its own animates as the settings say; a
-        settings file that cannot be read leaves it as it was."""
+        """The saved setting is used."""
         manager = PresentationManager()
         manager.settings_path = self.settings
         manager.use_saved_animations()
@@ -377,8 +376,7 @@ class ToggleTests(unittest.TestCase):
         self.assertFalse(manager.animations)
 
     def test_desktop_animates_and_remembers(self) -> None:
-        """The desktop starts with animations as it is told, and remembers
-        turning them on or off."""
+        """The desktop remembers the setting."""
         isolated_home(self)
         manager = _desktop(None, [], processes=False)
         self.assertTrue(manager.animations)

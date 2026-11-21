@@ -1,5 +1,4 @@
-"""Radio buttons: a group of options, exactly one of which is
-selected."""
+"""Radio button groups."""
 
 from collections.abc import Sequence
 from typing import Unpack
@@ -9,21 +8,17 @@ from dasha.widgets.cluster import Cluster, ClusterOptions
 
 
 class RadioButtons(Cluster):
-    """A group of options of which exactly one is selected::
+    """A group of options, one of which is selected.
 
-        RadioButtons(
-            labels=["&Small", "&Medium", "&Large"], row=1, column=2, selected=1
-        )
-
-    Moving with Up and Down selects each option in turn, and so does a
-    click or an option's letter. The group's ``value`` is the index of the
-    selected option (``selected``), and ``selected_label`` is that option's
-    label without its ``&``.
+    :param labels: Option labels; ``&`` marks mnemonics.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param selected: Index of the selected option.
+    :param options: Further cluster options.
     """
 
     marks = ("( )", "(\N{BULLET})")
-    """How an option looks when not selected and when selected; ``•`` is
-    code page 437 glyph 7."""
+    """Unselected and selected marks."""
 
     def __init__(
         self,

@@ -17,7 +17,7 @@ BURGER = "\N{IDENTICAL TO}"
 
 
 def make_windows() -> list[Window]:
-    """Three overlapping windows below the menu bar, back to front: A, B, C."""
+    """Three overlapping windows."""
     return [
         Window("A", Rect(1, 0, 4, 10)),
         Window("B", Rect(2, 2, 4, 10)),
@@ -26,22 +26,37 @@ def make_windows() -> list[Window]:
 
 
 def titles(manager: PresentationManager) -> str:
-    """The window titles in Z-order, back to front."""
+    """Window titles, back to front.
+
+    :param manager: The desktop.
+    """
     return "".join(window.title for window in manager.windows)
 
 
 def press(row: int, column: int) -> MouseEvent:
-    """A left-button press."""
+    """A left-button press.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    """
     return MouseEvent("press", "left", row, column)
 
 
 def drag(row: int, column: int) -> MouseEvent:
-    """Moving with the left button held."""
+    """A left-button drag.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    """
     return MouseEvent("drag", "left", row, column)
 
 
 def release(row: int, column: int) -> MouseEvent:
-    """A left-button release."""
+    """A left-button release.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    """
     return MouseEvent("release", "left", row, column)
 
 
@@ -86,8 +101,7 @@ class ZOrderTests(unittest.TestCase):
         self.assertFalse(self.manager.is_running)
 
     def test_mouse_events(self) -> None:
-        """Left and right presses raise windows (a right one, for its
-        context menu); the wheel and releases do not."""
+        """Mouse events and raising."""
         a, b, _ = self.windows
         self.manager.handle_event(MouseEvent("scroll", "up", 1, 0))
         self.manager.handle_event(MouseEvent("release", "left", 1, 0))
@@ -169,8 +183,7 @@ class MenuTests(unittest.TestCase):
         self.assertFalse(self.manager.menu_bar.is_open)
 
     def test_exit_from_system_menu_by_mouse(self) -> None:
-        """Click the burger, then click Exit (below About, Settings...,
-        Themes, Animations, Command prompt and a separator)."""
+        """Exit from the system menu by mouse."""
         self.manager._running = True  # pylint: disable=protected-access
         self.manager.handle_event(press(0, 1))
         self.assertTrue(self.manager.menu_bar.is_open)
@@ -178,7 +191,7 @@ class MenuTests(unittest.TestCase):
         self.assertFalse(self.manager.is_running)
 
     def test_escape_closes_menu_before_quitting(self) -> None:
-        """With a menu open, Escape closes it; it does not quit Dasha Framework."""
+        """Escape closes a menu before quitting."""
         self.manager._running = True  # pylint: disable=protected-access
         self.manager.handle_event("alt+v")
         self.assertIs(self.manager.menu_bar.open_menu, self.view)
@@ -197,7 +210,7 @@ class MenuTests(unittest.TestCase):
         self.assertEqual(self.chosen, ["zoom"])
 
     def test_open_menu_takes_input(self) -> None:
-        """While a menu is open, Tab and clicks do not reach the windows."""
+        """An open menu takes input."""
         self.manager.handle_event("f10")
         self.manager.handle_event("tab")
         self.assertIs(self.manager.active_window, self.b)
@@ -232,7 +245,10 @@ class DragTests(unittest.TestCase):
         self.manager = PresentationManager(windows=self.windows)
 
     def drag_path(self, *events: MouseEvent) -> None:
-        """Send a series of mouse events."""
+        """Send mouse events.
+
+        :param events: The events.
+        """
         for event in events:
             self.manager.handle_event(event)
 
@@ -290,7 +306,12 @@ class ResizeTests(unittest.TestCase):
     """Keeping windows reachable when the terminal shrinks."""
 
     def resized(self, rect: Rect, columns: int, lines: int) -> Rect:
-        """Where a window at ``rect`` ends up after a resize."""
+        """Where a window ends up after a resize.
+
+        :param rect: Its rect.
+        :param columns: New screen width.
+        :param lines: New screen height.
+        """
         window = Window("w", rect)
         PresentationManager(windows=[window]).handle_resize(columns, lines)
         return window.rect
@@ -328,12 +349,16 @@ class ResizeTests(unittest.TestCase):
         self.assertEqual(self.resized(Rect(5, 100, 4, 3), 80, 24), Rect(5, 77, 4, 3))
 
     def test_title_bar_under_menu_bar_is_moved_down(self) -> None:
-        """A window whose title bar is hidden by the menu bar moves below it."""
+        """A hidden title bar is moved down."""
         self.assertEqual(self.resized(Rect(0, 5, 4, 10), 80, 24), Rect(1, 5, 4, 10))
 
 
 class FakeTerminal:
-    """Stands in for Terminal: scripted sizes and input, captured output."""
+    """A terminal stand-in with scripted input.
+
+    :param inputs: Reads; ``""`` is a timeout.
+    :param sizes: Sizes to report, if any.
+    """
 
     def __init__(
         self, inputs: list[str], sizes: list[tuple[int, int]] | None = None
@@ -347,14 +372,20 @@ class FakeTerminal:
         return self.sizes[0]
 
     def write(self, text: str) -> None:
-        """Capture output."""
+        """Capture output.
+
+        :param text: The output.
+        """
         self.output.write(text)
 
     def flush(self) -> None:
         """Nothing to flush."""
 
     def read(self, timeout: float | None = None) -> str:
-        """Return the next scripted input; ``""`` in the script is a timeout."""
+        """The next scripted input.
+
+        :param timeout: Ignored.
+        """
         del timeout
         if len(self.sizes) > 1:
             self.sizes.pop(0)
@@ -376,7 +407,7 @@ class RunTests(unittest.TestCase):
         self.assertFalse(manager.is_running)
 
     def test_escape_sequence_split_across_reads(self) -> None:
-        """A sequence cut in two (slow SSH) is joined, not taken as Escape."""
+        """A split escape sequence is joined."""
         manager = PresentationManager(windows=make_windows())
         # Shift+F6 arrives as ESC, then [17;2~; then a real Escape quits.
         terminal = FakeTerminal(["\x1b", "[17;2~", "\x11", "\r"])
@@ -413,9 +444,7 @@ class RunTests(unittest.TestCase):
         self.assertEqual(window.rect, Rect(2, 36, 4, 10))
 
     def test_screen_cleared_by_the_terminal_is_drawn_again(self) -> None:
-        """When the terminal clears the screen by itself (entering the
-        alternate screen afresh after a resize), every cell is drawn again,
-        even though the size has not changed."""
+        """A cleared screen is drawn again."""
 
         class ClearingTerminal(FakeTerminal):
             """Clears the screen on its first read; keeps each frame."""
@@ -431,7 +460,10 @@ class RunTests(unittest.TestCase):
                 self.output = StringIO()
 
             def read(self, timeout: float | None = None) -> str:
-                """Clear the screen on the first read, a resize wake-up."""
+                """Clear the screen on the first read.
+
+                :param timeout: Ignored.
+                """
                 self.cleared = len(self.frames) == 1
                 return super().read(timeout)
 

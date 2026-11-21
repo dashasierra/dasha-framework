@@ -19,7 +19,10 @@ TEXT = (
 
 
 def drawn(paragraph: Paragraph) -> list[str]:
-    """The paragraph's rows as drawn."""
+    """The paragraph's rows as drawn.
+
+    :param paragraph: The paragraph.
+    """
     canvas = Canvas(paragraph.rect.width, paragraph.rect.height)
     paragraph.paint(canvas, canvas.bounds, False)
     return [canvas.text(row) for row in range(paragraph.rect.height)]
@@ -29,7 +32,7 @@ class WrapTests(unittest.TestCase):
     """Wrapping text."""
 
     def test_wraps_words_whole(self) -> None:
-        """Each line of the text wraps on its own; a blank line stays."""
+        """Words wrap whole."""
         self.assertEqual(
             wrap("one two three four\n\nfive", 9),
             [["one two", "three", "four"], [""], ["five"]],
@@ -93,7 +96,10 @@ class ScrollingTests(unittest.TestCase):
         self.paragraph = Paragraph(text, 0, 0, 12, 5)
 
     def keys(self, *names: str) -> None:
-        """Keys to the paragraph."""
+        """Send keys to the paragraph.
+
+        :param names: The keys.
+        """
         for name in names:
             self.assertTrue(self.paragraph.handle_key(name, Shortcuts()), name)
 

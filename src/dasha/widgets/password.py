@@ -1,4 +1,4 @@
-"""Password boxes: a text box that does not show what is typed in it."""
+"""Password boxes."""
 
 from dasha.canvas import Canvas, Rect
 from dasha.shortcuts import Shortcuts
@@ -9,15 +9,7 @@ MASK = "\N{BULLET}"
 
 
 class PasswordBox(TextBox):
-    """A ``PasswordBox`` is a ``TextBox`` for a password or a key. It shows
-    ``•`` (code page 437 glyph 7) for each character, and does not copy or cut
-    its contents to the clipboard: Ctrl+C and Ctrl+X do nothing. Pasting into it
-    works, as typing does. Words in it are not told apart, so Ctrl+Left and
-    Ctrl+Right go to either end, rather than revealing where its spaces are. Set
-    ``revealed`` to show the text itself (from a "Show password" switch, for
-    example). Everything else works as in a text box: ``value`` is the text
-    itself, and ``max_length`` and ``pattern`` limit it.
-    """
+    """A text box that hides its text."""
 
     copies_out = False  # so its context menu has no Cut or Copy
 
@@ -44,8 +36,11 @@ class PasswordBox(TextBox):
         return False
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """As for a text box, except that moving a word at a time goes to
-        either end."""
+        """Handle a key as a text box does.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         end = len(self.text)
         ends = {
             "text_word_left": (0, False),

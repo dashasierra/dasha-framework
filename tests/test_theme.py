@@ -149,8 +149,7 @@ class ThemeTests(ThemeIsolation):
         self.assertEqual(set(theme.DESCRIPTIONS), set(theme.ROLES))
 
     def test_a_base_that_is_not_text(self) -> None:
-        """A list or an object as the base is a problem in the file, like
-        any other, not a crash; so the Themes menu says what is wrong."""
+        """A base that is not text."""
         for base in (["dark"], {"dark": True}, 1, None):
             with self.subTest(base=base):
                 with self.assertRaisesRegex(theme.ThemeError, '"base" must be'):
@@ -258,10 +257,7 @@ class ThemeTests(ThemeIsolation):
         self.assertEqual(theme.build_theme(mono), theme.MONOCHROME_THEME)
 
     def test_newer_roles_written_only_where_needed(self) -> None:
-        """A colours file leaves out a role added since the first release
-        while it is as the base theme has it, so an older release can read
-        the file; changed, it is written. For an application, the protocol
-        version decides."""
+        """Newer roles written only where needed."""
         for base, colours in theme.BASES.items():
             written = json.loads(theme.theme_to_json(colours, base))
             self.assertNotIn("tabs.disabled", written["colours"])
@@ -290,7 +286,7 @@ class ThemeTests(ThemeIsolation):
 
 
 class NoColoursDrawnTests(ThemeIsolation):
-    """Under a theme with no colours, none are drawn, whatever a style says."""
+    """No colours drawn under a colourless theme."""
 
     COLOURED = Style(foreground=RED, background=BLUE, bold=True)
 
@@ -323,7 +319,7 @@ class NoColoursDrawnTests(ThemeIsolation):
         self.assertEqual(self.COLOURED.sgr(), "\x1b[0;1;7m")
 
     def test_a_coloured_window_draws_none(self) -> None:
-        """A window written with colours of its own sends none to the screen."""
+        """A coloured window draws none."""
 
         class Coloured(Window):
             """Colours of its own, as an application might have."""
@@ -375,7 +371,11 @@ class StartingThemeTests(ThemeIsolation):
         self.manager.themes_folder = self.folder
 
     def started(self, no_colour: str = "", *, saved: bool = True) -> str | None:
-        """The name of the theme chosen, from a terminal with colours."""
+        """The starting theme's name.
+
+        :param no_colour: The ``NO_COLOR`` value.
+        :param saved: Whether a theme is saved.
+        """
         self.manager.theme_name = "default"
         with (
             mock.patch.dict(os.environ, {"NO_COLOR": no_colour}),
@@ -399,8 +399,7 @@ class StartingThemeTests(ThemeIsolation):
         self.assertEqual(self.started("1"), "monochrome")
 
     def test_no_colour_comes_before_the_colours_file(self) -> None:
-        """With NO_COLOR, Monochrome, even if the colours file names a base
-        of its own."""
+        """``NO_COLOR`` comes before the colours file."""
         self.colours.write_text('{"base": "dark"}', "utf-8")
         self.assertEqual(self.started("1"), "monochrome")
         self.assertFalse(theme.has_colours())
@@ -497,15 +496,17 @@ class CommandLineTests(ThemeIsolation):
         self.path = Path(directory.name) / "colours.json"
 
     def run_main(self, *args: str) -> tuple[int, str, str]:
-        """Run main, returning the exit code, stdout and stderr."""
+        """Run main; return exit code, stdout and stderr.
+
+        :param args: Command-line arguments.
+        """
         out, err = StringIO(), StringIO()
         with redirect_stdout(out), redirect_stderr(err):
             code = main(list(args))
         return code, out.getvalue(), err.getvalue()
 
     def test_init_colours(self) -> None:
-        """--init-colours writes every role once, but those added since the
-        first release (which it would only refuse), and never overwrites."""
+        """``--init-colours``."""
         code, out, _ = self.run_main("--init-colours", "--colours", str(self.path))
         self.assertEqual(code, 0)
         self.assertIn(str(self.path), out)
@@ -540,8 +541,7 @@ class CommandLineTests(ThemeIsolation):
         self.assertEqual(theme.current_theme(), theme.MONOCHROME_THEME)
 
     def test_monochrome_leaves_out_the_colours_file(self) -> None:
-        """A colours file's colours are not put on top of --monochrome's
-        theme, which has no colours at all."""
+        """Monochrome leaves out the colours file."""
         colours = {
             "base": "default",
             "colours": {"desktop": {"foreground": "#6699cc", "background": "blue"}},

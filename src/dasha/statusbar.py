@@ -1,10 +1,4 @@
-"""The status bar: one line of help along the bottom of the screen.
-
-Anything that can have the focus (a window, a widget or a menu item) can
-offer status text through a ``status`` attribute. It is always optional:
-``status_text`` treats a missing attribute, ``None`` and an empty string in
-the same way, as nothing to show.
-"""
+"""The status bar."""
 
 from collections.abc import Sequence
 
@@ -13,19 +7,16 @@ from dasha.style import BLACK, RED, WHITE, Style
 
 
 def status_text(source: object) -> str:
-    """The status text an object offers, or ``""`` if it offers none."""
+    """An object's status text, or "".
+
+    :param source: The object.
+    """
     text = getattr(source, "status", None)
     return text if isinstance(text, str) else ""
 
 
 class StatusBar:  # pylint: disable=too-few-public-methods
-    """Draws the status text on the bottom row, and on its right the most
-    useful keys for whatever has the focus
-    (``F10 Menu  Ctrl+Tab Next``), with the key names picked out in
-    ``key_style``.
-
-    Its appearance is set by class attributes, so a subclass can restyle it.
-    """
+    """Draws status text and key hints on the bottom row."""
 
     style: Style = Style(foreground=BLACK, background=WHITE)
     """The style of the bar, its text and the hints' descriptions."""
@@ -33,8 +24,7 @@ class StatusBar:  # pylint: disable=too-few-public-methods
     """The style of the key names in the hints on the right."""
 
     divider: str = "\N{BOX DRAWINGS LIGHT VERTICAL}"
-    """The divider between ``owner`` and the status text: ``│`` (code page
-    437 character 179)."""
+    """Divider after the owner's name."""
 
     def paint(
         self,
@@ -43,11 +33,13 @@ class StatusBar:  # pylint: disable=too-few-public-methods
         hints: Sequence[tuple[str, str]] = (),
         owner: str = "",
     ) -> None:
-        """Paint the bar on the bottom row: ``owner`` (the active
-        application's name, if given) and a divider on the left, followed by
-        ``text`` (which may be empty), with ``hints`` (pairs of a key and
-        its description) on the right. Hints that do not fit are dropped from
-        the end, and the text is shortened to make room for those that do."""
+        """Paint the status bar.
+
+        :param canvas: Canvas to draw on.
+        :param text: Status text.
+        :param hints: (key, description) pairs.
+        :param owner: The active application's name.
+        """
         row = canvas.height - 1
         if row < 0:
             return
@@ -67,16 +59,21 @@ class StatusBar:  # pylint: disable=too-few-public-methods
             canvas.write(row, begin + 2 + len(key), label, self.style)
 
     def _text_start(self, owner: str) -> int:
-        """The column the status text starts at, after ``owner``."""
+        """Column where the status text starts.
+
+        :param owner: The active application's name.
+        """
         return 1 + (len(f"{owner} {self.divider} ") if owner else 0)
 
     def hint_places(
         self, width: int, hints: Sequence[tuple[str, str]], owner: str = ""
     ) -> list[tuple[int, int, tuple[str, str]]]:
-        """Where ``paint`` puts each hint that fits on a bar ``width``
-        columns wide, as ``(first column, column after it, (key, label))``,
-        where each hint's span covers its key, its label and the gap before
-        it."""
+        """Where each fitting hint goes.
+
+        :param width: Bar width.
+        :param hints: (key, description) pairs.
+        :param owner: The active application's name.
+        """
         shown = self._fitting(hints, width - 1 - self._text_start(owner))
         column = width - sum(len(key) + len(label) + 3 for key, label in shown)
         places = []
@@ -93,8 +90,13 @@ class StatusBar:  # pylint: disable=too-few-public-methods
         hints: Sequence[tuple[str, str]],
         owner: str = "",
     ) -> tuple[str, str] | None:
-        """The hint drawn at ``column`` of a bar ``width`` columns wide (on its
-        key or its label), if any: the hint that a click there is on."""
+        """The hint at a column, if any.
+
+        :param column: Bar column.
+        :param width: Bar width.
+        :param hints: (key, description) pairs.
+        :param owner: The active application's name.
+        """
         for begin, end, hint in self.hint_places(width, hints, owner):
             if begin < column < end:  # not the gap before it
                 return hint
@@ -102,7 +104,11 @@ class StatusBar:  # pylint: disable=too-few-public-methods
 
     @staticmethod
     def _fitting(hints: Sequence[tuple[str, str]], room: int) -> list[tuple[str, str]]:
-        """As many hints, from the first, as fit in ``room`` columns."""
+        """The hints that fit.
+
+        :param hints: (key, description) pairs.
+        :param room: Columns available.
+        """
         shown, used = [], 0
         for key, label in hints:
             used += len(key) + len(label) + 3  # " Key Label" and a gap

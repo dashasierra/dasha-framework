@@ -1,15 +1,4 @@
-"""The desktop's view of an application running in its own process: the
-application's windows (``RemoteWindow``), drawn here from what the
-application sends, and the application itself (``RemoteApplication``), as
-the presentation manager sees it. ``dasha.hosting`` runs the process
-and the connection.
-
-Everything here comes from another process, which may have gone wrong or
-been written to do harm, so nothing it sends is accepted as it is. Text is
-kept to one line of at most ``MAX_TEXT`` characters (``one_line``), and
-sizes and colours are checked (``dasha.protocol``). An application
-cannot take over the desktop's own keys, or its name.
-"""
+"""The desktop's view of applications in other processes."""
 
 from typing import TYPE_CHECKING
 
@@ -35,52 +24,48 @@ if TYPE_CHECKING:
     from dasha.hosting import AppHost
 
 MAX_WINDOWS = 100
-"""The largest number of windows (including dialogs and drop-down lists)
-that one application may have open at once."""
+"""Most windows per application."""
 MAX_MENU_ITEMS = 2000
-"""The largest number of items that an application's menu bar may have,
-counting every menu and submenu together."""
+"""Most menu items per application."""
 MAX_MENU_DEPTH = 16
 """How many levels deep an application's submenus may go."""
 MAX_TEXT = 1000
-"""The largest number of characters kept of a title, status line or key
-hint."""
+"""Most characters kept of short texts."""
 MAX_HINTS = 20
-"""The largest number of key hints that a window may give the status
-bar."""
+"""Most key hints per window."""
 MAX_NAME = 40
 """The largest number of characters kept of an application's name."""
 MAX_FOOTER = 40
-"""The largest number of characters kept of each part of a window's
-footer (``Window.footer``)."""
+"""Most characters per footer part."""
 MAX_FOOTER_PARTS = 8
 """The largest number of parts kept of a window's footer."""
 
 
 def one_line(text: object, limit: int = MAX_TEXT) -> str:
-    """Text from an application, made into a single line of at most
-    ``limit`` characters, because a title, status line or hint has no reason
-    to break lines."""
+    """Text made a single limited line.
+
+    :param text: The text.
+    :param limit: Most characters.
+    """
     return " ".join(str(text).split())[:limit]
 
 
 def application_name(text: object) -> str:
-    """A name that an application gave itself, made fit for the desktop to
-    use: a single line with no control characters, of at most ``MAX_NAME``
-    characters. Returns ``""`` if nothing usable is left."""
+    """An application's name made safe, or "".
+
+    :param text: The name.
+    """
     name = "".join(char for char in one_line(text, MAX_NAME * 4) if char.isprintable())
     return name.strip()[:MAX_NAME]
 
 
 def never_enabled() -> bool:
-    """The ``enabled`` check for an item that the application has greyed
-    out."""
+    """Always ``False``, for greyed-out items."""
     return False
 
 
 class _Focus(Widget):
-    """Stands in for a remote window's focused widget: its status text and
-    the keys the status bar lists for it."""
+    """Stands in for a remote window's focused widget."""
 
     def __init__(self) -> None:
         super().__init__(0, 0, 1)
@@ -92,8 +77,12 @@ class _Focus(Widget):
 
 
 class RemoteWindow(Window):  # pylint: disable=too-many-instance-attributes
-    """A window of an application running in another process. The frame is
-    drawn here, and the inside is what the application sent."""
+    """A window of an application in another process.
+
+    :param host: The application's host.
+    :param number: Window number.
+    :param state: Initial window state.
+    """
 
     def __init__(self, host: "AppHost", number: int, state: Message) -> None:
         super().__init__(one_line(state["title"]), decode_rect(state["rect"]))
@@ -120,8 +109,10 @@ class RemoteWindow(Window):  # pylint: disable=too-many-instance-attributes
     # From the application
 
     def apply(self, state: Message) -> None:
-        """Apply the window's frame, title and settings, as sent by the
-        application."""
+        """Apply the window's state.
+
+        :param state: The window state.
+        """
         self.remote_title = one_line(state["title"])  # as the application gave it
         self.show_title()
         parts = state["footer"]
@@ -147,8 +138,11 @@ class RemoteWindow(Window):  # pylint: disable=too-many-instance-attributes
         self.told_scroll = (self.scroll_row, self.scroll_column)
 
     def _set_look(self, look: str, colours: object) -> None:
-        """How the application wants the window framed, and which colours of
-        its own to use. Only the colours in ``WINDOW_STYLES`` are kept."""
+        """Set the frame look and colours.
+
+        :param look: Frame look.
+        :param colours: The application's colours.
+        """
         if not isinstance(colours, dict):
             raise ProtocolError("a window's colours are named styles")
         kept = {
@@ -163,8 +157,7 @@ class RemoteWindow(Window):  # pylint: disable=too-many-instance-attributes
         self.theme_changed()
 
     def theme_changed(self) -> None:
-        """Take on the current theme's colours for the window's look, except
-        for those that the application chose itself."""
+        """Take on the theme's colours."""
         theme_class = Dialog if self.look in ("dialog", "popup") else Window
         for name in WINDOW_STYLES:
             style = self._colours.get(name, getattr(theme_class, name))
@@ -173,8 +166,10 @@ class RemoteWindow(Window):  # pylint: disable=too-many-instance-attributes
             self.border = Popup.border
 
     def apply_paint(self, message: Message) -> None:
-        """Apply the changed rows of the window's interior, as sent by the
-        application."""
+        """Apply changed interior rows.
+
+        :param message: The paint message.
+        """
         styles = [decode_style(style) for style in message["styles"]]
         width, height = (bounded(value, 0) for value in message["size"])
         if len(self._runs) != height:
@@ -235,16 +230,12 @@ class RemoteWindow(Window):  # pylint: disable=too-many-instance-attributes
         return True
 
     def show_title(self) -> None:
-        """Show the title, marked while the application is not
-        responding."""
+        """Show the title, marked if not responding."""
         hung = not self.host.responding
         self.title = self.remote_title + (" (Not responding)" if hung else "")
 
     def request_close(self) -> bool:
-        """Let the application decide (it may ask about unsaved work), and
-        close the window itself if it agrees. An application that is not
-        responding cannot decide, so the user is offered the chance to end
-        it instead."""
+        """Ask the application to close the window."""
         if self.host.responding:
             self.host.send("close_request", id=self.number)
         else:
@@ -253,8 +244,11 @@ class RemoteWindow(Window):  # pylint: disable=too-many-instance-attributes
 
 
 class RemoteApplication(Application):
-    """An application running in another process, as the desktop sees
-    it."""
+    """An application in another process.
+
+    :param host: The application's host.
+    :param name: Application name.
+    """
 
     keep_running = True  # it ends when its process says so
     is_remote = True
@@ -268,8 +262,10 @@ class RemoteApplication(Application):
         return True  # its own to know: it does nothing with show_help if not
 
     def show_help(self, topic: str | None = None) -> None:
-        """Ask the application to show its help. This is for when it has no
-        window to send the key to; it chooses the topic itself."""
+        """Ask the application to show help.
+
+        :param topic: Help page, or ``None``.
+        """
         del topic
         self.host.send("help")
 

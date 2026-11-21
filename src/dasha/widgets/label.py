@@ -1,5 +1,4 @@
-"""Labels, which are lines of static text, and the drawing of a widget's
-own label, which switches and collapsible areas share."""
+"""Labels and mnemonic label drawing."""
 
 from dataclasses import replace
 
@@ -10,12 +9,11 @@ from dasha.widgets.base import Widget
 
 
 def on_window(own: Style, body: Style) -> Style:
-    """A widget's own style, with anything it leaves out taken from its
-    window's colours (``body``). A colour it leaves as ``None`` takes the
-    window's colour. The result is bold if either is bold, and underlined
-    only if the widget's own style is; reverse video in the widget's own
-    style reverses the window's, so a widget on a reversed window is shown
-    the right way round."""
+    """A widget style filled in from its window's.
+
+    :param own: The widget's style.
+    :param body: The window's style.
+    """
     return Style(
         foreground=own.foreground if own.foreground is not None else body.foreground,
         background=own.background if own.background is not None else body.background,
@@ -26,9 +24,11 @@ def on_window(own: Style, body: Style) -> Style:
 
 
 def focus_style(body: Style, focused: bool) -> Style:
-    """The style of a widget's label: its window's colours (``body``),
-    reversed while the widget has the focus, so that the focus shows up on
-    any window's colours."""
+    """A label style, reversed while focused.
+
+    :param body: The window's style.
+    :param focused: Whether the widget has the focus.
+    """
     return Style(
         foreground=body.foreground,
         background=body.background,
@@ -48,11 +48,17 @@ def paint_mnemonic_label(  # pylint: disable=too-many-arguments
     underline: bool = True,
     letter_style: Style | None = None,
 ) -> None:
-    """Draw ``label`` (with ``&`` marking its mnemonic letter) at ``at`` on
-    the screen, cut to ``width`` if given. The mnemonic letter is drawn in
-    ``letter_style`` if that is given (a colour of its own), and otherwise
-    underlined, unless ``underline`` is false (for a disabled widget, for
-    example)."""
+    """Draw a label with its mnemonic letter.
+
+    :param canvas: Canvas to draw on.
+    :param origin: The window's interior on screen.
+    :param at: Screen row and column.
+    :param label: Label text; ``&`` marks the mnemonic.
+    :param style: Label style.
+    :param width: Width to cut to, if any.
+    :param underline: Whether to underline the mnemonic.
+    :param letter_style: Mnemonic letter style, if any.
+    """
     text, letter = split_mnemonic(label)
     if width is not None:
         text = text[: max(0, width)]
@@ -64,8 +70,14 @@ def paint_mnemonic_label(  # pylint: disable=too-many-arguments
 
 
 class Label(Widget):
-    """A line of static text, in the window's colours. Its ``value`` is its
-    text, and setting ``text`` resizes the label to fit."""
+    """A line of static text.
+
+    :param text: The text.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param name: Widget name.
+    :param style: Style, or ``None`` for the window's.
+    """
 
     def __init__(
         self,

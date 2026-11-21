@@ -17,8 +17,9 @@ complete application:
   cursor position shown at the foot of each window.
 
 The tutorial explains each part of Dasha Framework as it uses it. The
-[architecture guide](architecture.md) and the [API reference](api.rst) go
-into more detail.
+[architecture guide](architecture.md) goes into more detail, and the
+[API reference](api.rst) lists every class and function, with a short
+description of each and of its arguments.
 
 ## Before you start
 

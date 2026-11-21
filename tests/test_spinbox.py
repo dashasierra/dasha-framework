@@ -11,12 +11,16 @@ from dasha.window import Window
 
 
 def press(column: int, action: str = "press") -> MouseEvent:
-    """A left button event on row 0."""
+    """A left button event on row 0.
+
+    :param column: Interior column.
+    :param action: Mouse action.
+    """
     return MouseEvent(action=action, button="left", row=0, column=column)
 
 
 class SpinBoxTests(unittest.TestCase):
-    """A spin box for 0 to 100, in a window with a button after it."""
+    """A 0 to 100 spin box in a window."""
 
     def setUp(self) -> None:
         self.changes: list[int] = []
@@ -35,7 +39,10 @@ class SpinBoxTests(unittest.TestCase):
         self.window.add(Button("&OK", 2, 0))
 
     def keys(self, *names: str) -> None:
-        """Keys to the window, as the user presses them."""
+        """Send keys to the window.
+
+        :param names: The keys.
+        """
         for name in names:
             self.window.handle_key(name, Shortcuts())
 
@@ -56,8 +63,7 @@ class SpinBoxTests(unittest.TestCase):
         self.assertEqual(self.changes.count(100), 1)
 
     def test_typing_replaces_the_number(self) -> None:
-        """The focus selects the number, so typing replaces it; it counts
-        once the focus leaves."""
+        """Typing replaces the number."""
         self.box.focus_changed(True)
         self.keys("7", "5")
         self.assertEqual(self.box.value, 42)  # not yet
@@ -66,15 +72,14 @@ class SpinBoxTests(unittest.TestCase):
         self.assertEqual(self.changes, [75])
 
     def test_out_of_range_is_thrown_away(self) -> None:
-        """150 is not in 0 to 100: it goes back to what it was."""
+        """Out of range is thrown away."""
         self.box.focus_changed(True)
         self.keys("1", "5", "0", "tab")
         self.assertEqual((self.box.value, self.box.field.text), (42, "42"))
         self.assertEqual(self.changes, [])
 
     def test_typing_its_own_first_digit(self) -> None:
-        """At 1, typing 1 then 5 makes 15 (the 1 typed over the selected 1
-        does not leave it selected)."""
+        """Typing its own first digit."""
         self.box.value = 1
         self.box.focus_changed(True)
         self.keys("1", "5", "tab")
@@ -108,7 +113,7 @@ class SpinBoxTests(unittest.TestCase):
         self.assertEqual(box.value, -3)
 
     def test_arrows_and_wheel(self) -> None:
-        """A click on ▲ (at the right) steps up, on ▼ down; held, it repeats."""
+        """Arrows and wheel."""
         self.box.handle_mouse(press(7), 0, 7)
         self.assertEqual(self.box.value, 43)
         wake = self.box.wake_time()
@@ -155,8 +160,7 @@ class SpinBoxTests(unittest.TestCase):
         self.assertEqual(self.box.value, 64)
 
     def test_the_field_takes_the_mouse(self) -> None:
-        """Pressing, dragging and releasing on the number selects in it;
-        other buttons are not taken."""
+        """The field takes the mouse."""
         self.box.focus_changed(False)
         self.box.handle_mouse(press(1), 0, 1)
         self.box.handle_mouse(press(3, "drag"), 0, 3)

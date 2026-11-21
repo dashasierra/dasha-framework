@@ -18,14 +18,22 @@ from tests.test_manager import FakeTerminal
 
 
 def type_into(box: TextBox, keys: str | list[str]) -> None:
-    """Offer each key to the box with the default shortcuts."""
+    """Offer each key to the box.
+
+    :param box: The text box.
+    :param keys: The keys.
+    """
     shortcuts = Shortcuts()
     for key in keys:
         box.handle_key(key, shortcuts)
 
 
 def paint(box: TextBox, focused: bool = True) -> Canvas:
-    """Paint a box placed at the top left of a canvas just big enough."""
+    """Paint a box on a canvas of its size.
+
+    :param box: The text box.
+    :param focused: Whether it has the focus.
+    """
     canvas = Canvas(box.rect.right, box.rect.bottom)
     box.paint(canvas, canvas.bounds, focused)
     return canvas
@@ -44,7 +52,7 @@ class EditingTests(unittest.TestCase):
         self.assertEqual(box.value, "hello world")
 
     def test_moving_stops_at_the_ends(self) -> None:
-        """Left and Home stop at 0; Right and End stop after the last one."""
+        """Moving stops at the ends."""
         box = TextBox(0, 0, 20, text="abc")
         self.assertEqual(box.cursor, 3)
         type_into(box, ["right", "right"])
@@ -66,8 +74,7 @@ class EditingTests(unittest.TestCase):
         self.assertEqual((box.text, box.cursor), ("", 0))
 
     def test_keys_it_does_not_use_are_passed_on(self) -> None:
-        """Tab, Shift+Tab, Escape and Enter are for the window; so are keys
-        a text box has no use for."""
+        """Unused keys are passed on."""
         box = TextBox(0, 0, 20)
         shortcuts = Shortcuts()
         for key in ("tab", "shift+tab", "escape", "enter", "f5", "up"):
@@ -161,7 +168,7 @@ class DrawingTests(unittest.TestCase):
         self.assertIsNone(paint(TextBox(0, 0, 8, text="abc"), focused=False).cursor)
 
     def test_arrows_show_only_where_there_is_more(self) -> None:
-        """► with more to the right, ◄ with more to the left, both between."""
+        """Arrows show only where there is more."""
         box = TextBox(0, 0, 6, text="abcdefghij")  # 4 characters show
         canvas = paint(box)  # the cursor is at the end: the text ends in view
         self.assertEqual(canvas.text(0), LEFT + "ghij ")
@@ -174,8 +181,7 @@ class DrawingTests(unittest.TestCase):
         self.assertEqual(paint(box).cursor, (0, 4))
 
     def test_text_exactly_filling_the_box(self) -> None:
-        """A box max_length + 2 wide shows all its text with no arrows: the
-        cursor after the last character uses the blank right-hand column."""
+        """Text exactly filling the box."""
         box = TextBox(0, 0, 6, text="abcd", max_length=4)
         canvas = paint(box)
         self.assertEqual(canvas.text(0), " abcd ")
@@ -185,8 +191,7 @@ class DrawingTests(unittest.TestCase):
         self.assertEqual(paint(box).cursor, (0, 1))
 
     def test_drawn_inside_a_scrolled_window(self) -> None:
-        """A box partly scrolled out of a window is cut off at the frame,
-        and the cursor only shows when it is inside."""
+        """Drawn inside a scrolled window."""
         window = Window("W", Rect(0, 0, 4, 12))
         box = window.add(TextBox(0, 6, 20, text="x"))
         window.scroll_to(0, 9)  # the box starts left of the frame
@@ -205,11 +210,16 @@ class MouseTests(unittest.TestCase):
     """Clicking in a text box."""
 
     def click(self, box: TextBox, column: int, action: str = "press") -> bool:
-        """A left press at a column of the window's interior."""
+        """A left press at an interior column.
+
+        :param box: The text box.
+        :param column: Interior column.
+        :param action: Mouse action.
+        """
         return box.handle_mouse(MouseEvent(action, "left", 0, column), 0, column)
 
     def test_click_places_the_cursor(self) -> None:
-        """A click on a character puts the cursor there; past the end, at it."""
+        """A click places the cursor."""
         box = TextBox(0, 2, 10, text="abc")
         self.assertTrue(self.click(box, 4))  # on b
         self.assertEqual(box.cursor, 1)
@@ -234,8 +244,7 @@ class WindowAndDialogTests(unittest.TestCase):
     """Text boxes among other widgets."""
 
     def test_tab_moves_on_and_letters_are_typed(self) -> None:
-        """In a dialog, letters go in the box, not to button mnemonics;
-        Enter presses the default button and the caller reads the text."""
+        """Tab moves on and letters are typed."""
         dialog = Dialog("Name", 30, 8)
         box = dialog.add(TextBox(1, 2, 20, name="name"))
         ok = dialog.add(Button("&OK", 3, 2, result="ok", default=True, name="ok"))
@@ -252,7 +261,7 @@ class WindowAndDialogTests(unittest.TestCase):
         self.assertEqual(dialog.result, "ok")
 
     def test_clicking_focuses(self) -> None:
-        """A click on a box gives it the focus and places the cursor."""
+        """Clicking focuses."""
         window = Window("W", Rect(0, 0, 6, 30))
         window.add(Button("&Go", 3, 1))
         box = window.add(TextBox(1, 1, 10, text="hello"))
@@ -265,8 +274,7 @@ class CursorTests(unittest.TestCase):
     """Showing the terminal's cursor for the focused text box."""
 
     def test_render_shows_moves_and_hides_the_cursor(self) -> None:
-        """The cursor is shown once placed, moved after drawing, and hidden
-        again when no canvas places it."""
+        """Render shows, moves and hides the cursor."""
         first = Canvas(10, 3)
         first.place_cursor(1, 4)
         output = first.render()
@@ -292,7 +300,7 @@ class CursorTests(unittest.TestCase):
         self.assertIsNone(canvas.cursor)
 
     def test_open_menu_hides_the_cursor(self) -> None:
-        """A drop-down may cover the box, so the cursor hides while it is open."""
+        """An open menu hides the cursor."""
         window = Window("W", Rect(2, 0, 5, 30))
         window.add(TextBox(0, 1, 10))
         manager = PresentationManager(windows=[window])
@@ -321,13 +329,20 @@ class CursorTests(unittest.TestCase):
 def mouse(
     box: TextBox, action: str, column: int, shift: bool = False, clicks: int = 1
 ) -> bool:
-    """A left-button event at a column of the window's interior."""
+    """A left-button event at an interior column.
+
+    :param box: The text box.
+    :param action: Mouse action.
+    :param column: Interior column.
+    :param shift: Whether Shift is held.
+    :param clicks: Click count.
+    """
     event = MouseEvent(action, "left", 0, column, shift=shift, clicks=clicks)
     return box.handle_mouse(event, 0, column)
 
 
 class KeyboardSelectionTests(unittest.TestCase):
-    """Selecting with Shift and the cursor keys, and what keys do to it."""
+    """Selecting with the keyboard."""
 
     def test_shift_keys_select(self) -> None:
         """Shift+Left/Right/Home/End select from where the cursor was."""
@@ -358,8 +373,7 @@ class KeyboardSelectionTests(unittest.TestCase):
         self.assertIsNone(box.selection)
 
     def test_moving_clears_the_selection(self) -> None:
-        """Left and Right go to the selection's start and end; Home and End
-        go where they always do. All of them deselect."""
+        """Moving clears the selection."""
         box = TextBox(0, 0, 20, text="abcdef")
         box.select(1, 4)
         type_into(box, ["left"])
@@ -380,8 +394,7 @@ class KeyboardSelectionTests(unittest.TestCase):
         self.assertEqual((box.cursor, box.selection), (7, None))
 
     def test_typing_the_same_over_the_selection(self) -> None:
-        """Typing what is selected leaves the text as it was, but moves on
-        past it, so the next key types after it."""
+        """Typing the same over the selection."""
         box = TextBox(0, 0, 20, text="1")
         box.select_all()
         type_into(box, "15")
@@ -444,8 +457,7 @@ class MouseSelectionTests(unittest.TestCase):
         self.box.cursor = 0
 
     def test_drag_selects(self) -> None:
-        """Press on a character and drag: the selection follows the pointer,
-        either way from where it started."""
+        """Dragging selects."""
         box = self.box
         mouse(box, "press", 2)  # on b
         self.assertIsNone(box.selection)
@@ -457,8 +469,7 @@ class MouseSelectionTests(unittest.TestCase):
         self.assertEqual(box.selected_text, "a")
 
     def test_double_click_selects_all(self) -> None:
-        """As Ctrl+A does: all of it, including what is scrolled out of
-        sight, wherever the click is; and a triple-click too."""
+        """A double-click selects all."""
         box = self.box
         for clicks in (2, 3):
             with self.subTest(clicks=clicks):
@@ -470,8 +481,7 @@ class MouseSelectionTests(unittest.TestCase):
                 self.assertEqual(box.selected_text, "abcdefghij")
 
     def test_a_single_click_selects_nothing(self) -> None:
-        """Only the second click of a double-click selects; an empty box has
-        nothing to select."""
+        """A single click selects nothing."""
         mouse(self.box, "press", 2)
         self.assertIsNone(self.box.selection)
         empty = TextBox(0, 0, 6)
@@ -479,8 +489,7 @@ class MouseSelectionTests(unittest.TestCase):
         self.assertIsNone(empty.selection)
 
     def test_double_click_on_the_desktop(self) -> None:
-        """Two quick clicks in the same place, counted by the desktop, select
-        the text of the box under them; in a spin box, its number."""
+        """A double-click on the desktop."""
         window = Window("W", Rect(0, 0, 8, 30))
         box = window.add(TextBox(1, 2, 12, text="hello world"))
         spin = window.add(SpinBox(3, 2, 8, minimum=0, maximum=999, value=250))
@@ -506,8 +515,7 @@ class MouseSelectionTests(unittest.TestCase):
         self.assertEqual(box.selection, (0, 3))
 
     def test_drag_onto_arrow_keeps_selecting(self) -> None:
-        """Held over ►, a character at once, then one per scroll_delay,
-        until the end of the text."""
+        """Dragging onto an arrow keeps selecting."""
         box = self.box
         box.scroll_delay = 0.25
         mouse(box, "press", 1)
@@ -565,8 +573,7 @@ class TimerTests(unittest.TestCase):
     """The presentation manager's widget timers."""
 
     def test_wait_uses_the_next_wake_time(self) -> None:
-        """While a widget wants waking, the read times out in time for it,
-        and its timer runs when the read times out."""
+        """The wait uses the next wake time."""
         timeouts: list[float | None] = []
 
         class Timing(FakeTerminal):

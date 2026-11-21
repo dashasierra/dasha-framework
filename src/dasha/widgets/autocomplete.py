@@ -1,4 +1,4 @@
-"""Autocomplete boxes: text boxes that suggest what to type."""
+"""Text boxes that suggest what to type."""
 
 import re
 from collections.abc import Callable, Iterable
@@ -11,10 +11,11 @@ type Matcher = Callable[[str, list[str]], Iterable[str]]
 
 
 def match_suggestions(text: str, suggestions: list[str]) -> list[str]:
-    """The suggestions that match ``text``, ignoring case: first those that
-    start with it, then those that contain it anywhere else, each in the order
-    given. There are none for blank text, and the text itself is never
-    suggested."""
+    """Suggestions matching some text, ignoring case.
+
+    :param text: The typed text.
+    :param suggestions: Candidate suggestions.
+    """
     folded = text.casefold()
     if not folded.strip():
         return []
@@ -31,45 +32,20 @@ def match_suggestions(text: str, suggestions: list[str]) -> list[str]:
 
 
 class AutoCompleteBox(TextBox):
-    """An ``AutoCompleteBox`` is a text box that suggests what to type. As
-    text is typed, those of its ``suggestions`` that match it drop down in a
-    popup, which follows the typing:
+    """A text box with a popup of suggestions.
 
-    ::
-
-        ┌──────────────────────┐
-        │ py                   │
-        │ python.org           │
-        │ pypi.org             │
-        │ docs.python.org      │
-        └──────────────────────┘
-
-    Unlike a combo box's text, the text need not be one of the suggestions:
-    they only save typing, and the box's ``value`` is whatever text it holds. The
-    popup covers the box, with its top row lined up over the box, so that typing
-    carries on in it, cursor and all. It goes below the box, or above it if there
-    is more room there, and holds up to ``rows`` (8) suggestions; it shrinks as
-    fewer suggestions match, and closes when none do.
-
-    - Typing: edit the text, as in a text box; the suggestions follow it
-    - Down / Up (``suggest_down`` / ``suggest_up``): highlight the next /
-      previous suggestion (Up from the first highlights none)
-    - Enter (``suggest_choose``): take the highlighted suggestion; with none
-      highlighted, close the popup and pass the key on to the window (which
-      presses a dialog's default button)
-    - Tab or Shift+Tab (``next_widget``, ``previous_widget``): close the popup,
-      and move the focus
-    - Escape, or a click elsewhere: close the popup, keeping the text
-    - A click on a suggestion: take it
-    - Alt+Down or F4 (``suggest_open``): show the suggestions without typing,
-      showing every one when the box is empty
-
-    Suggestions are matched ignoring case, with those starting with the text
-    first, then those containing it anywhere else; there are none for blank
-    text, and the text itself is never suggested (``match_suggestions``).
-    ``matcher(text, suggestions)`` can choose them in another way, best first.
-    Everything else works as in a ``TextBox``, including ``on_change``: taking a
-    suggestion is a change, which Ctrl+Z undoes.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param width: Width in columns.
+    :param suggestions: Text to suggest.
+    :param rows: Most suggestions shown at once.
+    :param matcher: Chooses suggestions for some text, best first.
+    :param text: Initial text.
+    :param max_length: Longest text allowed, if limited.
+    :param pattern: Pattern the text must match, if any.
+    :param on_change: Called with the box when its text changes.
+    :param name: Widget name.
+    :param status: Status bar text.
     """
 
     def __init__(  # pylint: disable=too-many-arguments
@@ -110,9 +86,10 @@ class AutoCompleteBox(TextBox):
         return list(matcher(self.text, self.suggestions))
 
     def suggest(self, everything: bool = False) -> bool:
-        """Drop down the suggestions for the text, if there are any, and wait
-        until the popup closes (with ``everything``, show all of them while the
-        box is empty). Returns whether the popup was shown."""
+        """Show the suggestions popup; return whether it was shown.
+
+        :param everything: Show every suggestion while the box is empty.
+        """
         window = self.window
         manager = window.manager if window is not None else None
         if self._suggesting or window is None or manager is None:
@@ -136,7 +113,11 @@ class AutoCompleteBox(TextBox):
         return True
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """Edit the text as a text box does, and then suggest what to type."""
+        """Edit the text, then suggest.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         if shortcuts.matches("suggest_open", key):
             self.suggest(everything=True)
             return True

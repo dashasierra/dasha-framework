@@ -1,6 +1,4 @@
-"""Tests for a window's own colours in an application in a process of its
-own: they are sent to the desktop, which draws its frame in them, and whatever
-the application leaves alone follows the theme."""
+"""Tests for hosted windows' own colours."""
 
 import unittest
 
@@ -78,14 +76,20 @@ class ColoursShownTests(ThemeIsolation):
         self.host: AppHost = hosted(server, "Hello")[0]
 
     def window(self, **changes: object) -> RemoteWindow:
-        """The window, after a message from the application."""
+        """The window after an application message.
+
+        :param changes: Fields to change.
+        """
         self.host.handle(state(id=1, **changes))
         window = self.host.windows[1]
         assert isinstance(window, RemoteWindow)
         return window
 
     def frame(self, window: RemoteWindow) -> Style:
-        """The style of the window's top edge, as drawn active."""
+        """The top edge's style, drawn active.
+
+        :param window: The window.
+        """
         canvas = Canvas(80, 24)
         window.paint(canvas, True)
         return canvas.cell(window.rect.row, window.rect.column + 6)[1]
@@ -97,8 +101,7 @@ class ColoursShownTests(ThemeIsolation):
         self.assertEqual(window.body_style, Window.body_style)
 
     def test_with_none_sent_the_theme(self) -> None:
-        """An application that sends none, an older one say, is in the
-        theme's colours, and so is one that takes back its own."""
+        """With none sent, the theme's."""
         window = self.window()
         self.assertEqual(self.frame(window), Window.frame_style)
         self.window(colours={"frame_style": encode_style(DARK)})
@@ -121,15 +124,13 @@ class ColoursShownTests(ThemeIsolation):
         self.assertEqual(window.body_style, theme.DARK_THEME["window.body"])
 
     def test_only_the_frames_colours_are_taken(self) -> None:
-        """A name that is not one of them is ignored, so an application
-        cannot set anything else on the desktop's window."""
+        """Only frame colours are taken."""
         window = self.window(colours={"modal": encode_style(DARK), "host": "x"})
         self.assertFalse(window.modal)
         self.assertIs(window.host, self.host)
 
     def test_bad_colours_are_refused(self) -> None:
-        """Not named styles, or not valid colours: refused, which ends the
-        application, as for anything else it sends that is wrong."""
+        """Bad colours are refused."""
         self.window()
         with self.assertRaises(ProtocolError):
             self.window(colours="black")

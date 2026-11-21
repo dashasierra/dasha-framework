@@ -1,5 +1,4 @@
-"""Tests for installing applications, the Run... dialog, the grouped
-Applications menu, scripts in the host, and virtual environments."""
+"""Tests for installing and running applications."""
 
 import sys
 import tempfile
@@ -61,21 +60,31 @@ class Home(unittest.TestCase):
         self.write("scripts/helper.py", 'TITLE = "From a script"\n')
 
     def write(self, name: str, text: str) -> Path:
-        """Write a file under the test's folder; returns its path."""
+        """Write a file; return its path.
+
+        :param name: Relative file name.
+        :param text: Its contents.
+        """
         path = self.root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
         return path
 
     def command(self, *args: str) -> tuple[int, str, str]:
-        """Run ``dasha ARGS``: the exit code, stdout and stderr."""
+        """Run ``dasha``; return exit code, stdout and stderr.
+
+        :param args: Command-line arguments.
+        """
         out, err = StringIO(), StringIO()
         with redirect_stdout(out), redirect_stderr(err):
             code = main(list(args))
         return code, out.getvalue(), err.getvalue()
 
     def make_venv(self, name: str = "venv") -> Path:
-        """A real virtual environment (without pip, which is slow to add)."""
+        """A real virtual environment, without pip.
+
+        :param name: Folder name.
+        """
         path = self.root / name
         venv.create(path, with_pip=False)
         return path
@@ -136,8 +145,7 @@ class InstallTests(Home):
         self.assertEqual(self.command("install-app", str(self.script), "--force")[0], 0)
 
     def test_never_called_desktop(self) -> None:
-        """No application can have the id desktop, which dasha desktop
-        means, even with --force."""
+        """No application can be called desktop."""
         for args in (["--id", "desktop"], ["--name", "Desktop", "--force"]):
             with self.subTest(args=args):
                 code, _, err = self.command("install-app", str(self.script), *args)
@@ -146,7 +154,7 @@ class InstallTests(Home):
         self.assertFalse((self.root / "apps" / "desktop.toml").exists())
 
     def test_create_venv_needs_a_python(self) -> None:
-        """In a build of dasha with no Python on PATH: it says what to do."""
+        """``--create-venv`` needs a Python."""
         with (
             mock.patch.object(sys, "frozen", True, create=True),
             mock.patch("shutil.which", return_value=None),
@@ -196,7 +204,7 @@ class InstallTests(Home):
         self.assertIn("no installed application", err)
 
     def test_uninstall_stays_in_its_folder(self) -> None:
-        """An id that is not one (a path out of the folder) removes nothing."""
+        """Uninstall stays in its folder."""
         outside = self.write("notes.toml", 'name = "Notes"\nscript = "n.py"\n')
         code, _, err = self.command("uninstall-app", "../notes")
         self.assertEqual(code, 1)
@@ -213,8 +221,7 @@ class InstallTests(Home):
         self.assertIn("broken.toml", err)
 
     def test_installed_ones_are_known(self) -> None:
-        """The installed applications are the ones known: none come with
-        Dasha Framework."""
+        """The installed applications are known."""
         self.assertEqual(install.known_applications(), ({}, []))
         self.write("apps/welcome.toml", 'name = "My welcome"\nscript = "w.py"\n')
         entries, problems = install.known_applications()
@@ -270,8 +277,7 @@ class StartupTests(Home):
     """What the desktop starts with."""
 
     def test_autostart_or_names(self) -> None:
-        """The desktop starts autostart's applications, then any named;
-        names given alone run just those, autostart's left out."""
+        """Autostart or named applications."""
         self.write("apps/welcome.toml", 'name = "Welcome"\nscript = "w.py"\n')
         self.write("apps/notepad.toml", 'name = "Notepad"\nscript = "n.py"\n')
         self.write("settings.toml", 'autostart = ["welcome"]\n')
@@ -345,7 +351,12 @@ class RunDialogTests(Home):
     def answer(
         self, program: str, class_name: str = "", venv_path: str = ""
     ) -> RunDialog:
-        """Answer."""
+        """Answer the Run dialog.
+
+        :param program: The program.
+        :param class_name: The class.
+        :param venv_path: The virtual environment.
+        """
         dialog = RunDialog(program, venv_path)
         dialog.class_box.text = class_name
         dialog.accept()
@@ -407,8 +418,7 @@ class HostScriptTests(Home):
         self.assertEqual(find(f"{self.script}:Script").__qualname__, "Script")
 
     def test_problems(self) -> None:
-        """Several applications, none, no script, or not an application.
-        (An imported application does not count as the script's own.)"""
+        """Script problems."""
         two = self.write(
             "scripts/two.py",
             "from tests.hosted_apps import Hello\n"
@@ -426,14 +436,15 @@ class HostScriptTests(Home):
             find(f"{two}:x")
 
     def forget_modules(self, *names: str) -> None:
-        """Take modules a test imports out of ``sys.modules`` afterwards."""
+        """Forget imported modules after the test.
+
+        :param names: Module names.
+        """
         for name in names:
             self.addCleanup(sys.modules.pop, name, None)
 
     def test_in_a_package(self) -> None:
-        """A script inside a package is imported as part of it, so that it
-        can import the package's other modules by the package's name, and
-        its __main__ part does not run."""
+        """A script inside a package."""
         self.forget_modules("scriptpkg", "scriptpkg.helper", "scriptpkg.app")
         self.write("project/scriptpkg/__init__.py", "")
         self.write("project/scriptpkg/helper.py", 'TITLE = "From a package"\n')
@@ -478,11 +489,17 @@ class ProcessTests(Home):
         self.server.lend_folder = self.root / "lend"
 
     def run_until(self, done: Callable[[], bool]) -> None:
-        """Run until."""
+        """Run until done.
+
+        :param done: Returns whether to stop.
+        """
         self.manager.run(cast(Terminal, SlowTerminal(self.manager, done)))
 
     def run_until_said(self, words: str) -> str:
-        """Run until a message box shows ``words``; all it said."""
+        """Run until a message shows; return everything said.
+
+        :param words: Words to wait for.
+        """
         said: list[str] = []
 
         def shown() -> bool:
@@ -504,8 +521,7 @@ class ProcessTests(Home):
         self.assertEqual(self.titles(), ["From a script"])
 
     def test_in_a_venv_with_dasha_lent(self) -> None:
-        """In a venv with dasha lent (and nothing else: so the test's
-        application is named as a script, not a module of the tests')."""
+        """In a venv with dasha lent."""
         made = self.make_venv()
         self.manager.start(
             AppEntry("h", "Hello", f"{HOSTED_APPS}:Hello", venv=str(made))
@@ -515,9 +531,7 @@ class ProcessTests(Home):
         self.assertTrue(any((self.root / "lend").iterdir()))
 
     def test_nothing_else_is_lent(self) -> None:
-        """A venv that says it has dasha gets none lent: here it has
-        not really, so the application cannot start, and the desktop says
-        so."""
+        """Nothing else is lent."""
         made = self.make_venv()
         site = next(made.rglob("site-packages"))
         (site / "dasha_framework-0.0.dist-info").mkdir()

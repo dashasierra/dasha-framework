@@ -1,19 +1,4 @@
-"""Hiding the classic Windows console's scroll bars, without losing history.
-
-The classic console (conhost: cmd.exe or PowerShell in their own window)
-shows scroll bars whenever its screen buffer is larger than its window, and
-the buffer is usually far taller (often 9,001 lines). Making the buffer
-exactly the size of the window removes them (``SetConsoleScreenBufferSize``).
-
-Shrinking the buffer throws away every line outside the window, and growing
-it again only adds blank lines, so the user's scrollback would be lost.
-``ScrollBarHider`` therefore copies the buffer's contents (characters and
-colours), the cursor and the window position first, and puts all of them
-back on exit.
-
-Windows Terminal, and SSH sessions into Windows, give programs a buffer the
-size of the window already, so there is nothing to hide and nothing is done.
-"""
+"""Hiding Windows console scroll bars, keeping history."""
 
 import ctypes
 import sys
@@ -134,14 +119,20 @@ def _check(ok: int) -> None:
 
 
 def buffer_info(handle: int) -> CONSOLE_SCREEN_BUFFER_INFO:
-    """The size, cursor and window of a screen buffer."""
+    """A screen buffer's size, cursor and window.
+
+    :param handle: Console handle.
+    """
     info = CONSOLE_SCREEN_BUFFER_INFO()
     _check(_GetConsoleScreenBufferInfo(handle, ctypes.byref(info)))
     return info
 
 
 def window_size(info: CONSOLE_SCREEN_BUFFER_INFO) -> tuple[int, int]:
-    """The visible window's (columns, lines)."""
+    """The visible window's (columns, lines).
+
+    :param info: Screen buffer info.
+    """
     window = info.srWindow
     return window.Right - window.Left + 1, window.Bottom - window.Top + 1
 
@@ -156,7 +147,12 @@ class _Chunk:
 
 
 def _copy_rows(handle: int, width: int, rows: int) -> list[_Chunk]:
-    """Copy rows ``0`` to ``rows - 1`` of a buffer ``width`` columns wide."""
+    """Copy the top rows of a buffer.
+
+    :param handle: Console handle.
+    :param width: Buffer width.
+    :param rows: Rows to copy.
+    """
     chunk_rows = max(1, _CELLS_PER_CHUNK // max(1, width))
     chunks = []
     for top in range(0, rows, chunk_rows):
@@ -173,7 +169,12 @@ def _copy_rows(handle: int, width: int, rows: int) -> list[_Chunk]:
 
 
 def _paste_rows(handle: int, width: int, chunks: list[_Chunk]) -> None:
-    """Write copied rows back where they came from."""
+    """Write copied rows back.
+
+    :param handle: Console handle.
+    :param width: Buffer width.
+    :param chunks: The copied rows.
+    """
     for chunk in chunks:
         region = SMALL_RECT(0, chunk.top, width - 1, chunk.top + chunk.rows - 1)
         _check(
@@ -188,7 +189,12 @@ def _paste_rows(handle: int, width: int, chunks: list[_Chunk]) -> None:
 
 
 def _blank(handle: int, cells: int, attributes: int) -> None:
-    """Clear the first ``cells`` cells of a buffer to spaces in ``attributes``."""
+    """Clear the start of a buffer.
+
+    :param handle: Console handle.
+    :param cells: Cells to clear.
+    :param attributes: Colour attributes.
+    """
     written = wintypes.DWORD()
     _check(
         _FillConsoleOutputCharacterW(
@@ -203,7 +209,10 @@ def _blank(handle: int, cells: int, attributes: int) -> None:
 
 
 class ScrollBarHider:
-    """Fits a console's screen buffer to its window, then puts it all back."""
+    """Fits a console buffer to its window, then restores it.
+
+    :param handle: Console handle.
+    """
 
     def __init__(self, handle: int) -> None:
         self._handle = handle
@@ -215,7 +224,7 @@ class ScrollBarHider:
         return self._saved is not None
 
     def hide(self) -> None:
-        """Save the buffer and shrink it to the window, if it is larger."""
+        """Save the buffer and shrink it."""
         info = buffer_info(self._handle)
         columns, lines = window_size(info)
         if info.dwSize.X <= columns and info.dwSize.Y <= lines:
@@ -227,9 +236,7 @@ class ScrollBarHider:
         self.refit()
 
     def refit(self) -> None:
-        """Shrink the buffer to the window again, after a resize. Only the
-        main screen buffer is shrunk this way: the console API acts on the
-        alternate screen while it is showing, so it must be left first."""
+        """Shrink the buffer again after a resize."""
         if self._saved is None:
             return
         info = buffer_info(self._handle)

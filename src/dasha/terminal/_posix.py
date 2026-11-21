@@ -1,11 +1,4 @@
-"""POSIX terminal backend (Linux, macOS, and SSH sessions to them).
-
-POSIX terminals understand ANSI escape sequences natively, so the only setup
-needed is switching the input side into raw mode with termios. Resizes are
-announced with the ``SIGWINCH`` signal; its handler writes to a pipe that
-``read`` also waits on (the "self-pipe trick"), so a resize wakes it up.
-``wake`` writes to the same pipe, from any thread.
-"""
+"""POSIX terminal backend."""
 
 import codecs
 import os
@@ -97,9 +90,7 @@ class PosixConsole:
             pass
 
     def wake(self) -> None:
-        """Make a ``read`` that is waiting return ``""`` straight away (or
-        the next one, if none is). Safe to call from any thread. Does
-        nothing while the terminal is not enabled."""
+        """Make a waiting ``read`` return; thread-safe."""
         with self._wake_lock:
             if self._wake_write is None:
                 return
@@ -109,11 +100,9 @@ class PosixConsole:
                 pass  # a wake-up is already waiting
 
     def read(self, timeout: float | None = None) -> str:
-        """Wait for input and return whatever is available.
+        """Wait for and return input.
 
-        Waits forever when ``timeout`` is ``None``, otherwise for up to
-        ``timeout`` seconds. Returns ``""`` if nothing arrived in time, or
-        straight away if the terminal was resized or ``wake`` was called.
+        :param timeout: Seconds to wait, or ``None`` for ever.
         """
         watched = [self._fd]
         if self._wake_read is not None:

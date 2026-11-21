@@ -1,10 +1,4 @@
-"""Command-line entry point, used by ``python -m dasha`` and the ``dasha``
-and ``dasha-desktop`` scripts.
-
-``dasha`` needs to be told what to run: ``dasha desktop`` for the desktop
-(with any applications named after it started on it), or applications by
-id (``dasha notepad``) to run on their own. ``dasha-desktop`` is ``dasha
-desktop``: ``dasha-desktop notepad`` starts the desktop with Notepad on it."""
+"""Command-line entry point."""
 
 import argparse
 import os
@@ -23,8 +17,7 @@ from dasha.shortcuts import DEFAULT_PATH, Shortcuts, ShortcutsError
 from dasha.terminal import Terminal
 
 DESKTOP = registry.DESKTOP_ID
-"""What starts the desktop: ``dasha desktop``, followed by any applications
-to start on it. No application can have it as its id."""
+"""The command word that starts the desktop."""
 
 
 def _desktop(  # pylint: disable=too-many-arguments
@@ -41,25 +34,20 @@ def _desktop(  # pylint: disable=too-many-arguments
     show_mouse: bool = False,
     escape_timeout: int = registry.ESCAPE_TIMEOUT,
 ) -> PresentationManager:
-    """An empty desktop offering the applications Dasha Framework knows (the
-    installed ones, unless given ``entries``), with the named
-    ones started: each in a process of its own, unless ``processes`` is
-    false. ``theme_name`` is the theme it starts with (``None``: the colours
-    file's colours), and a theme chosen later is remembered; so is turning
-    ``animations`` (on, unless told otherwise) on or off. ``colour_depth``
-    is how it draws colours (``style.COLOUR_DEPTHS``), and
-    ``show_mouse`` whether it inverts the cell under the mouse, which is
-    remembered when it is turned on or off.
+    """Run the desktop with the named applications.
 
-    ``alone`` runs just the named applications, as each would run on its
-    own (``PresentationManager.stand_alone``): no system menu, and it ends
-    when they do. So ``dasha notepad`` is the same as running Notepad's
-    script, and ``dasha desktop notepad`` (or ``dasha-desktop notepad``) is
-    the desktop with Notepad on it.
-
-    ``paths`` are the shortcuts file and the colours file, to which
-    Settings... saves (by default, ``~/.dasha/shortcuts.json`` and
-    ``~/.dasha/colours.json``)."""
+    :param shortcuts: Key bindings, or ``None`` for the defaults.
+    :param names: Ids of the applications to start.
+    :param processes: Whether each application gets its own process.
+    :param entries: Known applications, or ``None`` for the installed ones.
+    :param theme_name: Starting theme, or ``None`` for the colours file's.
+    :param alone: Whether to run the applications on their own.
+    :param animations: Whether animations are on.
+    :param paths: Shortcuts and colours files, if not the defaults.
+    :param colour_depth: How colours are drawn.
+    :param show_mouse: Whether the cell under the mouse is inverted.
+    :param escape_timeout: Milliseconds to wait after Escape.
+    """
     if entries is None:
         entries, _ = install.known_applications()
     manager = PresentationManager(shortcuts=shortcuts)
@@ -85,20 +73,21 @@ def _desktop(  # pylint: disable=too-many-arguments
 
 
 def _listed(names: Sequence[str]) -> str:
-    """Names as a sentence lists them: "Notepad", "Notepad and Demo",
-    "Notepad, Demo and Clock"."""
+    """Names joined as a sentence lists them.
+
+    :param names: The names.
+    """
     if len(names) < 2:
         return "".join(names)
     return f"{', '.join(names[:-1])} and {names[-1]}"
 
 
 def _find(name: str, entries: dict[str, AppEntry]) -> list[str]:
-    """The ids of the applications that ``name``, given on the command line,
-    means: the one with that id; failing that, the one whose id it is in
-    another case (``NOTEPAD``); failing that, those that are called it,
-    ignoring case (``git``, for an application ``dasha-github`` called
-    "Git"). More than one is a name too many applications have; none, a
-    name no application has."""
+    """The application ids a command-line name means.
+
+    :param name: The name given.
+    :param entries: Known applications.
+    """
     if name in entries:
         return [name]
     wanted = name.casefold()
@@ -113,14 +102,11 @@ def _find(name: str, entries: dict[str, AppEntry]) -> list[str]:
 def _startup(
     names: Sequence[str], *, desktop: bool = False
 ) -> tuple[dict[str, AppEntry], list[str]] | None:
-    """The applications Dasha Framework knows, and the ids of those to start:
-    the ones named, by id or by name (``_find``), and, for the ``desktop``,
-    first those listed in ``autostart`` in the settings (an application
-    that is both named and listed there is started once). Manifests with
-    problems are reported and left out. An unknown name, a name that more
-    than one application has, or a settings file that cannot be read is
-    reported and gives ``None``, as does starting inside the command prompt
-    of a desktop that is already running (see ``dasha.shell``)."""
+    """The known applications and the ids to start, or ``None``.
+
+    :param names: Names given on the command line.
+    :param desktop: Whether the desktop is starting.
+    """
     if os.environ.get(shell.SUSPENDED_VARIABLE):
         say(
             "dasha: Dasha Framework is already running in this terminal; "
@@ -165,11 +151,11 @@ def _startup(
 def _parse_arguments(
     argv: Sequence[str] | None, *, desktop: bool = False
 ) -> argparse.Namespace:
-    """The command line, as ``dasha`` (or, if ``desktop``, as ``dasha-desktop``)
-    takes it. ``apps`` are the applications to start, and ``desktop``
-    whether to start them on the desktop. With nothing to run, the usage is
-    shown and the program ends (``SystemExit``), as for any mistake in the
-    arguments."""
+    """Parse the command line.
+
+    :param argv: Arguments, or ``None`` for ``sys.argv``.
+    :param desktop: Whether this is ``dasha-desktop``.
+    """
     parser = argparse.ArgumentParser(
         prog="dasha-desktop" if desktop else "dasha",
         description="Dasha Framework - a text-mode desktop and application framework.",
@@ -274,7 +260,12 @@ def _parse_arguments(
 
 
 def _write_new_file(path: Path, text: str, what: str) -> int:
-    """Write a settings file for the user to edit, never overwriting one."""
+    """Write a new settings file, never overwriting.
+
+    :param path: Where to write.
+    :param text: File contents.
+    :param what: What the file is, for messages.
+    """
     if path.exists():
         say(f"dasha: {path} already exists; not overwriting it", file=sys.stderr)
         return 1
@@ -289,7 +280,12 @@ def _write_new_file(path: Path, text: str, what: str) -> int:
 
 
 def _report_problems(kind: str, path: Path, error: Exception) -> None:
-    """Explain why a settings file cannot be used."""
+    """Explain why a settings file cannot be used.
+
+    :param kind: What the file is.
+    :param path: The file.
+    :param error: What went wrong.
+    """
     say(f"dasha: cannot use the {kind} file {path}:", file=sys.stderr)
     for problem in str(error).splitlines():
         say(f"  - {problem}", file=sys.stderr)
@@ -301,9 +297,7 @@ class _Reported(Exception):
 
 
 def _saved_theme() -> tuple[theme.Theme, str] | None:
-    """The theme last chosen from the system menu (``theme`` in the
-    settings), if one is remembered. Raises ``_Reported`` once it has said
-    why it cannot be used."""
+    """The remembered theme, if any."""
     try:
         name = registry.read_theme_setting(registry.SETTINGS_PATH)
     except ManifestError as error:
@@ -327,16 +321,12 @@ def _saved_theme() -> tuple[theme.Theme, str] | None:
 def _load_colours(  # pylint: disable=too-many-return-statements
     path: Path, explicit: bool, monochrome: bool
 ) -> tuple[theme.Theme, str | None] | None:
-    """The colours to start with, and the theme's name (``None`` for the
-    colours file's), or ``None`` after reporting why they cannot be used.
+    """The starting colours and theme name, or ``None``.
 
-    ``--monochrome``, ``NO_COLOR``, or a terminal with no colours, comes
-    first, and is the Monochrome theme exactly, as the Themes menu gives it:
-    a colours file's changes are left out, as they may well add colours.
-    Then come the file given with ``--colours``, the theme last chosen from
-    the system menu (``theme`` in the settings), the colours file, and
-    finally the default theme. The theme chosen last stays in the settings,
-    for when ``NO_COLOR`` is no longer set."""
+    :param path: The colours file.
+    :param explicit: Whether the file was given on the command line.
+    :param monochrome: Whether monochrome was asked for.
+    """
     if explicit and not path.exists():
         say(f"dasha: colours file {path} does not exist", file=sys.stderr)
         return None
@@ -359,7 +349,11 @@ def _load_colours(  # pylint: disable=too-many-return-statements
 
 
 def _load_shortcuts(path: Path, explicit: bool) -> Shortcuts | None:
-    """Load the shortcuts file, or report why it cannot be used."""
+    """Load the shortcuts file, or report why not.
+
+    :param path: The shortcuts file.
+    :param explicit: Whether the file was given on the command line.
+    """
     if explicit and not path.exists():
         say(f"dasha: shortcuts file {path} does not exist", file=sys.stderr)
         return None
@@ -373,9 +367,12 @@ def _load_shortcuts(path: Path, explicit: bool) -> Shortcuts | None:
 def _load_settings(
     args: argparse.Namespace, shortcuts_path: Path, colours_path: Path
 ) -> tuple[Shortcuts | None, tuple[theme.Theme, str | None]] | None:
-    """The shortcuts (not needed for the key test) and the colour theme
-    with its name, or ``None`` after reporting why a settings file cannot
-    be used."""
+    """The shortcuts, colours and theme name, or ``None``.
+
+    :param args: Parsed arguments.
+    :param shortcuts_path: The shortcuts file.
+    :param colours_path: The colours file.
+    """
     shortcuts = None
     if not args.key_test:
         shortcuts = _load_shortcuts(shortcuts_path, explicit=args.shortcuts is not None)
@@ -390,10 +387,10 @@ def _load_settings(
 
 
 def _remember_options(args: argparse.Namespace) -> None:
-    """Keep ``--colour-depth`` and ``--show-mouse`` in the settings, as
-    Settings... does, so they need not be given every time
-    (``--colour-depth auto`` forgets the depth). A settings file that
-    cannot be written is reported, and Dasha Framework starts anyway."""
+    """Remember ``--colour-depth`` and ``--show-mouse``.
+
+    :param args: Parsed arguments.
+    """
     try:
         if args.colour_depth is not None:
             registry.save_colour_depth_setting(
@@ -411,9 +408,13 @@ def _take_the_screen(
     theme_name: str | None,
     paths: tuple[Path, Path],
 ) -> int:
-    """Run the key test, or the desktop with its applications; an exit code.
-    What would stop it is reported before the screen is taken over.
-    ``paths`` are the shortcuts and colours files in use."""
+    """Run the key test or the desktop; return an exit code.
+
+    :param args: Parsed arguments.
+    :param shortcuts: Key bindings, if loaded.
+    :param theme_name: Starting theme name, if any.
+    :param paths: Shortcuts and colours files.
+    """
     startup = None if args.key_test else _startup(args.apps, desktop=args.desktop)
     if startup is None and not args.key_test:
         return 1
@@ -467,9 +468,10 @@ def _take_the_screen(
 
 
 def _report_errors(desktop: PresentationManager) -> bool:
-    """Say where the log is, if anything went wrong in the desktop's own
-    code while it ran; returns whether it went wrong so often that the
-    desktop gave up."""
+    """Report logged errors; return whether the desktop gave up.
+
+    :param desktop: The desktop that ran.
+    """
     recovery = desktop.recovery
     if recovery is None:
         return False
@@ -478,17 +480,21 @@ def _report_errors(desktop: PresentationManager) -> bool:
 
 
 def _report_unsaid(desktop: PresentationManager) -> None:
-    """What the desktop had to say but ended before it could (an
-    application that could not start, when it was the only one): said on
-    the terminal instead, once the screen is given back."""
+    """Print messages the desktop could not show.
+
+    :param desktop: The desktop that ran.
+    """
     server = desktop.server
     for title, message in server.notices if server is not None else []:
         say(f"dasha: {title}: {' '.join(message.split())}", file=sys.stderr)
 
 
 def main(argv: Sequence[str] | None = None, *, desktop: bool = False) -> int:
-    """Run the Dasha Framework command line (the ``dasha`` command, or, if
-    ``desktop``, ``dasha-desktop``) and return a process exit code."""
+    """Run the ``dasha`` command; return an exit code.
+
+    :param argv: Arguments, or ``None`` for ``sys.argv``.
+    :param desktop: Whether this is ``dasha-desktop``.
+    """
     arguments = list(sys.argv[1:] if argv is None else argv)
     if arguments and arguments[0] in install.COMMANDS:
         return install.run(arguments)
@@ -524,9 +530,10 @@ def main(argv: Sequence[str] | None = None, *, desktop: bool = False) -> int:
 
 
 def desktop_main(argv: Sequence[str] | None = None) -> int:
-    """Run the ``dasha-desktop`` command, which is ``dasha desktop``: the
-    desktop, with any applications named started on it. Returns a process
-    exit code."""
+    """Run the ``dasha-desktop`` command; return an exit code.
+
+    :param argv: Arguments, or ``None`` for ``sys.argv``.
+    """
     return main(argv, desktop=True)
 
 

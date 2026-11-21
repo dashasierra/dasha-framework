@@ -11,8 +11,7 @@ from dasha.window import Window
 
 
 class SplitterTests(unittest.TestCase):
-    """A splitter 40 wide and 8 tall, the divider at 15: a list filling the
-    left pane, a label in the right one."""
+    """A splitter with a list and a label."""
 
     def setUp(self) -> None:
         self.changes: list[int] = []
@@ -34,12 +33,19 @@ class SplitterTests(unittest.TestCase):
         self.label = self.splitter.second.add(Label("right", 1, 2))
 
     def keys(self, *names: str) -> None:
-        """Keys to the splitter."""
+        """Send keys to the splitter.
+
+        :param names: The keys.
+        """
         for name in names:
             self.assertTrue(self.splitter.handle_key(name, Shortcuts()), name)
 
     def mouse(self, action: str, column: int) -> None:
-        """A left button event on the splitter's row 3, at a content column."""
+        """A left button event on the splitter's row 3.
+
+        :param action: Mouse action.
+        :param column: Content column.
+        """
         self.splitter.handle_mouse(MouseEvent(action, "left", 3, column), 3, column)
 
     def test_panes(self) -> None:
@@ -52,7 +58,7 @@ class SplitterTests(unittest.TestCase):
         self.assertEqual([canvas.text(r)[15] for r in range(8)], [ACROSS] * 8)
 
     def test_keys_move_the_divider(self) -> None:
-        """Right moves it on: the list grows, the label moves with its pane."""
+        """Keys move the divider."""
         self.keys("right", "right")
         self.assertEqual(self.splitter.position, 17)
         self.assertEqual(self.items.rect.width, 17)
@@ -69,8 +75,7 @@ class SplitterTests(unittest.TestCase):
         self.assertEqual(self.changes, [])  # from code: no one told
 
     def test_dragging(self) -> None:
-        """A press on the divider and a drag moves it; a press elsewhere is
-        not taken."""
+        """Dragging the divider."""
         self.mouse("press", 15)
         self.mouse("drag", 25)
         self.mouse("release", 25)
@@ -85,8 +90,7 @@ class SplitterTests(unittest.TestCase):
         self.assertFalse(self.splitter.handle_mouse(right, 3, 15))
 
     def test_the_window_resized(self) -> None:
-        """The splitter grows with the window, and the second pane takes the
-        room; the list in the first pane only grows taller."""
+        """The window grows."""
         rect = self.window.rect
         self.window.rect = Rect(rect.row, rect.column, rect.height + 2, rect.width + 6)
         self.assertEqual(self.splitter.rect.width, 46)
@@ -95,8 +99,7 @@ class SplitterTests(unittest.TestCase):
         self.assertEqual(self.splitter.pane_rect(True).width, 30)
 
     def test_the_window_made_smaller(self) -> None:
-        """Shrunk below its height, the splitter shrinks too, and so does
-        the list in it: the list scrolls by itself, not the window."""
+        """The window shrinks."""
         rect = self.window.rect
         self.window.rect = Rect(rect.row, rect.column, 6, rect.width)
         # The window lost 6 rows, so the 8-row splitter is left with 2.
@@ -111,16 +114,17 @@ class SplitterTests(unittest.TestCase):
         self.assertEqual(self.splitter.min_size(), (11, 1))
 
     def click(self, button: str, column: int) -> None:
-        """Press and release a button on the window, at row 3 of the
-        content."""
+        """Click on row 3 of the content.
+
+        :param button: Mouse button.
+        :param column: Content column.
+        """
         row, left = self.window.interior.row + 3, self.window.interior.column
         for action in ("press", "release"):
             self.window.handle_mouse(MouseEvent(action, button, row, left + column))
 
     def test_a_click_a_pane_does_not_use_keeps_the_focus_there(self) -> None:
-        """A click on a pane's widget that the widget does not use (the
-        right button on a list, with no menu) focuses that widget, not the
-        splitter behind it, which is offered the click next."""
+        """An unused pane click keeps the focus there."""
         self.window.focus(self.splitter)
         self.click("right", 4)
         self.assertIs(self.window.focused, self.items)
@@ -138,8 +142,7 @@ class StackedTests(unittest.TestCase):
     """One pane above the other."""
 
     def test_stacked(self) -> None:
-        """The divider ─ across; Down moves it down, the bottom pane's
-        widgets with it."""
+        """Stacked panes."""
         window = Window("W", Rect(0, 0, 14, 30))
         splitter = window.add(Splitter(0, 0, 20, 9, vertical=True, position=4))
         below = splitter.second.add(Label("below", 0, 1))
@@ -158,8 +161,7 @@ class NestingTests(unittest.TestCase):
     """Splitters with containers, and in them."""
 
     def test_group_box_in_a_pane(self) -> None:
-        """A group box in the second pane moves with the divider, its
-        widgets with it."""
+        """A group box in a pane."""
         window = Window("W", Rect(0, 0, 14, 50))
         splitter = window.add(Splitter(0, 0, 40, 10, position=10))
         group = splitter.second.add(GroupBox("&G", 0, 0, 20, 4))
@@ -168,8 +170,7 @@ class NestingTests(unittest.TestCase):
         self.assertEqual((group.rect.column, inside.rect.column), (15, 16))
 
     def test_in_a_collapsible_area(self) -> None:
-        """Opening an area above moves the splitter and its panes' widgets
-        down; moving the divider afterwards moves them only sideways."""
+        """In a collapsible area."""
         window = Window("W", Rect(0, 0, 20, 50))
         area = window.add(Collapsible("Area", 0, 0))
         area.add(Label("in the area", 0, 2))

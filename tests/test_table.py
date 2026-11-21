@@ -13,20 +13,32 @@ ROWS = [["b.txt", "10"], ["a.txt", "200"], ["c.txt", "3"]]
 
 
 def table(**options: object) -> Table:
-    """A table of names and sizes, 22 wide and 5 tall."""
+    """A table of names and sizes.
+
+    :param options: Table options.
+    """
     columns = [Column("&Name", 12), Column("Size", 6, align="right", key=int)]
     return Table(columns, 0, 0, 22, 5, rows=ROWS, **options)  # type: ignore[arg-type]
 
 
 def drawn(widget: Table) -> list[str]:
-    """Each row of the table as drawn, focused."""
+    """The table's rows as drawn.
+
+    :param widget: The table.
+    """
     canvas = Canvas(widget.rect.width, widget.rect.height)
     widget.paint(canvas, canvas.bounds, True)
     return [canvas.text(row) for row in range(widget.rect.height)]
 
 
 def press(row: int, column: int, action: str = "press", clicks: int = 1) -> MouseEvent:
-    """A left button event."""
+    """A left button event.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    :param action: Mouse action.
+    :param clicks: Click count.
+    """
     return MouseEvent(action, "left", row, column, clicks=clicks)
 
 
@@ -42,7 +54,10 @@ class TableTests(unittest.TestCase):
         )
 
     def keys(self, *names: str) -> None:
-        """Keys to the table."""
+        """Send keys to the table.
+
+        :param names: The keys.
+        """
         for name in names:
             self.table.handle_key(name, Shortcuts())
 
@@ -67,9 +82,7 @@ class TableTests(unittest.TestCase):
         self.assertEqual(self.changes, [1, 2, 0])
 
     def test_sorting(self) -> None:
-        """By size, as numbers, smallest first then largest first; the
-        highlight stays on its row, and values are indexes into the rows as
-        given."""
+        """Sorting."""
         self.keys("down")  # a.txt, row 1 as given
         self.table.sort(1)
         self.assertEqual(self.table.order, [2, 0, 1])
@@ -83,7 +96,7 @@ class TableTests(unittest.TestCase):
         self.assertEqual(self.table.selected_rows, [["a.txt", "200"]])
 
     def test_click_a_heading_to_sort(self) -> None:
-        """A click on a heading sorts by it; another, the other way round."""
+        """Click a heading to sort."""
         self.table.handle_mouse(press(0, 2), 0, 2)
         self.assertEqual((self.table.sorted_by, self.table.reverse), (0, False))
         self.assertEqual(self.table.order, [1, 0, 2])  # a, b, c
@@ -92,7 +105,7 @@ class TableTests(unittest.TestCase):
         self.assertTrue(self.table.handle_mouse(press(0, 2, "release"), 0, 2))
 
     def test_a_long_heading_sorted(self) -> None:
-        """A heading with no room for the arrow too is cut to make room."""
+        """A long heading sorted."""
         columns = [Column("Longer name", 6), Column("Size", 4)]
         narrow = Table(columns, 0, 0, 12, 4, rows=ROWS)
         narrow.sort(0)
@@ -162,8 +175,7 @@ class ScrollingTests(unittest.TestCase):
         self.table = Table(columns, 0, 0, 20, 6, rows=rows)
 
     def test_scroll_bars(self) -> None:
-        """A bar on the right for the rows, one along the bottom for the
-        columns: four rows show."""
+        """Scroll bars."""
         self.assertEqual(self.table.rows, 4)
         rows = drawn(self.table)
         self.assertEqual(rows[5][0], LEFT)

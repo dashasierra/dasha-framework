@@ -1,4 +1,4 @@
-"""The ANSI/VT escape sequences used to control the terminal."""
+"""ANSI/VT escape sequences."""
 
 ESC = "\x1b"
 CSI = ESC + "["
@@ -35,12 +35,13 @@ DISABLE_BRACKETED_PASTE = CSI + "?2004l"
 
 
 SPACE_RELEASED = CSI + "32;1:3u"
-"""What the Windows backend puts in the input when Space is released. This
-is how the kitty keyboard protocol writes a release (code 32, no modifiers,
-event 3), and ``dasha.events`` decodes it as ``KeyReleaseEvent(key=" ")``."""
+"""Input marking a Space release."""
 
 
 def move_to(row: int, column: int) -> str:
-    """Return the sequence that moves the cursor to a row and column, both
-    counted from 0."""
+    """The sequence moving the cursor.
+
+    :param row: Row, from 0.
+    :param column: Column, from 0.
+    """
     return f"{CSI}{row + 1};{column + 1}H"

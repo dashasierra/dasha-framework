@@ -1,5 +1,4 @@
-"""Tests for applications: launching, their menus and windows, the active
-application, ending, and the Applications menu."""
+"""Tests for applications."""
 
 import os
 import unittest
@@ -101,14 +100,21 @@ class Scripted(PresentationManager):
 
 
 def run(manager: PresentationManager, inputs: list[str]) -> FakeTerminal:
-    """Run a manager on scripted input, all of which must be read."""
+    """Run a manager on scripted input.
+
+    :param manager: The desktop.
+    :param inputs: Input to read.
+    """
     terminal = FakeTerminal(inputs, sizes=[(80, 24)])
     manager.run(cast(Terminal, terminal))
     return terminal
 
 
 def labels(menu: Menu) -> list[str]:
-    """A menu's item labels."""
+    """A menu's item labels.
+
+    :param menu: The menu.
+    """
     return [item.label for item in menu.items]
 
 
@@ -146,7 +152,7 @@ class AfterWindowTests(Desktop):
         self.assertIs(self.app.menus[0], self.help)
 
     def test_opens_by_its_letter(self) -> None:
-        """Alt and its letter opens it, as for any menu on the bar."""
+        """Alt and its letter opens it."""
         self.manager.handle_event("alt+h")
         self.assertIs(self.manager.menu_bar.open_menu, self.help)
 
@@ -222,8 +228,7 @@ class LaunchTests(Desktop):
             Hello().open(Window("W", Rect(0, 0, 4, 10)))
 
     def test_told_when_the_shortcuts_change(self) -> None:
-        """Every running application hears of new shortcuts, which are in
-        place by then, so that it can make its menus again."""
+        """Applications hear of new shortcuts."""
         seen: list[str] = []
 
         class Hinted(Hello):
@@ -375,7 +380,7 @@ class WindowMenuTests(Desktop):
         self.assertIs(self.manager.active_window, self.first)
 
     def test_the_last_window_can_be_minimised(self) -> None:
-        """The menu bar stays, so it can be restored from the Window menu."""
+        """The last window can be minimised."""
         self.manager.minimise(self.first)
         self.manager.minimise(self.second)
         self.assertEqual(self.manager.windows, ())
@@ -508,15 +513,13 @@ class StandaloneTests(unittest.TestCase):
         self.assertEqual(terminal.inputs, ["never read"])
 
     def test_nothing_to_show(self) -> None:
-        """An application that opens no window still runs, its menus
-        showing, until it is left."""
+        """Runs with no window."""
         terminal = FakeTerminal(["\x11", "\r"], sizes=[(80, 24)])
         self.assertEqual(Application().run(cast(Terminal, terminal)), 0)
         self.assertEqual(terminal.inputs, [])
 
     def test_sized_to_the_screen_from_the_start(self) -> None:
-        """``start`` sees the screen's real size, so that it can fit its
-        windows to it."""
+        """``start`` sees the real screen size."""
         seen: list[Rect] = []
 
         class Measuring(Application):
@@ -531,8 +534,11 @@ class StandaloneTests(unittest.TestCase):
         self.assertEqual(seen, [Rect(1, 0, 38, 120)])
 
     def frame_style_with(self, no_colour: str, *, starts_dark: bool = False) -> Style:
-        """The window frame's style as an application starts, run with this
-        value of ``NO_COLOR``, having chosen the Dark theme itself, if asked."""
+        """The frame style an application starts with.
+
+        :param no_colour: The ``NO_COLOR`` value.
+        :param starts_dark: Whether it chooses the Dark theme.
+        """
         self.addCleanup(apply_theme, current_theme())
         seen: list[Style] = []
 
@@ -561,8 +567,7 @@ class StandaloneTests(unittest.TestCase):
         self.assertEqual(self.frame_style_with(""), before)
 
     def test_an_application_can_choose_its_own_theme(self) -> None:
-        """A theme it chooses as it starts is used, but not with
-        ``NO_COLOR`` set, which keeps it in the Monochrome theme."""
+        """An application can choose its theme."""
         self.assertEqual(
             self.frame_style_with("", starts_dark=True), BASES["dark"]["window.frame"]
         )
@@ -597,7 +602,7 @@ class StandaloneTests(unittest.TestCase):
         self.assertFalse(manager._is_system_menu_double_click(event))
 
     def test_f10_opens_the_window_menu(self) -> None:
-        """An application with no menus of its own still has the Window menu."""
+        """F10 opens the Window menu."""
         terminal = FakeTerminal(
             ["\x1b[21~", "\x1b", "", "\x11", "\r"], sizes=[(80, 24)]
         )

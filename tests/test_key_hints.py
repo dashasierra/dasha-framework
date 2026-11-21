@@ -1,6 +1,4 @@
-"""Tests for the keys each widget lists on the status bar: those that do
-something particular to it, and never those that only edit text, which still
-work."""
+"""Tests for widgets' status bar key hints."""
 
 import unittest
 
@@ -115,8 +113,7 @@ class WidgetHintTests(unittest.TestCase):
                     self.assertIn(kind, tested, name)
 
     def test_next_needs_somewhere_to_go(self) -> None:
-        """A text area offers its way out only with another widget to go to,
-        since Tab types a tab in it."""
+        """Next needs somewhere to go."""
         window = Window("E", Rect(1, 0, 10, 40))
         area = window.add(TextArea(0, 0, 10, 3))
         self.assertNotIn(("Ctrl+Tab", "Next"), area.key_help(KEYS))
@@ -124,7 +121,7 @@ class WidgetHintTests(unittest.TestCase):
         self.assertIn(("Ctrl+Tab", "Next"), area.key_help(KEYS))
 
     def test_hints_follow_the_bindings(self) -> None:
-        """Remapped, the key shown is the new one; with no keys, no hint."""
+        """Hints follow the bindings."""
         window = Window("E", Rect(1, 0, 10, 40))
         area = window.add(TextArea(0, 0, 10, 3))
         window.add(TextBox(5, 0, 10))
@@ -136,7 +133,7 @@ class WidgetHintTests(unittest.TestCase):
 
 
 class EditingKeysStillWorkTests(unittest.TestCase):
-    """The keys left off the status bar work as ever, and can be remapped."""
+    """Unlisted editing keys still work."""
 
     def test_in_a_text_box(self) -> None:
         """Select all, cut, paste, undo and redo, by their default keys."""
@@ -174,7 +171,10 @@ class HostedHintTests(unittest.TestCase):
     """An application in a process of its own sends the same hints."""
 
     def sent_hints(self, widget: Widget) -> list[tuple[str, ...]]:
-        """The hints sent to the desktop while ``widget`` has the focus."""
+        """Hints sent while a widget has the focus.
+
+        :param widget: The widget.
+        """
         desktop, app_end = pipe()
         manager = ClientManager(app_end, WELCOME)
         self.addCleanup(manager.stop_listening)

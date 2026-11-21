@@ -26,25 +26,39 @@ from dasha.markdown import (
 
 
 def laid(text: str, width: int = 40) -> Document:
-    """A page, laid out."""
+    """A page, laid out.
+
+    :param text: The Markdown.
+    :param width: Page width.
+    """
     return lay_out(parse(text), width)
 
 
 def shown(text: str, width: int = 40) -> list[str]:
-    """The lines of a page, as text."""
+    """A page's lines as text.
+
+    :param text: The Markdown.
+    :param width: Page width.
+    """
     document = laid(text, width)
     return [document.text(row) for row in range(len(document.lines))]
 
 
 def spans_of(text: str) -> list[Span]:
-    """The pieces of a paragraph."""
+    """The pieces of a paragraph.
+
+    :param text: The Markdown.
+    """
     block = parse(text)[0]
     assert isinstance(block, Paragraph)
     return block.spans
 
 
 def kinds_of(text: str) -> list[tuple[str, str]]:
-    """Each piece of a paragraph's text and kind."""
+    """Each piece's text and kind.
+
+    :param text: The Markdown.
+    """
     return [(span.text, span.kind) for span in spans_of(text)]
 
 
@@ -82,8 +96,7 @@ class InlineTests(unittest.TestCase):
         )
 
     def test_marks_that_mean_nothing(self) -> None:
-        """Marks with nothing to pair with, or in the middle of a word, or
-        with a space inside them, stay as they are."""
+        """Marks that mean nothing stay."""
         for text in ("2 * 3 * 4", "*open", "**open", "snake_case_name", "`open"):
             with self.subTest(text=text):
                 self.assertEqual(kinds_of(text), [(text, TEXT)])
@@ -460,8 +473,7 @@ class LayoutTests(unittest.TestCase):
 
 
 class HostileTests(unittest.TestCase):
-    """A page is text from anywhere: none of it raises an error, or takes
-    long enough to notice."""
+    """Hostile pages never raise or hang."""
 
     def test_hostile_pages(self) -> None:
         """Hostile pages."""

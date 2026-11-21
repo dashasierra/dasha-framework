@@ -1,6 +1,4 @@
-"""Tests for showing the mouse: with ``show_mouse`` on, the cell under the
-mouse is drawn inverted. Its key (Alt+` by default) turns it on and off
-wherever the focus is, and the choice is remembered in ``settings.toml``."""
+"""Tests for showing the mouse."""
 
 import unittest
 
@@ -20,7 +18,11 @@ from tests.support import isolated_home, started_desktop
 
 
 def moved(row: int, column: int) -> MouseEvent:
-    """The mouse moving there, with no button held down."""
+    """A mouse move with no button.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    """
     return MouseEvent(action="move", button="none", row=row, column=column)
 
 
@@ -47,8 +49,7 @@ class ShownTests(unittest.TestCase):
         self.assertEqual(self.screen().cell(5, 10), before)
 
     def test_inverted(self) -> None:
-        """The cell under the mouse, and only that cell, is inverted; it
-        follows the mouse."""
+        """The cell under the mouse is inverted."""
         plain = self.screen()
         self.manager.show_mouse = True
         self.manager.handle_event(moved(5, 10))
@@ -74,8 +75,7 @@ class ShownTests(unittest.TestCase):
         self.assertFalse(read_show_mouse_setting(self.manager.settings_path))
 
     def test_in_a_dialog(self) -> None:
-        """The key works while a dialog waits for an answer, and the mouse
-        is followed there too, but a dialog asking for a key gets it."""
+        """In a dialog."""
         dialog = information("Note", "Hello")
         self.manager.handle_modal_event(dialog, moved(3, 4))
         self.manager.handle_modal_event(dialog, "alt+`")
@@ -111,8 +111,10 @@ class SettingTests(unittest.TestCase):
             read_show_mouse_setting(self.path)
 
     def started_with(self, *arguments: str) -> bool:
-        """Whether the desktop started by the command line shows the
-        mouse."""
+        """Whether the desktop shows the mouse.
+
+        :param arguments: Command-line arguments.
+        """
         code, desktop, _ = started_desktop(*arguments)
         self.assertEqual(code, 0)
         return bool(desktop.call_args.kwargs["show_mouse"])
@@ -126,8 +128,7 @@ class SettingTests(unittest.TestCase):
         self.assertTrue(self.started_with("--show-mouse"))
 
     def test_the_command_line_is_remembered(self) -> None:
-        """-m (--show-mouse) is kept in settings.toml for next time; the
-        key, or Settings..., turns it off again."""
+        """The command line is remembered."""
         self.assertTrue(self.started_with("-m"))
         self.assertTrue(read_show_mouse_setting(registry.SETTINGS_PATH))
         self.assertTrue(self.started_with())

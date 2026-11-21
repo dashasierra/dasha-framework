@@ -12,12 +12,21 @@ from dasha.window import Window
 
 
 def press(row: int, column: int) -> MouseEvent:
-    """A left-button press."""
+    """A left-button press.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    """
     return MouseEvent("press", "left", row, column)
 
 
 def tall_window(lines: int = 20, width: int = 20, height: int = 8) -> Window:
-    """A resizable window with more numbered lines than fit."""
+    """A resizable window with too many lines.
+
+    :param lines: Number of lines.
+    :param width: Window width.
+    :param height: Window height.
+    """
     return Window(
         "W",
         Rect(1, 0, height, width),
@@ -46,7 +55,7 @@ class ScrollBarTests(unittest.TestCase):
     """Scroll scroll_bar geometry and parts."""
 
     def test_parts_and_thumb(self) -> None:
-        """Arrows at the ends, the thumb where the value is, track around it."""
+        """Parts and thumb."""
         scroll_bar = ScrollBarLayout(True, 2, 10, 7, value=5, maximum=10, page=5)
         self.assertEqual(scroll_bar.track_length, 5)
         self.assertEqual(scroll_bar.thumb, 2)
@@ -90,7 +99,7 @@ class StepTests(unittest.TestCase):
     """What a click on each part of a bar scrolls by."""
 
     def test_step(self) -> None:
-        """A line for an arrow, a page less one for the track, else 0."""
+        """Step sizes."""
         layout = ScrollBarLayout(True, 0, 0, 7, value=5, maximum=10, page=5)
         steps = {
             part: layout.step(part, line=2)
@@ -110,7 +119,13 @@ class StepTests(unittest.TestCase):
 
 
 def bar_event(scroll_bar: ScrollBar, action: str, row: int, column: int) -> bool:
-    """A left-button event at a position in the window's interior."""
+    """A left-button event in the window's interior.
+
+    :param scroll_bar: The scroll bar.
+    :param action: Mouse action.
+    :param row: Interior row.
+    :param column: Interior column.
+    """
     return scroll_bar.handle_mouse(MouseEvent(action, "left", row, column), row, column)
 
 
@@ -130,8 +145,7 @@ class ScrollBarWidgetTests(unittest.TestCase):
         )
 
     def test_arrows_and_track(self) -> None:
-        """Arrows move a line, the track a page; the user's moves call
-        on_change."""
+        """Arrows and track."""
         bar_event(self.scroll_bar, "press", 7, 4)  # ▼
         bar_event(self.scroll_bar, "press", 6, 4)  # the track below the thumb
         bar_event(self.scroll_bar, "press", 1, 4)  # ▲
@@ -147,8 +161,7 @@ class ScrollBarWidgetTests(unittest.TestCase):
         self.assertEqual(self.scroll_bar.value, 20)
 
     def test_value_is_kept_in_range(self) -> None:
-        """Code can set the value, kept in range, without on_change; the
-        range can change."""
+        """The value is kept in range."""
         self.scroll_bar.value = 99
         self.assertEqual(self.scroll_bar.value, 20)
         self.scroll_bar.set_range(8, page=2)
@@ -167,8 +180,7 @@ class ScrollBarWidgetTests(unittest.TestCase):
         self.assertEqual(canvas.cell(1, 4)[1], self.scroll_bar.style)
 
     def test_horizontal_and_in_a_window(self) -> None:
-        """A horizontal scroll_bar is placed with the other widgets; it takes no
-        focus, but takes clicks."""
+        """Horizontal, in a window."""
         window = Window("W", Rect(0, 0, 6, 20))
         button = window.add(Button("&OK", 0, 1))
         scroll_bar = window.add(ScrollBar(3, 2, 10, vertical=False, maximum=4))
@@ -214,7 +226,7 @@ class WindowScrollTests(unittest.TestCase):
         self.assertTrue(horizontal.rect.intersect(grip).is_empty)
 
     def test_resizing_bigger_removes_bars_and_scroll(self) -> None:
-        """Once everything fits, the bars go and the view returns to the top."""
+        """Growing removes bars and scroll."""
         window = tall_window(lines=10)
         window.scroll_by(3, 0)
         self.assertEqual(window.scroll_row, 3)
@@ -233,7 +245,7 @@ class WindowScrollTests(unittest.TestCase):
         self.assertEqual(canvas.cell(7, 19)[0], DOWN)
 
     def test_scrolled_widgets_stay_inside_frame(self) -> None:
-        """A widget scrolled partly out of view is cut off at the frame."""
+        """Scrolled widgets stay inside the frame."""
         window = Window("W", Rect(0, 0, 5, 16))
         window.add(Label("0123456789ABCDEFGHIJ", 0, 0))  # 6 wider than inside
         window.scroll_to(0, 4)
@@ -291,7 +303,7 @@ class ManagerScrollTests(unittest.TestCase):
         self.assertEqual(self.window.scroll_row, 5)
 
     def test_drag_thumb(self) -> None:
-        """Dragging the thumb to the end of the track scrolls to the end."""
+        """Dragging the thumb."""
         self.manager.handle_event(press(3, 19))  # the thumb, at the top
         self.manager.handle_event(MouseEvent("drag", "left", 6, 19))
         self.manager.handle_event(MouseEvent("release", "left", 6, 19))
@@ -314,14 +326,17 @@ class ManagerScrollTests(unittest.TestCase):
 
 
 class IntoViewTests(unittest.TestCase):
-    """Scrolling something into view, as little as can be. The window shows
-    10 rows of 40 lines."""
+    """Scrolling into view."""
 
     def setUp(self) -> None:
         self.window = Window("W", Rect(0, 0, 12, 30), [""] * 40)
 
     def into_view(self, scroll_row: int, rect: Rect) -> int:
-        """Where the window is scrolled to, from ``scroll_row``."""
+        """Where the window scrolls to.
+
+        :param scroll_row: Starting scroll row.
+        :param rect: Rect to show.
+        """
         self.window.scroll_to(scroll_row, 0)
         self.window.scroll_into_view(rect)
         return self.window.scroll_row

@@ -1,5 +1,4 @@
-"""Tests for pseudo-terminals (``dasha.pseudoterminal``), with real
-programs running in them."""
+"""Tests for pseudo-terminals with real programs."""
 
 import os
 import subprocess
@@ -16,11 +15,15 @@ PATIENCE = 20.0
 """How long a test waits for a program, at most, before failing."""
 
 SOURCE = os.path.dirname(os.path.dirname(os.path.abspath(dasha.__file__)))
-"""The folder dasha is imported from, for a child Python to find it."""
+"""Folder dasha is imported from."""
 
 
 class Session:
-    """A program in a pseudo-terminal, with what it wrote so far."""
+    """A program in a pseudo-terminal.
+
+    :param code: Python code to run.
+    :param size: Terminal (columns, lines).
+    """
 
     def __init__(self, code: str, size: tuple[int, int] = (80, 24)) -> None:
         self.output = bytearray()
@@ -55,7 +58,10 @@ class Session:
         return screen
 
     def wait_for(self, text: str) -> None:
-        """Wait until the screen shows ``text``."""
+        """Wait until the screen shows text.
+
+        :param text: The text.
+        """
         deadline = time.monotonic() + PATIENCE
         while text not in self.text():
             if time.monotonic() > deadline:
@@ -67,7 +73,11 @@ class PseudoTerminalTests(unittest.TestCase):
     """A program sees a terminal, and its output and input go through."""
 
     def session(self, code: str, size: tuple[int, int] = (80, 24)) -> Session:
-        """Start a Python program; it is ended when the test is."""
+        """Start a Python program for the test.
+
+        :param code: Python code to run.
+        :param size: Terminal (columns, lines).
+        """
         session = Session(code, size)
         self.addCleanup(session.pty.wait, PATIENCE)
         self.addCleanup(session.pty.close)
@@ -96,7 +106,7 @@ class PseudoTerminalTests(unittest.TestCase):
         self.assertTrue(session.pty.wait(PATIENCE))
 
     def test_size_and_resize(self) -> None:
-        """The program sees the size given, and a new one after a resize."""
+        """Size and resize."""
         code = (
             "import os\n"
             "print('first', *os.get_terminal_size())\n"
@@ -139,9 +149,7 @@ class PseudoTerminalTests(unittest.TestCase):
             pty.start([])
 
     def test_with_standard_output_redirected(self) -> None:
-        """A program run from a process whose own output is redirected (as
-        an application's is, run by the desktop) still writes to the
-        pseudo-terminal."""
+        """Works with standard output redirected."""
         script = (
             "import sys\n"
             "from dasha.pseudoterminal import open_pty\n"
@@ -166,8 +174,7 @@ class PseudoTerminalTests(unittest.TestCase):
 
     @unittest.skipIf(sys.platform == "win32", "process groups are POSIX")
     def test_idle_is_not_busy(self) -> None:
-        """A program waiting for input, having started nothing, is not
-        busy."""
+        """Idle is not busy."""
         session = self.session("print('idle'); input()")
         session.wait_for("idle")
         self.assertFalse(session.pty.foreground_busy())

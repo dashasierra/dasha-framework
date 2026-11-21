@@ -1,14 +1,4 @@
-"""Windows console backend.
-
-The Windows console only interprets ANSI escape sequences once
-``ENABLE_VIRTUAL_TERMINAL_PROCESSING`` is switched on for the output handle,
-so this backend uses the console API through ctypes to set that flag. Input
-is switched to raw, unechoed VT mode, so special keys arrive as the same
-escape sequences that POSIX terminals and SSH send. Input is read as console
-input records, which also carry window resize notifications. The original
-modes are restored on exit. ``wake`` sets an event that ``read`` waits on
-together with the console's input, so another thread can cut a wait short.
-"""
+"""Windows console backend."""
 
 import ctypes
 import sys
@@ -71,8 +61,7 @@ WINDOW_BUFFER_SIZE_EVENT = 0x0004
 
 
 class KEY_EVENT_RECORD(ctypes.Structure):  # pylint: disable=invalid-name
-    """A key press or release. In VT input mode, escape sequences arrive as a
-    run of these, one character each."""
+    """A key press or release record."""
 
     _fields_ = [
         ("bKeyDown", wintypes.BOOL),
@@ -158,15 +147,11 @@ def records_to_text(
     count: int,
     held: list[int] | None = None,
 ) -> tuple[str, bool]:
-    """Extract typed text from input records, and whether the window resized.
+    """Text from input records, and whether the window resized.
 
-    Other events (focus, menu) carry no text and are skipped, and so are
-    key releases, except Space's: that becomes ``ansi.SPACE_RELEASED``, so a
-    button can stay pushed in while Space is held. Characters outside the
-    Basic Multilingual Plane arrive as two UTF-16 halves, which are joined
-    back together. The halves can be split between two reads (in a long
-    paste), so with ``held``, a first half at the end is kept back in it, and
-    put in front of the next read's text.
+    :param records: The input records.
+    :param count: Records to read.
+    :param held: Holds a split UTF-16 half between reads, if given.
     """
     units: list[int] = [] if held is None else held[:]
     if held is not None:
@@ -208,24 +193,10 @@ class WindowsConsole:
         self.is_woken = False
         """Whether the last ``read`` ended early: woken, or resized."""
         self.has_outgrown_window = False
-        """Whether a resize has left the screen buffer larger than the
-        window, with scroll bars, until ``Terminal`` deals with it (see
-        ``_has_outgrown_window``)."""
+        """Whether the buffer outgrew the window."""
 
     def _has_outgrown_window(self) -> bool:
-        """Whether the screen buffer showing is larger than its window.
-
-        The classic console grows the main screen buffer when its window
-        grows (on maximising, or going full screen), but does not shrink it
-        when the window is restored. The window then loses lines and
-        columns to the scroll bars that the larger buffer needs, and the
-        alternate screen is left at the larger size, scrolled to its
-        bottom. Shrinking the alternate screen's buffer to the window does
-        not help: the console goes on drawing as though the screen were
-        still scrolled, so every line lands in the wrong place. Leaving the
-        alternate screen and entering it again (``Terminal`` does this,
-        calling ``refit`` in between) gives one that fits the window.
-        """
+        """Whether the screen buffer is larger than its window."""
         try:
             info = buffer_info(self._output)
         except OSError:
@@ -233,9 +204,7 @@ class WindowsConsole:
         return (info.dwSize.X, info.dwSize.Y) != window_size(info)
 
     def refit(self) -> None:
-        """Fit the main screen buffer to the window again, if its scroll bars
-        are hidden: called after a resize, while the alternate screen is
-        left for a moment (see ``_has_outgrown_window``)."""
+        """Refit the main screen buffer to the window."""
         self.has_outgrown_window = False
         try:
             self._scroll_bars.refit()
@@ -285,8 +254,7 @@ class WindowsConsole:
             pass
 
     def restore(self) -> None:
-        """Put the console back the way ``enable`` found it: the screen buffer
-        (size, contents, cursor and scroll position), then the modes."""
+        """Restore the console as found."""
         try:
             self._scroll_bars.restore()
         except OSError:
@@ -299,13 +267,14 @@ class WindowsConsole:
             self._saved_output_mode = None
 
     def wake(self) -> None:
-        """Make a ``read`` that is waiting return ``""`` straight away (or
-        the next one, if none is). Safe to call from any thread."""
+        """Make a waiting ``read`` return; thread-safe."""
         _SetEvent(self._wake_event)
 
     def _wait(self, deadline: float | None) -> bool:
-        """Wait for input until ``deadline`` (``None``: forever); False on
-        timeout, or when woken (``is_woken`` is then set)."""
+        """Wait for input; ``False`` on timeout or wake.
+
+        :param deadline: When to stop, or ``None`` for never.
+        """
         if deadline is None:
             milliseconds = INFINITE
         else:
@@ -322,12 +291,9 @@ class WindowsConsole:
         return True
 
     def read(self, timeout: float | None = None) -> str:
-        """Wait for input and return whatever is available.
+        """Wait for and return input.
 
-        Waits forever when ``timeout`` is ``None``, otherwise for up to
-        ``timeout`` seconds. Returns ``""`` if nothing arrived in time, or
-        straight away if the console window was resized or ``wake`` was
-        called.
+        :param timeout: Seconds to wait, or ``None`` for ever.
         """
         self.is_woken = False
         deadline = None if timeout is None else time.monotonic() + timeout

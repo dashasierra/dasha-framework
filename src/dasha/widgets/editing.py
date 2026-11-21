@@ -1,5 +1,4 @@
-"""What text boxes and text areas share: undo history, moving by words,
-and their context menu."""
+"""Shared text editing support."""
 
 from typing import Protocol
 
@@ -9,13 +8,19 @@ from dasha.shortcuts import Shortcuts
 
 
 def is_word(char: str) -> bool:
-    """Whether a character is part of a word (letters, digits and ``_``)."""
+    """Whether a character is part of a word.
+
+    :param char: The character.
+    """
     return char.isalnum() or char == "_"
 
 
 def word_left(text: str, index: int) -> int:
-    """Where Ctrl+Left moves to from ``index``: back over any spaces and
-    punctuation, and then to the start of the word before them."""
+    """Where Ctrl+Left moves to.
+
+    :param text: The text.
+    :param index: Current position.
+    """
     while index > 0 and not is_word(text[index - 1]):
         index -= 1
     while index > 0 and is_word(text[index - 1]):
@@ -24,9 +29,11 @@ def word_left(text: str, index: int) -> int:
 
 
 def word_right(text: str, index: int) -> int:
-    """Where Ctrl+Right moves to from ``index``: past the rest of the word,
-    then past spaces and punctuation, to the start of the next word (as in
-    Windows), or to the end."""
+    """Where Ctrl+Right moves to.
+
+    :param text: The text.
+    :param index: Current position.
+    """
     while index < len(text) and is_word(text[index]):
         index += 1
     while index < len(text) and not is_word(text[index]):
@@ -35,8 +42,7 @@ def word_right(text: str, index: int) -> int:
 
 
 class Editable(Protocol):
-    """What an editable text widget (a text box or a text area) provides
-    for its context menu."""
+    """What an editable text widget provides."""
 
     clipboard: Clipboard
 
@@ -72,9 +78,12 @@ class Editable(Protocol):
 
 
 def edit_menu(widget: Editable, shortcuts: Shortcuts, *, copies: bool = True) -> Menu:
-    """The context menu of a text widget: Undo, Cut, Copy, Paste and Select
-    all, each greyed out when it would do nothing. Cut and Copy are left out
-    if the widget never ``copies`` anything out, as with a password box."""
+    """A text widget's context menu.
+
+    :param widget: The text widget.
+    :param shortcuts: Key bindings shown in the menu.
+    :param copies: Whether Cut and Copy are offered.
+    """
 
     def selected() -> bool:
         return widget.selection is not None
@@ -129,15 +138,7 @@ def edit_menu(widget: Editable, shortcuts: Shortcuts, *, copies: bool = True) ->
 
 
 class UndoHistory[T]:
-    """The changes that can be undone, oldest first and kept to a limit,
-    and the undone changes that can be redone.
-
-    What each step holds is up to the widget: a text box keeps the text as it
-    was, and a text area what one change replaced. The limit is given with
-    each step, so changing a widget's ``undo_limit`` takes effect at once; it
-    can be as large as needed, or ``None`` for no limit. As in any editor, a
-    new change forgets whatever could have been redone.
-    """
+    """Undo and redo history."""
 
     def __init__(self) -> None:
         self._steps: list[T] = []
@@ -147,9 +148,12 @@ class UndoHistory[T]:
         return len(self._steps)
 
     def push(self, step: T, limit: int | None, *, redoing: bool = False) -> None:
-        """Remember a change, forgetting the oldest changes beyond ``limit``.
-        Unless the change comes from redoing, it also forgets whatever could
-        be redone."""
+        """Remember a change.
+
+        :param step: The change.
+        :param limit: Most changes kept, or ``None``.
+        :param redoing: Whether the change comes from redoing.
+        """
         self._steps.append(step)
         if limit is not None:
             del self._steps[: max(0, len(self._steps) - max(0, limit))]
@@ -157,12 +161,14 @@ class UndoHistory[T]:
             self._undone.clear()
 
     def undone(self, step: T) -> None:
-        """Remember how to redo what was just undone."""
+        """Remember an undone change.
+
+        :param step: The change.
+        """
         self._undone.append(step)
 
     def pop_redo(self) -> T | None:
-        """Take the most recent undone change, to redo it, or return ``None``
-        if there is none."""
+        """Take the latest undone change, or ``None``."""
         return self._undone.pop() if self._undone else None
 
     @property
@@ -171,8 +177,7 @@ class UndoHistory[T]:
         return bool(self._undone)
 
     def pop(self) -> T | None:
-        """Take the most recent change, to undo it, or return ``None`` if there
-        is none."""
+        """Take the latest change, or ``None``."""
         return self._steps.pop() if self._steps else None
 
     @property
@@ -181,15 +186,15 @@ class UndoHistory[T]:
         return self._steps[-1] if self._steps else None
 
     def replace_last(self, step: T) -> None:
-        """Replace the most recent step, as continued typing does when it adds
-        to it (which, being a new change, also forgets whatever could be
-        redone)."""
+        """Replace the latest change.
+
+        :param step: The change.
+        """
         if self._steps:
             self._steps[-1] = step
         self._undone.clear()
 
     def clear(self) -> None:
-        """Forget every change, and whatever could be redone (when new text is
-        set, for example)."""
+        """Forget all changes."""
         self._steps.clear()
         self._undone.clear()

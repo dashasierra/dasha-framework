@@ -1,6 +1,4 @@
-"""Tests for the desktop's inbox: messages waiting from applications,
-counted in bytes and capped, so that an application sending in a tight loop
-cannot use up the desktop's memory."""
+"""Tests for the desktop's capped inbox."""
 
 # pylint: disable=protected-access
 
@@ -38,8 +36,11 @@ class InboxTests(unittest.TestCase):
             self.addCleanup(end.close)
 
     def put_later(self, desktop_end: Connection, data: bytes) -> threading.Thread:
-        """Put a message in a thread of its own, as a reader does; it may
-        have to wait."""
+        """Put a message from a thread of its own.
+
+        :param desktop_end: The connection.
+        :param data: The message bytes.
+        """
         thread = threading.Thread(
             target=self.inbox.put, args=(desktop_end, data), daemon=True
         )
@@ -48,8 +49,7 @@ class InboxTests(unittest.TestCase):
         return thread
 
     def test_counted(self) -> None:
-        """Bytes waiting, for each connection and in all; taking a message
-        decodes it and stops counting it."""
+        """Bytes waiting are counted."""
         self.inbox.put(self.app, PING)
         self.inbox.put(self.other, PING)
         self.inbox.put(self.app, PING)
@@ -64,8 +64,7 @@ class InboxTests(unittest.TestCase):
         self.assertIsNone(self.inbox.get())
 
     def test_one_application_capped(self) -> None:
-        """Over its cap, an application's reader waits until the desktop
-        takes some of its messages."""
+        """One application is capped."""
         for _ in range(3):
             self.inbox.put(self.app, PING)
         waiting = self.put_later(self.app, PING)
@@ -77,16 +76,14 @@ class InboxTests(unittest.TestCase):
         self.assertEqual(self.inbox.waiting_bytes(self.app), 3 * len(PING))
 
     def test_a_message_bigger_than_the_cap(self) -> None:
-        """Taken when nothing of the application's is waiting, so that no
-        message can be held up for ever."""
+        """A message bigger than the cap."""
         big = encode("clipboard", text="x" * 500)
         self.inbox.put(self.app, big)
         self.assertEqual(self.inbox.waiting_bytes(self.app), len(big))
         self.assertTrue(self.put_later(self.app, PING).is_alive())
 
     def test_all_applications_capped(self) -> None:
-        """Over the cap in all, applications with something waiting wait;
-        one with nothing waiting still gets a message in."""
+        """All applications are capped."""
         for _ in range(3):
             self.inbox.put(self.app, PING)
         self.inbox.put(self.other, PING)
@@ -99,8 +96,7 @@ class InboxTests(unittest.TestCase):
         self.assertEqual(self.inbox.waiting_bytes(), 6 * len(PING))
 
     def test_a_closed_connection_stops_waiting(self) -> None:
-        """A reader waiting for an application that has been ended gives
-        up, dropping the message."""
+        """A closed connection stops waiting."""
         for _ in range(3):
             self.inbox.put(self.app, PING)
         waiting = self.put_later(self.app, PING)
@@ -119,8 +115,7 @@ class InboxTests(unittest.TestCase):
         self.assertFalse(waiting.is_alive())
 
     def test_the_end_of_a_connection_never_waits(self) -> None:
-        """``None``, the connection ended, is always taken, and counts
-        nothing."""
+        """A connection's end never waits."""
         for _ in range(3):
             self.inbox.put(self.app, PING)
         self.inbox.put(self.app, None)
@@ -128,8 +123,7 @@ class InboxTests(unittest.TestCase):
         self.assertEqual(self.inbox.waiting_bytes(self.app), 3 * len(PING))
 
     def test_not_a_message(self) -> None:
-        """Taken as the connection ending, and the connection is closed so
-        that its reader stops."""
+        """Not a message ends the connection."""
         self.inbox.put(self.app, b"not json")
         self.assertEqual(self.inbox.get(), (self.app, None))
         self.assertTrue(self.app.closed)
@@ -137,12 +131,10 @@ class InboxTests(unittest.TestCase):
 
 
 class FloodTests(unittest.TestCase):
-    """An application sending as fast as it can, read by the desktop's own
-    reader thread."""
+    """An application sending as fast as it can."""
 
     def test_the_desktop_holds_no_more_than_the_cap(self) -> None:
-        """The application is slowed to the desktop's pace: no more than
-        its cap waits at any time, and every message arrives, in order."""
+        """The desktop holds no more than the cap."""
         manager = PresentationManager()
         manager.handle_resize(80, 24)
         server = AppServer(manager)

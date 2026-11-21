@@ -1,5 +1,4 @@
-"""Tests for Run...'s Browse buttons and Cancel (what it checks is in
-``test_install``)."""
+"""Tests for the Run dialog's Browse and Cancel."""
 
 import os
 import tempfile
@@ -16,8 +15,10 @@ from dasha.widgets import Button
 
 
 class Picking(PresentationManager):
-    """Answers each file dialog with the next of ``answers`` (a path, or
-    ``None`` for Cancel), noting where each one started."""
+    """Answers file dialogs from a list.
+
+    :param answers: Paths, or ``None`` for Cancel.
+    """
 
     def __init__(self, answers: list[str | None]) -> None:
         super().__init__()
@@ -47,14 +48,17 @@ class BrowseTests(unittest.TestCase):
         self.script.write_text("", encoding="utf-8")
 
     def press(self, dialog: RunDialog, name: str) -> None:
-        """Press one of the dialog's buttons."""
+        """Press a dialog button.
+
+        :param dialog: The dialog.
+        :param name: Button name.
+        """
         button = dialog.widget(name)
         assert isinstance(button, Button)
         button.activate()
 
     def test_browse_for_a_script(self) -> None:
-        """The script chosen goes in the Program box; the file dialog starts
-        in the folder of the script already there."""
+        """Browse for a script."""
         dialog = RunDialog(program=str(self.script))
         manager = Picking([str(self.root / "other.py")])
         dialog.manager = manager
@@ -73,8 +77,7 @@ class BrowseTests(unittest.TestCase):
         self.assertEqual(manager.started_in, [str(self.root)])
 
     def test_cancelled_browsing_changes_nothing(self) -> None:
-        """Cancel in the file dialog leaves the boxes as they were; a module
-        in the box starts it in the current folder."""
+        """Cancelled browsing changes nothing."""
         dialog = RunDialog(program="pkg.mod:App")
         manager = Picking([None, None])
         dialog.manager = manager
@@ -119,8 +122,10 @@ class Other(dasha.application.Application):
 
 
 def make_venv(folder: Path) -> Path:
-    """A folder that looks like a virtual environment: a pyvenv.cfg, and a
-    Python where one would be."""
+    """A folder that looks like a virtual environment.
+
+    :param folder: The folder.
+    """
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "pyvenv.cfg").write_text("home = /usr/bin\n", encoding="utf-8")
     python = venv_python(folder)
@@ -144,9 +149,7 @@ class FindingTests(Script):
     """What a script is found to hold, and what is beside it."""
 
     def test_applications_first(self) -> None:
-        """Applications (a subclass of one, and one named through a module,
-        too) before the other classes, each in the order written; the first
-        application is the likely one."""
+        """Applications first."""
         self.assertEqual(
             find_classes(self.script), ["Notepad", "Big", "Other", "Helper"]
         )
@@ -170,8 +173,7 @@ class FindingTests(Script):
         self.assertEqual(find_classes(self.root / "missing.py"), [])
 
     def test_a_venv_beside_it(self) -> None:
-        """Its folder, if it is one, or a .venv (venv, env) in it; one with
-        no Python does not count."""
+        """A venv beside it."""
         self.assertIsNone(find_venv(self.script))
         (self.root / "venv").mkdir()
         (self.root / "venv" / "pyvenv.cfg").write_text("", encoding="utf-8")
@@ -182,9 +184,7 @@ class FindingTests(Script):
         self.assertEqual(find_venv(self.script), self.root)
 
     def test_a_venv_one_folder_up(self) -> None:
-        """A project keeping its code in src, its venv in its root: found
-        from src; one beside the script still comes first, and two folders
-        up is too far."""
+        """A venv one folder up."""
         src = self.root / "project" / "src"
         src.mkdir(parents=True)
         script = src / "app.py"
@@ -219,8 +219,7 @@ class FillingInTests(Script):
         self.assertEqual(dialog.entry.venv, str((self.root / ".venv").resolve()))
 
     def test_typed_in(self) -> None:
-        """Typing the program finds them as it goes; what the user typed in
-        a field stays, and guesses follow another script."""
+        """Typed in."""
         dialog = RunDialog()
         for char in str(self.script):
             dialog.program.handle_key(char, Shortcuts())
@@ -234,8 +233,7 @@ class FillingInTests(Script):
         self.assertEqual(dialog.class_box.suggestions, ["Clock"])
 
     def test_a_module_after_a_script(self) -> None:
-        """The script's guesses go when the program is no longer a script,
-        so a module does not run with the script's class."""
+        """A module after a script."""
         make_venv(self.root / ".venv")
         dialog = RunDialog(program=str(self.script))
         dialog.program.text = "pkg.mod"
@@ -243,8 +241,7 @@ class FillingInTests(Script):
         self.assertEqual((dialog.class_box.text, dialog.venv.text), ("", ""))
 
     def test_the_options_open_and_close(self) -> None:
-        """Closed to start with; open, the dialog is taller by the options,
-        and shrinks back when they close."""
+        """The options open and close."""
         dialog = RunDialog(program=str(self.script))
         self.assertFalse(dialog.options.expanded)
         self.assertFalse(dialog.class_box.is_shown)

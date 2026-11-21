@@ -1,16 +1,4 @@
-"""Ending an application's process reliably, together with any processes it
-started, however the desktop itself ends.
-
-On Windows, each application is placed in a job object of its own, set to
-end everything in it when the job is closed. ``kill`` ends the whole job,
-and if the desktop dies without tidying up, Windows closes the job, which
-ends its applications too. (On Windows, a virtual environment's
-``python.exe`` starts the real Python as a child process, so ending only
-the first process would not be enough.) On other systems, each application
-leads a process group of its own (``start_new_session``), and ``kill`` ends
-the group; each application also watches for its desktop going away
-(``watch_parent``).
-"""
+"""Ending application process trees reliably."""
 
 import ctypes
 import os
@@ -104,8 +92,11 @@ def _kernel32() -> Any:
 
 
 class ProcessTree:
-    """An application's process and any processes it starts, which are ended
-    together."""
+    """A process and its descendants, ended together.
+
+    :param process: The process.
+    :param job: Its Windows job handle, if any.
+    """
 
     def __init__(
         self, process: "subprocess.Popen[bytes]", job: int | None = None
@@ -115,10 +106,11 @@ class ProcessTree:
 
     @classmethod
     def start(cls, command: list[str], **options: Any) -> "ProcessTree":
-        """Start a process, given ``subprocess.Popen`` arguments. On Windows,
-        it starts suspended, joins its job, and only then runs, so that
-        nothing it starts can escape the job. On other systems, it leads a
-        new process group."""
+        """Start a process tree.
+
+        :param command: The command.
+        :param options: ``subprocess.Popen`` arguments.
+        """
         # if/else (not an early return) lets mypy skip the other platform's branch.
         if sys.platform != "win32":  # pylint: disable=no-else-return
             options["start_new_session"] = True
@@ -131,8 +123,11 @@ class ProcessTree:
     def _start_in_job(
         cls, command: list[str], options: dict[str, Any]
     ) -> "ProcessTree":
-        """Windows: start the process suspended, put it in a job of its own,
-        then let it run."""
+        """Start a process in a Windows job.
+
+        :param command: The command.
+        :param options: ``subprocess.Popen`` arguments.
+        """
         flags = int(options.pop("creationflags", 0))
         process = subprocess.Popen(  # pylint: disable=consider-using-with
             command, creationflags=flags | _CREATE_SUSPENDED, **options
@@ -149,8 +144,10 @@ class ProcessTree:
 
     @staticmethod
     def _make_job(process: "subprocess.Popen[bytes]") -> int | None:
-        """A job that holds the process, and ends everything in it when it
-        is closed; ``None`` if Windows will not make one."""
+        """A Windows job holding a process, or ``None``.
+
+        :param process: The process.
+        """
         try:
             kernel32 = _kernel32()
             job = kernel32.CreateJobObjectW(None, None)
@@ -193,8 +190,10 @@ class ProcessTree:
             pass
 
     def _wait_for_job(self, seconds: float) -> None:
-        """Wait (a little) until nothing in the job is running, so ended
-        means ended: files let go of, and so on."""
+        """Wait for the job to empty.
+
+        :param seconds: Most seconds to wait.
+        """
         kernel32 = _kernel32()
         accounting = _Accounting()
         deadline = time.monotonic() + seconds
@@ -214,20 +213,18 @@ class ProcessTree:
 
 
 DESKTOP_PID_VARIABLE = "DASHA_DESKTOP_PID"
-"""The environment variable that gives an application its desktop's
-process id, so that it can tell if the desktop ended before it started
-watching."""
+"""Environment variable holding the desktop's process id."""
 
 
 _SZOMB = 5
-"""``p_stat`` of a macOS process that has ended but is waiting to be
-reaped."""
+"""macOS zombie process state."""
 
 
 def _macos_running(pid: int) -> bool | None:
-    """On macOS, whether a process is running, from its ``kinfo_proc``
-    (``sysctl`` with ``KERN_PROC_PID``, as ``ps`` reads it): ``False`` if
-    it is gone or a zombie, and ``None`` if it cannot be told."""
+    """Whether a macOS process runs, or ``None`` if unknown.
+
+    :param pid: Process id.
+    """
     sysctl = ctypes.CDLL(None, use_errno=True).sysctl
     sysctl.argtypes = [
         ctypes.POINTER(ctypes.c_int),
@@ -251,8 +248,10 @@ def _macos_running(pid: int) -> bool | None:
 
 
 def is_alive(pid: int) -> bool:
-    """Whether a process is running (neither ended, nor merely waiting to
-    be reaped). Not available on Windows."""
+    """Whether a process is running.
+
+    :param pid: Process id.
+    """
     try:
         state = Path(f"/proc/{pid}/stat").read_text("ascii").rsplit(")", 1)[1].split()
         return state[0] not in ("Z", "X")
@@ -272,13 +271,11 @@ def is_alive(pid: int) -> bool:
 
 
 def watch_parent(parent: int | None = None, interval: float = 1.0) -> None:
-    """End this process once ``parent`` (the desktop; by default, the
-    process that started this one) has gone, because a hung application
-    could not notice for itself that its desktop had gone. Ends immediately
-    if the parent has already gone. It watches that process itself rather
-    than this process's parent, because in a one-file build of dasha there is
-    a launcher process between the two. (On Windows, applications end with
-    their desktop's job instead.)"""
+    """Exit once the desktop process has gone.
+
+    :param parent: Desktop process id, or ``None`` for the parent.
+    :param interval: Seconds between checks.
+    """
     if os.name == "nt":
         return
     if parent is None:

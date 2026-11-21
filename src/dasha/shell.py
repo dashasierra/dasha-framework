@@ -1,24 +1,4 @@
-"""The command prompt: the user's own shell, run while the desktop waits.
-
-The desktop gives the terminal back (``Terminal.suspended``), so the user's
-own screen returns, and runs their shell there in the foreground
-(``run_shell``) until they type ``exit``; then it takes the terminal again
-and draws everything afresh. Applications carry on in their own processes
-meanwhile, their messages waiting for the desktop.
-
-Keys such as Ctrl+C typed at the shell are signals sent to every process in
-the terminal's foreground group (on Windows, to every process attached to
-the console), which includes the desktop. While the shell runs, the desktop
-catches them and does nothing (``_quiet_signals``), rather than ending or
-stopping. They are caught, not ignored, because a signal ignored is ignored
-by a child too, which would leave Ctrl+C dead in the shell; one caught goes
-back to doing what it normally does in a child.
-
-A shell with job control (bash, say) makes its own process group the
-terminal's foreground group, and gives it back when it exits; should it not
-have, the desktop takes it back (``_take_back_terminal``), or it would be
-stopped as soon as it set the terminal up again.
-"""
+"""The command prompt: the user's shell while the desktop waits."""
 
 import os
 import signal
@@ -30,15 +10,13 @@ from contextlib import contextmanager
 from typing import Any, TextIO
 
 SUSPENDED_VARIABLE = "DASHA_SUSPENDED"
-"""Set in the shell's environment, so that a desktop is not started inside
-the command prompt of another."""
+"""Environment variable marking the command prompt."""
 
 _QUIET_SIGNALS = ("SIGINT", "SIGQUIT", "SIGTSTP", "SIGBREAK")
 
 
 def shell_command() -> list[str]:
-    """The user's shell: ``COMSPEC`` on Windows, and ``SHELL`` elsewhere,
-    falling back to ``cmd.exe`` and ``/bin/sh``."""
+    """The user's shell command."""
     # if/else (not an early return) lets mypy skip the other platform's branch.
     if sys.platform == "win32":  # pylint: disable=no-else-return
         return [os.environ.get("COMSPEC") or "cmd.exe"]
@@ -52,10 +30,12 @@ def run_shell(
     *,
     name: str = "Dasha Desktop",
 ) -> int:
-    """Run ``command`` (the user's shell, by default) in the foreground, on
-    the terminal as it is, after saying how to come back to ``name`` (what
-    the user knows the program as: ``PresentationManager.program_name``);
-    returns its exit code. Raises ``OSError`` if it cannot be started."""
+    """Run the shell in the foreground; return its exit code.
+
+    :param command: Command to run, or ``None`` for the shell.
+    :param stream: Where to print the note, or ``None`` for standard output.
+    :param name: The program's name.
+    """
     stream = stream if stream is not None else sys.stdout
     stream.write(f"\n{name} is still running. Type exit to return to it.\n\n")
     stream.flush()
@@ -76,8 +56,7 @@ def _do_nothing(number: int, frame: object) -> None:
 
 @contextmanager
 def _quiet_signals() -> Iterator[None]:
-    """While held, catch the signals that keys typed at the shell send, and
-    do nothing with them (see the module's description)."""
+    """Catch and ignore terminal signals while held."""
     caught: dict[int, Any] = {}
     if threading.current_thread() is threading.main_thread():
         for name in _QUIET_SIGNALS:
@@ -95,9 +74,7 @@ def _quiet_signals() -> Iterator[None]:
 
 
 def _take_back_terminal() -> None:
-    """Make the desktop's process group the terminal's foreground group
-    again, if the shell left it with another (see the module's
-    description)."""
+    """Take back the terminal's foreground group."""
     if sys.platform != "win32":
         try:
             terminal = sys.stdin.fileno()

@@ -1,20 +1,4 @@
-"""Write the tutorial's steps 4 to 9 from the finished Notepad.
-
-The finished application, ``apps/notepad.py``, is the tutorial's last step.
-Each step before it is that step's successor with one feature taken away,
-so the steps can never drift from the real application: change Notepad,
-run this again (from the repository's root), and the steps follow::
-
-    python docs/tutorial/make_steps.py
-
-A change that one of these edits no longer fits stops it with an error
-naming the step, so the tutorial is updated by hand there. Steps 1 to 3,
-written before the application has a window class, are kept by hand.
-``tests/test_tutorial.py`` checks that the steps are up to date.
-
-It needs black (the ``dev`` extra), which lays each step out exactly as the
-rest of the code is.
-"""
+"""Write the tutorial's steps 4 to 9 from the finished Notepad."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -34,7 +18,10 @@ class Between:
     end: str
 
     def find(self, text: str) -> str:
-        """This stretch of ``text``."""
+        """This stretch of some text.
+
+        :param text: The text.
+        """
         first = text.index(self.start)
         return text[first : text.index(self.end, first)]
 
@@ -138,6 +125,11 @@ STEPS: dict[int, tuple[str, list[Edit]]] = {
             ("from dasha.dialog import information\n", ""),
             ("from dasha.filedialog import FileDialog\n", ""),
             (Between("FILTERS = [", "class NotepadWindow"), ""),
+            (
+                "    :param path: The file, if any.\n"
+                "    :param text: The file's text.\n",
+                "",
+            ),
             ('        path: str | None = None,\n        text: str = "",\n', ""),
             (
                 Between("        self.path = path\n", "        self.area = self.add("),
@@ -146,6 +138,11 @@ STEPS: dict[int, tuple[str, list[Edit]]] = {
             ("                text=text,\n", ""),
             (Between("    @property\n    def file_name", "\n\nclass WindowAction"), ""),
             ("        self._show_title()\n", ""),
+            (
+                '    """Edit plain text files, each in its own window.\n\n'
+                '    :param paths: Files to open at start.\n    """\n',
+                '    """Edit plain text files, each in its own window."""\n',
+            ),
             (Between("    def __init__(self, paths", "    def start(self)"), ""),
             (
                 "        for path in self.paths:\n"
@@ -156,8 +153,10 @@ STEPS: dict[int, tuple[str, list[Edit]]] = {
             ),
             (
                 '    def new(self, path: str | None = None, text: str = "") -> '
-                'NotepadWindow:\n        """Open a window for a new file (or for a '
-                'file\'s text)."""\n        window = NotepadWindow(notepad=self, '
+                'NotepadWindow:\n        """Open a window for a new file.\n\n'
+                "        :param path: The file, if any.\n"
+                '        :param text: Initial text.\n        """\n'
+                "        window = NotepadWindow(notepad=self, "
                 "rect=self._place(), path=path, text=text)\n",
                 '    def new(self) -> NotepadWindow:\n        """Open a window for a '
                 'new file."""\n        window = NotepadWindow(notepad=self, '
@@ -178,7 +177,7 @@ STEPS: dict[int, tuple[str, list[Edit]]] = {
         ],
     ),
 }
-"""Each step's title (what it adds), and the edits that take it away."""
+"""Each step's title and the edits that take it away."""
 
 
 def steps() -> dict[int, str]:

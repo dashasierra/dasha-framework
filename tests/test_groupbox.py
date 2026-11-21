@@ -12,7 +12,7 @@ from dasha.window import Window
 
 
 class GroupBoxTests(unittest.TestCase):
-    """A group box of a check box and a text box, in a window."""
+    """A group box in a window."""
 
     def setUp(self) -> None:
         self.window = Window("W", Rect(0, 0, 10, 40))
@@ -53,16 +53,14 @@ class GroupBoxTests(unittest.TestCase):
         self.assertEqual((self.check.rect.row, self.check.rect.column), (2, 3))
 
     def test_the_letter_focuses_the_first_widget(self) -> None:
-        """Alt+O goes to the group's first widget that takes the focus; the
-        group box never takes it itself."""
+        """The letter focuses the first widget."""
         self.window.focus(self.outside)
         self.window.handle_key("alt+o", Shortcuts())
         self.assertIs(self.window.focused, self.check)
         self.assertFalse(self.group.can_focus())
 
     def test_in_a_dialog_the_letter_alone(self) -> None:
-        """In a dialog, O alone does it, as for buttons (with the focus on
-        a button: in a text box, O is typed)."""
+        """In a dialog, the letter alone."""
         dialog = Dialog("D", 30, 8)
         group = dialog.add(GroupBox("&Options", 0, 1, 24, 4))
         dialog.add(Button("&Cancel", 5, 1))

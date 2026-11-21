@@ -1,6 +1,4 @@
-"""Tests for how long the desktop waits after a lone ESC for the rest of a
-key: 100 ms unless ``escape_timeout`` in ``settings.toml`` (or Settings...)
-says otherwise, so a key arriving slowly over SSH is not taken as Escape."""
+"""Tests for the wait after a lone ESC."""
 
 import unittest
 
@@ -22,8 +20,7 @@ class SettingTests(unittest.TestCase):
         self.path = isolated_home(self) / "settings.toml"
 
     def test_read_and_saved(self) -> None:
-        """100 ms unless the file says otherwise; the default is never
-        written."""
+        """The setting is read and saved."""
         self.assertEqual(read_escape_timeout_setting(self.path), ESCAPE_TIMEOUT)
         self.assertEqual(ESCAPE_TIMEOUT, 100)
         save_escape_timeout_setting(250, self.path)

@@ -1,6 +1,4 @@
-"""Tests for changing theme while Dasha Framework runs: the built-in themes and
-those in the themes folder, the system menu's Themes, applications asking
-for one, remembering the choice, and starting with it."""
+"""Tests for changing theme while running."""
 
 import json
 import os
@@ -45,7 +43,11 @@ class Folder(ThemeIsolation):
         self.settings = self.root / "settings.toml"
 
     def write(self, name: str, data: object) -> Path:
-        """A theme file in the folder."""
+        """Write a theme file in the folder.
+
+        :param name: File name.
+        :param data: Its JSON contents.
+        """
         path = self.folder / f"{name}.json"
         path.write_text(json.dumps(data), encoding="utf-8")
         return path
@@ -64,8 +66,7 @@ class ThemeFilesTests(Folder):
     """Finding themes: built in, in the folder, or at a path."""
 
     def test_names(self) -> None:
-        """The built-in ones first, then the folder's; a file named after a
-        built-in one is left out."""
+        """Theme names."""
         self.write("default", {})
         self.write("aaa", {})
         self.assertEqual(
@@ -75,8 +76,7 @@ class ThemeFilesTests(Folder):
         self.assertEqual(theme.theme_names(self.root / "none"), list(theme.BASES))
 
     def test_loading(self) -> None:
-        """By built-in name, by file name, or by path; a file can start from
-        the dark theme."""
+        """Loading themes."""
         self.assertEqual(theme.load_named_theme("dark", self.folder), theme.DARK_THEME)
         ocean = theme.load_named_theme("ocean", self.folder)
         self.assertEqual(ocean["window.body"].background, 4)  # type: ignore[union-attr]
@@ -122,8 +122,7 @@ class SwitchingTests(Folder):
         self.assertEqual(manager.theme_name, "default")
 
     def test_copies_of_styles_follow(self) -> None:
-        """A remote dialog's frame, and a context menu's body, which keep
-        copies of styles, take the new ones too."""
+        """Copies of styles follow."""
         manager = self.desktop()
         server = AppServer(manager)
         self.addCleanup(server.stop_all, 0)
@@ -143,8 +142,7 @@ class SwitchingTests(Folder):
         self.assertEqual(popup.body_style, theme.DARK_THEME["menu.bar"])
 
     def test_from_an_application(self) -> None:
-        """An application on its own changes its desktop's theme; one not
-        launched yet cannot."""
+        """From an application."""
         manager = self.desktop()
         app = manager.launch(Hello)
         self.assertTrue(app.set_theme("dark"))
@@ -152,8 +150,7 @@ class SwitchingTests(Folder):
         self.assertFalse(Hello().set_theme("dark"))
 
     def test_remembered_only_when_asked(self) -> None:
-        """A desktop remembers it; an application on its own, or a test,
-        does not, unless told to."""
+        """Remembered only when asked."""
         manager = self.desktop()
         manager.set_theme("dark")
         self.assertFalse(self.settings.exists())
@@ -168,15 +165,17 @@ class MenuTests(Folder):
     """The system menu's Themes."""
 
     def themes(self, manager: PresentationManager) -> Menu:
-        """The Themes submenu, as it is when opened."""
+        """The Themes submenu, as opened.
+
+        :param manager: The desktop.
+        """
         item = next(i for i in manager.system_menu.items if i.label == "&Themes")
         assert item.submenu is not None and item.submenu.on_open is not None
         item.submenu.on_open(item.submenu)
         return item.submenu
 
     def test_lists_and_marks(self) -> None:
-        """Every theme, the one in use marked; a file added since shows next
-        time it opens."""
+        """Lists and marks."""
         manager = self.desktop()
         labels = [item.label for item in self.themes(manager).items]
         self.assertEqual(
@@ -201,9 +200,7 @@ class MenuTests(Folder):
         self.assertIn("\N{SQUARE ROOT} D&ark", [i.label for i in menu.items])
 
     def test_each_has_a_letter_of_its_own(self) -> None:
-        """Default and Dark do not share D: Dark has A, and no two items
-        share a letter, with the colours file and a theme file named after
-        a letter there too."""
+        """Each has a letter of its own."""
         manager = self.desktop()
         assert manager.colours_path is not None
         manager.colours_path.write_text(json.dumps(OCEAN), encoding="utf-8")
@@ -214,8 +211,7 @@ class MenuTests(Folder):
         self.assertEqual(menu.items[3].label, "  &&a")
 
     def test_the_colours_file(self) -> None:
-        """Offered while there is one: choosing it uses it, and forgets the
-        remembered theme, so the desktop starts with it again."""
+        """The colours file."""
         manager = self.desktop()
         manager.remember_theme = True
         self.assertNotIn(
@@ -263,7 +259,7 @@ class ApplicationsTests(Folder):
 
 
 class NoColourTests(Folder):
-    """With NO_COLOR set, the theme is held at Monochrome until it is not."""
+    """With ``NO_COLOR`` set."""
 
     def setUp(self) -> None:
         super().setUp()
@@ -280,8 +276,7 @@ class NoColourTests(Folder):
         return next(i for i in self.manager.system_menu.items if i.label == "&Themes")
 
     def test_it_starts_and_stays_monochrome(self) -> None:
-        """No other theme can be set, by name or by path, and none is
-        remembered; the theme chosen before stays in the settings."""
+        """It starts and stays monochrome."""
         manager = self.manager
         self.assertTrue(manager.colours_locked)
         self.assertEqual(manager.theme_name, "monochrome")
@@ -293,8 +288,7 @@ class NoColourTests(Folder):
         self.assertEqual(read_theme_setting(self.settings), "ocean")
 
     def test_nor_any_colours_put_on_the_screen(self) -> None:
-        """``use_theme``, as Settings... and the colours file use, gives the
-        Monochrome theme whatever it is given."""
+        """No colours put on the screen."""
         self.manager.use_theme(theme.DARK_THEME, "dark")
         self.assertEqual(theme.current_theme(), theme.MONOCHROME_THEME)
         self.assertEqual(self.manager.theme_name, "monochrome")
@@ -306,7 +300,7 @@ class NoColourTests(Folder):
             self.assertTrue(self.themes_item().is_available)
 
     def test_an_application_cannot_change_it(self) -> None:
-        """Not one running on the desktop, in a process of its own, either."""
+        """An application cannot change it."""
         app = self.manager.launch(Hello)
         self.assertFalse(app.set_theme("dark"))
         server = AppServer(self.manager)
@@ -333,8 +327,7 @@ class NoColourTests(Folder):
             self.assertTrue(SettingsDialog(self.manager).tabs.is_enabled(0))
 
     def test_monochrome_alone_holds_nothing(self) -> None:
-        """Without NO_COLOR, choosing Monochrome (as --monochrome does)
-        leaves the other themes there to choose."""
+        """Monochrome alone holds nothing."""
         with mock.patch.dict(os.environ, {"NO_COLOR": ""}):
             self.assertTrue(self.manager.set_theme("monochrome"))
             self.assertFalse(self.manager.colours_locked)
@@ -354,7 +347,7 @@ class ClientTests(ThemeIsolation):
         self.manager.launch(Hello)
 
     def test_asks_the_desktop(self) -> None:
-        """By name as given; a path, made whole for the desktop to find."""
+        """Asks the desktop."""
         self.assertEqual(self.manager.theme_name, "dark")
         self.manager.set_theme("ocean")
         self.manager.set_theme(Path("themes/ocean.json"))
@@ -387,7 +380,7 @@ class SettingsTests(Folder):
         self.assertEqual(registry.read_autostart(self.settings), ["notepad"])
 
     def test_not_a_name(self) -> None:
-        """A theme that is not a name is a problem in the file."""
+        """Not a name."""
         self.settings.write_text("theme = 3\n", encoding="utf-8")
         with self.assertRaises(registry.ManifestError):
             read_theme_setting(self.settings)
@@ -397,8 +390,10 @@ class StartingTests(Folder):
     """Starting with the theme chosen last."""
 
     def run_main(self, *args: str) -> tuple[int, str, str]:
-        """Run main with the folder and settings, returning the exit code,
-        stdout and stderr."""
+        """Run main; return exit code, stdout and stderr.
+
+        :param args: Command-line arguments.
+        """
         out, err = StringIO(), StringIO()
         with (
             mock.patch.object(registry, "SETTINGS_PATH", self.settings),
@@ -422,8 +417,7 @@ class StartingTests(Folder):
         self.assertEqual(theme.current_theme(), theme.MONOCHROME_THEME)
 
     def test_no_colour_comes_before_the_remembered_theme(self) -> None:
-        """With NO_COLOR set, the Monochrome theme, not the one chosen last,
-        which stays in the settings for later."""
+        """``NO_COLOR`` comes before the remembered theme."""
         save_theme_setting("ocean", self.settings)
         with mock.patch.dict(os.environ, {"NO_COLOR": "1"}):
             self.run_main("--key-test")
@@ -431,8 +425,7 @@ class StartingTests(Folder):
         self.assertEqual(read_theme_setting(self.settings), "ocean")
 
     def test_no_colour_comes_before_any_colours_file(self) -> None:
-        """With NO_COLOR set, a colours file naming a base, given with
-        --colours or not, still gives the Monochrome theme."""
+        """``NO_COLOR`` comes before any colours file."""
         mine = self.root / "mine.json"
         mine.write_text('{"base": "dark"}', encoding="utf-8")
         (self.root / "colours.json").write_text('{"base": "dark"}', encoding="utf-8")
@@ -451,7 +444,7 @@ class StartingTests(Folder):
         self.assertIn("Themes", err)
 
     def test_init_theme(self) -> None:
-        """Writes a theme file to edit, by a name fit for a file."""
+        """``--init-theme``."""
         code, out, _ = self.run_main("--init-theme", "Deep Sea")
         self.assertEqual(code, 0)
         self.assertIn("deep-sea", out)

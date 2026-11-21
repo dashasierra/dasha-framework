@@ -42,9 +42,7 @@ class DecodeTests(unittest.TestCase):
         )
 
     def test_escape_prefixed_alt_keys(self) -> None:
-        """ESC before a key's whole sequence (PuTTY, rxvt, the Linux console)
-        is Alt with that function key, other modifiers kept in order. Other
-        keys stay Escape and the key, in case both were pressed."""
+        """ESC-prefixed Alt with function keys."""
         self.assertEqual(
             decode("\x1b\x1bOR\x1b\x1b[13~\x1b\x1b[1;2R\x1b\x1b[24~"),
             ["alt+f3", "alt+f3", "shift+alt+f3", "alt+f12"],
@@ -52,8 +50,7 @@ class DecodeTests(unittest.TestCase):
         self.assertEqual(decode("\x1b\x1b[A"), ["escape", "up"])
 
     def test_escape_then_other_things(self) -> None:
-        """Escape followed by Escape, a letter, a click or a paste stays
-        Escape followed by that."""
+        """Escape followed by other input."""
         self.assertEqual(decode("\x1b\x1b"), ["escape", "escape"])
         self.assertEqual(decode("\x1b\x1bx"), ["escape", "alt+x"])
         events = decode("\x1b\x1b[<0;2;3M\x1b\x1b[200~hi\x1b[201~")
@@ -68,9 +65,7 @@ class DecodeTests(unittest.TestCase):
         self.assertEqual(decoder.feed("13~"), ["alt+f3"])
 
     def test_a_long_paste_in_pieces(self) -> None:
-        """A long paste arriving a little at a time is one paste, whatever
-        the pieces, even with its end marker split between two of them; and
-        the decoder holds only the last few characters of it as it goes."""
+        """A long paste in pieces."""
         text = "line\n" * 2000
         data = PASTE_START + text + PASTE_END + "x"
         # pylint: disable=protected-access
@@ -85,8 +80,7 @@ class DecodeTests(unittest.TestCase):
                 self.assertFalse(decoder.is_pending)
 
     def test_split_just_after_the_second_escape(self) -> None:
-        """Cut off right after the second ESC (a slow link), it waits for
-        the rest rather than deciding at once that it was Escape."""
+        """A split just after the second ESC."""
         decoder = InputDecoder()
         self.assertEqual(decoder.feed("\x1b\x1b"), [])
         self.assertTrue(decoder.is_pending)
@@ -127,7 +121,7 @@ class MouseTests(unittest.TestCase):
         )
 
     def test_drag_move_and_scroll(self) -> None:
-        """Motion with a button is a drag; 64 and 65 are the wheel."""
+        """Drags, moves and the wheel."""
         self.assertEqual(
             decode("\x1b[<32;5;5M\x1b[<35;6;6M\x1b[<64;1;1M\x1b[<65;1;1M"),
             [
@@ -169,7 +163,7 @@ class StreamingTests(unittest.TestCase):
         self.assertFalse(decoder.is_pending)
 
     def test_escape_then_sequence_start(self) -> None:
-        """ESC ESC [ A is Escape followed by the up arrow, not lost input."""
+        """ESC ESC [ A is Escape then Up."""
         self.assertEqual(decode("\x1b\x1b[A"), ["escape", "up"])
 
     def test_runaway_sequence_is_not_held_forever(self) -> None:
@@ -184,14 +178,20 @@ START, END = "\x1b[200~", "\x1b[201~"
 
 
 class FakeReader:  # pylint: disable=too-few-public-methods
-    """Scripted reads, recording each timeout; ``""`` is a timeout."""
+    """Scripted reads, recording each timeout.
+
+    :param inputs: Reads; ``""`` is a timeout.
+    """
 
     def __init__(self, inputs: list[str]) -> None:
         self.inputs = inputs
         self.timeouts: list[float | None] = []
 
     def read(self, timeout: float | None = None) -> str:
-        """Return the next scripted input."""
+        """The next scripted input.
+
+        :param timeout: Recorded.
+        """
         self.timeouts.append(timeout)
         return self.inputs.pop(0)
 
@@ -200,21 +200,19 @@ class PasteTests(unittest.TestCase):
     """Bracketed paste: ESC[200~ ... ESC[201~ becomes one PasteEvent."""
 
     def test_paste_is_one_event(self) -> None:
-        """Everything between the markers is the text, keys around it stay
-        keys."""
+        """A paste is one event."""
         self.assertEqual(
             decode("a" + START + "hello world" + END + "b"),
             ["a", PasteEvent("hello world"), "b"],
         )
 
     def test_control_characters_in_a_paste_are_text(self) -> None:
-        """Line breaks, Ctrl+Q and escape sequences inside a paste are not
-        keys."""
+        """Control characters in a paste are text."""
         text = "1\r2\n\x11\x1b[A\x1b"
         self.assertEqual(decode(START + text + END), [PasteEvent(text)])
 
     def test_empty_paste_and_stray_end(self) -> None:
-        """An empty paste gives no event; an end with no start is ignored."""
+        """Empty pastes and stray ends."""
         self.assertEqual(decode(START + END + "x" + END), ["x"])
 
     def test_split_anywhere(self) -> None:
@@ -246,8 +244,7 @@ class PasteTests(unittest.TestCase):
         self.assertFalse(decoder.is_pending or decoder.is_pasting)
 
     def test_flush_delivers_an_unfinished_paste(self) -> None:
-        """If a paste stops part-way, flush delivers what came; the rest,
-        up to the end marker, is another paste, not typing."""
+        """Flush delivers an unfinished paste."""
         decoder = InputDecoder()
         decoder.feed(START + "12")
         self.assertEqual(decoder.flush(), [PasteEvent("12")])
@@ -257,16 +254,14 @@ class PasteTests(unittest.TestCase):
         self.assertFalse(decoder.is_pasting)
 
     def test_read_events_waits_for_the_rest_of_a_paste(self) -> None:
-        """read_events keeps reading, with paste_timeout, until the paste
-        ends; an escape sequence uses escape_timeout."""
+        """``read_events`` waits for the rest of a paste."""
         reader = FakeReader([START + "12", "34", "5" + END + "\x1b", "[A"])
         events = read_events(reader, InputDecoder(), 0.05)
         self.assertEqual(events, [PasteEvent("12345"), "up"])
         self.assertEqual(reader.timeouts, [None, PASTE_TIMEOUT, PASTE_TIMEOUT, 0.05])
 
     def test_read_events_gives_up_on_a_stalled_paste(self) -> None:
-        """If the rest of a paste does not come in time, what arrived is
-        delivered rather than the screen freezing."""
+        """``read_events`` gives up on a stalled paste."""
         reader = FakeReader([START + "12", ""])
         events = read_events(reader, InputDecoder(), 0.05, paste_timeout=2.0)
         self.assertEqual(events, [PasteEvent("12")])

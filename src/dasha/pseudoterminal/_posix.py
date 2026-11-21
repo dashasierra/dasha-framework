@@ -1,4 +1,4 @@
-"""The POSIX pseudo-terminal (Linux, macOS): ``os.forkpty``."""
+"""The POSIX pseudo-terminal."""
 
 import errno
 import os
@@ -20,9 +20,7 @@ assert sys.platform != "win32"  # lets mypy skip this module on Windows
 
 
 class PosixPty(PseudoTerminal):
-    """A pseudo-terminal on Linux and macOS: ``os.forkpty``, whose child
-    becomes the program, with the pseudo-terminal as its controlling
-    terminal (so that Ctrl+C, job control and resizes work)."""
+    """A pseudo-terminal on Linux and macOS."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -113,8 +111,10 @@ class PosixPty(PseudoTerminal):
             self._killer.start()
 
     def _signal(self, number: int) -> None:
-        """Send a signal to the program and everything in its process
-        group (which it leads)."""
+        """Signal the program's process group.
+
+        :param number: Signal number.
+        """
         if self.pid is None or not self.is_running:
             return
         try:

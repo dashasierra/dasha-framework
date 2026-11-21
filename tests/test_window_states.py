@@ -15,7 +15,11 @@ RESTORE = "[\N{UP DOWN ARROW}]"
 
 
 def press(row: int, column: int) -> MouseEvent:
-    """A left-button press."""
+    """A left-button press.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    """
     return MouseEvent("press", "left", row, column)
 
 
@@ -43,13 +47,7 @@ class TitleButtonTests(unittest.TestCase):
         self.assertEqual(window.title_buttons, [("restore", Rect(1, 55, 1, 3))])
 
     def test_buttons_use_code_page_437(self) -> None:
-        """The button arrows are code page 437 glyphs.
-
-        CP437 draws its low byte values as symbols, ↕ (18), ↑ (24) and ↓ (25)
-        among them, so every CP437 font has these arrows. Python's ``cp437``
-        codec treats those bytes as control codes instead, so they are
-        checked against the glyph table here.
-        """
+        """Button arrows are code page 437 glyphs."""
         low_glyphs = {
             "\N{UP DOWN ARROW}": 18,
             "\N{UPWARDS ARROW}": 24,
@@ -129,9 +127,7 @@ class ManagerStateTests(unittest.TestCase):
         self.assertEqual(self.notes.rect, Rect(2, 2, 6, 30))
 
     def test_dragging_a_maximised_window_restores_it(self) -> None:
-        """Its title bar dragged, it goes back to its size before, the
-        pointer as far along its title bar as before (half way), and moves
-        on from there; a click alone leaves it maximised."""
+        """Dragging a maximised window restores it."""
         self.manager.maximise(self.files)
         self.manager.handle_event(press(1, 40))
         self.manager.handle_event(MouseEvent("release", "left", 1, 40))
@@ -145,8 +141,7 @@ class ManagerStateTests(unittest.TestCase):
         self.assertEqual(self.files.rect, Rect(9, 43 - 16, 6, 30))
 
     def test_resizing_a_maximised_window(self) -> None:
-        """Its grip dragged, it is resized from its maximised size, and is
-        not maximised any more."""
+        """Resizing a maximised window."""
         self.files.resizable = True
         self.manager.maximise(self.files)
         grip = self.files.resize_grip_rect
@@ -159,9 +154,7 @@ class ManagerStateTests(unittest.TestCase):
         self.assertEqual(self.files.rect, Rect(1, 0, 15, 61))
 
     def test_from_the_keyboard(self) -> None:
-        """Alt+F8 and an arrow: resized from its maximised size. Alt+F7 and
-        an arrow: back to its size before, moved from there. Escape, after
-        either, maximises it again as it was."""
+        """From the keyboard."""
         self.files.resizable = True
         self.manager.maximise(self.files)
         for key in ("alt+f8", "left", "up", "enter"):
@@ -182,8 +175,7 @@ class ManagerStateTests(unittest.TestCase):
         self.assertEqual(self.files.rect, Rect(2, 1, 21, 79))
 
     def test_a_minimised_window_brought_to_the_front(self) -> None:
-        """Is restored, in front, as an application asking about its unsaved
-        work at shutdown needs; sent to the back, it stays minimised."""
+        """A minimised window brought to the front."""
         self.manager.minimise(self.notes)
         self.manager.send_to_back(self.notes)
         self.assertEqual(self.manager.minimised, (self.notes,))
@@ -238,7 +230,7 @@ class ManagerStateTests(unittest.TestCase):
         self.assertEqual(self.manager.bar_menus(), [self.manager.system_menu])
 
     def test_restore_from_system_menu(self) -> None:
-        """Choosing a minimised window in the ≡ menu restores it to the front."""
+        """Restore from the system menu."""
         self.manager.minimise(self.files)
         self.manager.handle_event("f10")
         self.manager.handle_event("1")
@@ -294,7 +286,7 @@ class ManagerStateTests(unittest.TestCase):
         )
 
     def test_application_items_are_kept(self) -> None:
-        """Items an application added to the ≡ menu stay put around the list."""
+        """Application items are kept."""
         helper = MenuItem("&Help", print)
         self.manager.system_menu.items.insert(0, helper)
         self.manager.minimise(self.files)
@@ -383,14 +375,17 @@ class TitleBarDoubleClickTests(unittest.TestCase):
         self.manager.handle_resize(40, 20)
 
     def double_click(self, row: int, column: int) -> None:
-        """Two quick presses (and releases) in the same cell."""
+        """A double click in a cell.
+
+        :param row: Screen row.
+        :param column: Screen column.
+        """
         for _ in range(2):
             self.manager.handle_event(press(row, column))
             self.manager.handle_event(MouseEvent("release", "left", row, column))
 
     def test_maximise_and_restore(self) -> None:
-        """Double-clicking the title maximises; again (on the maximised
-        window's title bar, now at the top) restores."""
+        """Maximise and restore."""
         self.manager.double_click_time = 60.0  # however slow the test runs
         self.double_click(3, 12)
         self.assertTrue(self.window.maximised)

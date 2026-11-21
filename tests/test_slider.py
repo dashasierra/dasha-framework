@@ -10,7 +10,12 @@ from dasha.widgets.slider import ACROSS, KNOB, UP_AND_DOWN
 
 
 def press(row: int, column: int, action: str = "press") -> MouseEvent:
-    """A left button event."""
+    """A left button event.
+
+    :param row: Screen row.
+    :param column: Screen column.
+    :param action: Mouse action.
+    """
     return MouseEvent(action=action, button="left", row=row, column=column)
 
 
@@ -24,7 +29,10 @@ class SliderTests(unittest.TestCase):
         )
 
     def keys(self, *names: str) -> None:
-        """Offer keys to the slider."""
+        """Offer keys to the slider.
+
+        :param names: The keys.
+        """
         for name in names:
             self.assertTrue(self.slider.handle_key(name, Shortcuts()), name)
 
@@ -75,8 +83,7 @@ class VerticalSliderTests(unittest.TestCase):
     """Standing up: the maximum at the top."""
 
     def test_drawn_and_clicked(self) -> None:
-        """The minimum's knob at the bottom; a click at the top is the
-        maximum."""
+        """Drawn and clicked vertically."""
         slider = Slider(0, 0, 5, vertical=True)
         canvas = Canvas(1, 5)
         slider.paint(canvas, canvas.bounds, False)

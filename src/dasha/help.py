@@ -1,37 +1,4 @@
-"""Help windows: pages of Markdown to read, with links between them, opened
-with F1 (``help`` among the shortcuts).
-
-An application offers help by saying where its pages are, and a widget or a
-window by naming the page about it::
-
-    class MyApp(Application):
-        help_folder = Path(__file__).parent / "help"
-
-        def start(self) -> None:
-            window = Window(
-                title="Details",
-                rect=Rect(row=2, column=2, height=12, width=50),
-                closable=True,
-            )
-            box = window.add(widget=TextBox(row=1, column=2, width=30))
-            box.help = "user_name"          # help/user_name.md
-            window.help = "details"         # for its other widgets
-            self.open(window=window)
-
-The default page is ``index.md``. F1 goes to the focused widget's topic, or
-that of a container it is in (a tab page, say), or its window's, or else the
-index. An application with no ``help_folder``, or with no pages in it, has no
-help, and F1 does nothing. A topic is the name of a page relative to the
-folder, without ``.md``, and can name a heading too
-(``"guide/editing#saving"``). See ``dasha.markdown`` for how pages are
-shown.
-
-A help window is an ordinary window of the application, in the application's
-own process. Each application has at most one, which stays open beside its
-other windows: F1 brings it forward and goes to the new topic. In a dialog,
-help opens in front of it instead, as a dialog itself (``HelpDialog``), and
-closing it goes back to the dialog as it was.
-"""
+"""Markdown help windows."""
 
 import posixpath
 import re
@@ -81,7 +48,7 @@ if TYPE_CHECKING:
     from dasha.manager import PresentationManager
 
 DESKTOP_PAGES = Path(__file__).parent / "helppages"
-"""The pages of Dasha Framework's own help, about the desktop.
+"""Dasha Framework's desktop help pages.
 
 :meta hide-value:
 """
@@ -107,15 +74,19 @@ _SCHEME = re.compile(r"[a-zA-Z][a-zA-Z0-9+.-]+:")
 
 
 def is_external(target: str) -> bool:
-    """Whether a link goes outside the help, such as to a web address."""
+    """Whether a link leaves the help.
+
+    :param target: The link target.
+    """
     return target.startswith("//") or _SCHEME.match(target) is not None
 
 
 def resolve_link(current: str, target: str) -> tuple[str, str]:
-    """Where a link on the page ``current`` goes, as a topic and the slug of
-    a heading (``""`` for the top of the page). A link is relative to its
-    page's folder, unless it starts with ``/``, and ``#heading`` stays on the
-    page."""
+    """A link's (topic, heading slug).
+
+    :param current: The page linking.
+    :param target: The link target.
+    """
     path, _, anchor = target.partition("#")
     path = unquote(path).replace("\\", "/")
     if not path:
@@ -128,12 +99,19 @@ def resolve_link(current: str, target: str) -> tuple[str, str]:
 
 
 def _escaped(text: str) -> str:
-    """Text to put in Markdown, where it means only itself."""
+    """Text escaped for Markdown.
+
+    :param text: The text.
+    """
     return re.sub(r"([\\`*_\[\]<>&!#|-])", r"\\\1", " ".join(text.split()))
 
 
 def _page_link(topic: str, slug: str = "") -> str:
-    """What a page made here links to a topic with."""
+    """A link target for a topic.
+
+    :param topic: The topic.
+    :param slug: Heading slug.
+    """
     return "/" + quote(topic) + ".md" + (f"#{slug}" if slug else "")
 
 
@@ -145,7 +123,7 @@ class SearchResult:
     title: str
     """The page's first heading, or its topic if it has none."""
     slug: str
-    """The heading above the first match (``""`` for the top of the page)."""
+    """Heading slug above the first match."""
     context: str
     """The line of the first match."""
     in_title: bool
@@ -155,14 +133,19 @@ class SearchResult:
 
 
 class HelpBook:
-    """A folder of pages of Markdown."""
+    """A folder of Markdown pages.
+
+    :param folder: The folder.
+    """
 
     def __init__(self, folder: str | Path) -> None:
         self.folder = Path(folder)
 
     def _path(self, topic: str) -> Path | None:
-        """The file of a topic, if there is one in the folder. A topic that
-        leads out of the folder (``../secret``) is not one."""
+        """A topic's file, if in the folder.
+
+        :param topic: The topic.
+        """
         try:
             root = self.folder.resolve()
             path = (root / f"{topic}.md").resolve()
@@ -187,8 +170,10 @@ class HelpBook:
         return bool(self.topics())
 
     def read(self, topic: str) -> str | None:
-        """The text of a page, or ``None`` if there is no such page, or it
-        cannot be read."""
+        """A page's text, or ``None``.
+
+        :param topic: The topic.
+        """
         path = self._path(topic)
         if path is None:
             return None
@@ -200,8 +185,10 @@ class HelpBook:
         return data.decode("utf-8-sig", errors="replace")
 
     def page(self, topic: str) -> str:
-        """The text to show for a topic: its page, or else one saying that
-        there is no such topic."""
+        """The text to show for a topic.
+
+        :param topic: The topic.
+        """
         text = self.read(topic)
         if text is not None:
             return text
@@ -209,8 +196,11 @@ class HelpBook:
         return f"# Topic not found\n\nThere is no help on {_escaped(topic)}.{back}\n"
 
     def _searched(self, topic: str, words: list[str]) -> SearchResult | None:
-        """What a page has of the words (all of which must be in it), as a
-        result, or ``None`` if it does not have them all."""
+        """A search result for a page, or ``None``.
+
+        :param topic: The topic.
+        :param words: Words that must all appear.
+        """
         text = self.read(topic)
         if text is None:
             return None
@@ -238,9 +228,10 @@ class HelpBook:
         )
 
     def search(self, query: str) -> list[SearchResult]:
-        """The pages that have all the words of ``query``, in any case: those
-        with one of the words in their title first, and then those with the
-        most matches."""
+        """Pages with every word of a query.
+
+        :param query: The search words.
+        """
         words = query.casefold().split()
         if not words:
             return []
@@ -250,7 +241,10 @@ class HelpBook:
         return results[:MAX_RESULTS]
 
     def results_page(self, query: str) -> str:
-        """A page of links to what a search found."""
+        """A page of search result links.
+
+        :param query: The search words.
+        """
         results = self.search(query)
         said = _escaped(query)
         if not results:
@@ -268,7 +262,7 @@ class HelpBook:
 
 @dataclass
 class _Place:
-    """A page in the history, and how far down it was being read."""
+    """A history entry and its scroll position."""
 
     topic: str
     anchor: str = ""
@@ -280,15 +274,14 @@ class _Place:
 
 # pylint: disable-next=too-many-instance-attributes,too-many-public-methods
 class HelpView(Widget):
-    """Pages of a ``HelpBook`` to read: a row to go back, forward, to the
-    index and to search, then the page, which scrolls by itself. It keeps the
-    history of the pages it has shown.
+    """A scrolling help page viewer with history.
 
-    Tab and Shift+Tab move between the page's links, and Enter follows one.
-    A link to another page goes there. A link outside the help (to a web
-    address, say) is not opened, since the program may be running on another
-    computer, so Enter copies its address to the clipboard instead. The
-    mouse works on the links, the top row and the scroll bar.
+    :param book: The help pages.
+    :param row: Row in the window.
+    :param column: Column in the window.
+    :param width: Width in columns.
+    :param height: Height in rows.
+    :param on_close: Called when closed, if given.
     """
 
     focusable = True
@@ -308,7 +301,7 @@ class HelpView(Widget):
     code_style: Style = Style(foreground=BLACK, background=WHITE)
     """The style of code."""
     link_style: Style = Style(foreground=BLUE, background=CYAN, underline=True)
-    """The style of links, and of the parts of the top row that can be used."""
+    """Style of links and usable top-row parts."""
     focused_link_style: Style = Style(
         foreground=BRIGHT_WHITE, background=BLUE, bold=True
     )
@@ -346,8 +339,7 @@ class HelpView(Widget):
 
     @property
     def topic(self) -> str | None:
-        """The topic being shown (``None`` before the first, and for a page
-        of search results)."""
+        """The topic shown, if any."""
         place = self._place
         return None if place is None or place.query is not None else place.topic
 
@@ -392,9 +384,7 @@ class HelpView(Widget):
 
     @property
     def _text_width(self) -> int:
-        """How wide the page is laid out: within the margins, and clear of
-        the scroll bar, which always has its column so that pages do not
-        change their wrapping as it comes and goes."""
+        """Page layout width."""
         return max(1, self.rect.width - self.MARGIN * 2 - 1)
 
     def min_size(self) -> tuple[int, int]:
@@ -403,9 +393,10 @@ class HelpView(Widget):
     # Going places
 
     def go(self, topic: str) -> None:
-        """Go to a topic, which may name a heading (``"editing#saving"``),
-        adding it to the history. Going to the page and heading already
-        showing only goes back to the top of the heading."""
+        """Go to a topic.
+
+        :param topic: The topic, optionally with ``#heading``.
+        """
         name, _, anchor = topic.partition("#")
         self._visit(_Place(name or INDEX, anchor))
 
@@ -414,8 +405,10 @@ class HelpView(Widget):
         self.go(INDEX)
 
     def search(self, query: str) -> None:
-        """Go to a page of links to the topics that have all the words of
-        ``query``."""
+        """Show search results.
+
+        :param query: The search words.
+        """
         if query.split():
             self._visit(_Place("", query=query.strip()))
 
@@ -473,8 +466,7 @@ class HelpView(Widget):
     # Laying out
 
     def _fit(self) -> None:
-        """Lay the page out, if the width has changed since the last time,
-        keeping about the same part of it showing."""
+        """Relayout the page if the width changed."""
         width = self._text_width
         if width == self._laid_width:
             return
@@ -497,13 +489,18 @@ class HelpView(Widget):
     # Scrolling
 
     def scroll_to(self, first: int) -> None:
-        """Show the page from a line (kept within range)."""
+        """Scroll to a line.
+
+        :param first: First line to show.
+        """
         last = max(0, len(self._document.lines) - self._rows)
         self._first = max(0, min(first, last))
 
     def scroll_by(self, rows: int) -> None:
-        """Scroll by a number of lines (down); a negative number scrolls
-        back."""
+        """Scroll by some lines.
+
+        :param rows: Lines down; negative is up.
+        """
         self.scroll_to(self._first + rows)
 
     def _scrolled(self, scroll_bar: ScrollBar) -> None:
@@ -548,10 +545,10 @@ class HelpView(Widget):
         return link.last_row >= self._first and link.row < self._first + self._rows
 
     def focus_next_link(self, step: int = 1) -> bool:
-        """Highlight the next link (or, with ``step`` -1, the one before),
-        scrolling it into view, and return whether there are any. From a
-        highlighted link that has been scrolled away, or from none, this
-        starts with the links showing."""
+        """Highlight the next link; return whether there are any.
+
+        :param step: 1 for next, -1 for previous.
+        """
         self._fit()
         links = self._document.links
         if not links:
@@ -601,8 +598,7 @@ class HelpView(Widget):
     # Drawing
 
     def nav_items(self) -> list[tuple[str, int, bool, Callable[[], object]]]:
-        """The parts of the top row: each one's text, column, whether it can
-        be used now, and what it does."""
+        """Top row parts: text, column, enabled and action."""
         items = [
             ("\N{BLACK LEFT-POINTING POINTER} Back", self.can_go_back, self.go_back),
             (
@@ -661,7 +657,13 @@ class HelpView(Widget):
             )
 
     def _paint_page(self, canvas: Canvas, row: int, column: int, body: Style) -> None:
-        """The lines of the page that show, from a place on the screen."""
+        """Draw the visible page lines.
+
+        :param canvas: Canvas to draw on.
+        :param row: Screen row.
+        :param column: Screen column.
+        :param body: The window's style.
+        """
         page = Rect(row, column, self._rows, self._text_width)
         lines = self._document.lines[self._first : self._first + self._rows]
         for offset, line in enumerate(lines):
@@ -674,8 +676,10 @@ class HelpView(Widget):
     # Input
 
     def key_help(self, shortcuts: Shortcuts) -> list[tuple[str, str]]:
-        """What can be done now. With a link highlighted, only the keys for
-        it, so that the status bar has room to say where it goes."""
+        """Keys for the status bar.
+
+        :param shortcuts: Key bindings in effect.
+        """
         hints = []
         if self._link is not None:
             hints.append(("help_follow", "Follow"))
@@ -693,9 +697,11 @@ class HelpView(Widget):
         ]
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """Follow and move between links, go back and forward, scroll and
-        close. The help key here goes to the index, as there is no other
-        topic to go to."""
+        """Follow links, navigate, scroll and close.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         page = max(1, self._rows - 1)
         everything = len(self._document.lines)
         actions: dict[str, Callable[[], object]] = {
@@ -725,8 +731,12 @@ class HelpView(Widget):
             self.on_close()
 
     def handle_mouse(self, event: MouseEvent, row: int, column: int) -> bool:
-        """The wheel and the scroll bar scroll, and a press on a link or on
-        the top row does what it says."""
+        """Scroll or follow links with the mouse.
+
+        :param event: The mouse event.
+        :param row: Row in the window's interior.
+        :param column: Column in the window's interior.
+        """
         self._fit()
         self._sync_bar()
         if event.action == "scroll":
@@ -744,7 +754,11 @@ class HelpView(Widget):
         return self.scroll_bar.handle_mouse(event, row, column)
 
     def _press(self, row: int, column: int) -> None:
-        """A press at a place in the view."""
+        """Handle a press.
+
+        :param row: Row in the view.
+        :param column: Column in the view.
+        """
         if row == 0:
             for text, at, usable, action in self.nav_items():
                 if usable and at <= column < at + len(text):
@@ -760,14 +774,21 @@ class HelpView(Widget):
 
 
 def _wear_help_colours(window: Window) -> None:
-    """Give a window of another kind a help window's colours."""
+    """Give a window help colours.
+
+    :param window: The window.
+    """
     for name in WINDOW_STYLES:
         setattr(window, name, getattr(HelpWindow, name))
 
 
 class HelpWindow(Window):
-    """Help in a window of its own, cyan to show that it is for reading
-    rather than for filling in. ``view`` is what it shows."""
+    """Help in its own window.
+
+    :param book: The help pages.
+    :param title: Title text.
+    :param rect: Position and size.
+    """
 
     frame_style: Style = Style(foreground=BRIGHT_WHITE, background=CYAN, bold=True)
     inactive_frame_style: Style = Style(foreground=BLACK, background=CYAN)
@@ -804,8 +825,12 @@ class HelpWindow(Window):
 
 
 class HelpDialog(Dialog):
-    """Help in front of a dialog, for the widgets in it. It is answered by
-    closing it, and has the colours of a help window."""
+    """Help in front of a dialog.
+
+    :param book: The help pages.
+    :param title: Title text.
+    :param rect: Position and size.
+    """
 
     def __init__(self, book: HelpBook, title: str, rect: Rect) -> None:
         super().__init__(title, rect.width, rect.height)
@@ -825,8 +850,7 @@ class HelpDialog(Dialog):
 
 
 class HelpSearchDialog(Dialog):
-    """Asks for the words to search the help for, which are in the widget
-    named ``"words"`` once it has been answered ``"ok"``."""
+    """Asks for help search words."""
 
     def __init__(self) -> None:
         super().__init__(
@@ -839,7 +863,11 @@ class HelpSearchDialog(Dialog):
         self.add(Button("&Cancel", 4, 24, result="cancel", name="cancel"))
 
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        """The help key does nothing here: this is part of help already."""
+        """Ignore the help key.
+
+        :param key: The key pressed.
+        :param shortcuts: Key bindings in effect.
+        """
         return shortcuts.matches("help", key) or super().handle_key(key, shortcuts)
 
     def theme_changed(self) -> None:
@@ -847,9 +875,10 @@ class HelpSearchDialog(Dialog):
 
 
 def help_topic_of(window: Window | None) -> str | None:
-    """The topic for what has the focus in a window: the focused widget's,
-    or else that of the nearest container it is in, or else the window's.
-    ``None`` if none of them names one."""
+    """The focused help topic in a window, or ``None``.
+
+    :param window: The window.
+    """
     if window is None:
         return None
     focused = window.focused
@@ -865,8 +894,10 @@ def help_topic_of(window: Window | None) -> str | None:
 
 
 def help_rect(area: Rect) -> Rect:
-    """Where a help window opens: in the middle of ``area``, and fitting it
-    if it can."""
+    """Where a help window opens.
+
+    :param area: The work area.
+    """
     width = min(HELP_WIDTH, max(HelpWindow.min_width, area.width - 4))
     height = min(HELP_HEIGHT, max(HelpWindow.min_height, area.height - 2))
     return Rect(
@@ -886,11 +917,15 @@ def open_help(  # pylint: disable=too-many-arguments
     window: HelpWindow | None,
     open_window: Callable[[HelpWindow], object],
 ) -> HelpWindow | None:
-    """Show help. With a dialog waiting for an answer, help opens in front of
-    it, and is closed before going back to it; in a drop-down list, nothing
-    happens. Otherwise, ``window`` (the help window that is open, if it still
-    is) comes forward and goes to the topic, or else a new one is given to
-    ``open_window`` to show. Returns the help window that is now open."""
+    """Show help; return the help window.
+
+    :param manager: The presentation manager.
+    :param book: The help pages.
+    :param title: Title text.
+    :param topic: The topic, if any.
+    :param window: The open help window, if any.
+    :param open_window: Shows a new help window.
+    """
     dialog = manager.answering_dialog
     if isinstance(dialog, Popup):
         return window

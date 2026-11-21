@@ -44,8 +44,7 @@ class PackageTests(unittest.TestCase):
 
 
 class ChangelogTests(unittest.TestCase):
-    """CHANGELOG.md has the version, as a release's build checks (in
-    .github/workflows/build.yml), so a pull request finds out first."""
+    """CHANGELOG.md has the version."""
 
     def setUp(self) -> None:
         self.text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
@@ -71,9 +70,7 @@ class SurroundingsTests(unittest.TestCase):
     """The tests themselves, wherever they are run from."""
 
     def test_the_environment_makes_no_difference(self) -> None:
-        """Run with ``NO_COLOR`` set, or from a desktop's command prompt, the
-        tests that would notice still pass (see ``tests/support.py``), and
-        the applications they start still reach their desktop."""
+        """The environment makes no difference."""
         environment = dict(
             os.environ,
             NO_COLOR="1",

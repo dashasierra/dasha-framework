@@ -265,11 +265,40 @@ with a page for each module (`docs/api.rst`; the pages are written into
 from `dasha.theme` and `dasha.shortcuts`
 (`docs/_ext/dasha_tables.py`).
 
-So document a class, function or constant in its docstring rather than in
-the guides. Docstrings are written in reST (``` ``literal`` ```, and `::`
-before an example), and a constant's docstring is a string placed just
-after it. The example applications in `apps/` are not part of the API
-reference.
+Docstrings are kept short, and the guides do the explaining. Each docstring
+says in a few words what a module, class, function or method is or does,
+then gives a `:param name:` line for each argument, also in a few words.
+Leave out examples, keys, edge cases and the reasons behind a design: they
+belong in the guides (`docs/*.md`), the tutorial, or the desktop's help
+pages, where they can be as long as they need to be. A class documents its
+constructor's arguments in the class docstring, since that is what the API
+reference shows. A property, or a constant or attribute, says only what it
+is, and a constant's or attribute's docstring is a string placed just after
+it. For example:
+
+```python
+def press_with_key(self, key: str, held: bool = True) -> None:
+    """Handle Enter or Space.
+
+    :param key: The key pressed.
+    :param held: Whether the button has the focus.
+    """
+```
+
+Docstrings are written in reST (``` ``literal`` ```). The type of each
+argument comes from its type hint, so it is not repeated in the docstring:
+the API reference adds it to every argument that has a `:param:` line
+(`autodoc_typehints_description_target` in `docs/conf.py`). A constant whose
+value is worked out from the user's home folder keeps `:meta hide-value:`,
+so that its value is not shown. The same style applies to the tests, the
+example applications in `apps/` and the documentation's own scripts, though
+the example applications are not part of the API reference.
+
+Notepad's docstrings appear in the tutorial's steps, and
+`docs/tutorial/make_steps.py` finds some of them by their exact text to take
+them out of the earlier steps. After changing a docstring in
+`apps/notepad.py`, run `make_steps.py`; if it stops, update the edit it
+names.
 
 The `docs` extra contains what the build needs (Sphinx, MyST and the Furo
 theme):
@@ -323,9 +352,9 @@ docstring that is not valid reST is caught. Open
   `apps/` at the repository root rather than under `src/`, so that the wheel
   contains only the framework. Dasha Framework's code and tests never import them.
 - **Examples pass arguments by name.** In `apps/`, in the tutorial, and in
-  every example in the documentation (the README, these pages and the
-  docstrings), every call into Dasha Framework, and to the example's own
-  functions and methods, names its arguments
+  every example in the documentation (the README and these pages), every
+  call into Dasha Framework, and to the example's own functions and
+  methods, names its arguments
   (`Label(text="Name:", row=2, column=1)`, not `Label("Name:", 2, 1)`),
   because the examples are how newcomers learn what each argument is.
   Calls to built-in and standard library functions (`len`, `os.path.join`)

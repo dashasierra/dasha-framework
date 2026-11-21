@@ -26,7 +26,10 @@ class FakeConsole:
         self.calls.append("restore")
 
     def read(self, timeout: float | None = None) -> str:
-        """Pretend the user pressed ``q``."""
+        """Pretend ``q`` was pressed.
+
+        :param timeout: Ignored.
+        """
         self.calls.append(f"read({timeout})")
         return "q"
 
@@ -59,7 +62,7 @@ class TerminalTests(unittest.TestCase):
         self.assertEqual(self.console.calls, ["enable", "read(0.5)", "restore"])
 
     def test_scroll_bar_is_saved_hidden_and_restored(self) -> None:
-        """The scroll bar setting is saved and hidden on entry, restored on exit."""
+        """The scroll bar is saved, hidden and restored."""
         with Terminal(self.stream):
             entered = self.stream.getvalue()
             self.assertIn(ansi.HIDE_SCROLLBAR, entered)
@@ -78,8 +81,7 @@ class TerminalTests(unittest.TestCase):
         )
 
     def test_bracketed_paste_is_switched_on_and_off(self) -> None:
-        """Bracketed paste is enabled inside the session and disabled after,
-        before leaving the alternate screen."""
+        """Bracketed paste is switched on and off."""
         with Terminal(self.stream, mouse=False):
             self.assertIn(ansi.ENABLE_BRACKETED_PASTE, self.stream.getvalue())
             self.assertNotIn(ansi.DISABLE_BRACKETED_PASTE, self.stream.getvalue())
@@ -111,8 +113,7 @@ class TerminalTests(unittest.TestCase):
         self.assertEqual(self.console.calls, ["enable", "restore"])
 
     def test_suspended(self) -> None:
-        """Suspended gives the terminal back as leaving does, then takes it
-        again as entering does, onto a cleared alternate screen."""
+        """Suspended."""
         with Terminal(self.stream) as terminal:
             entered = self.stream.getvalue()
             with terminal.suspended():
@@ -146,11 +147,7 @@ class TerminalTests(unittest.TestCase):
         self.assertNotIn(ansi.ENABLE_MOUSE, self.stream.getvalue())
 
     def test_outgrown_screen_is_entered_afresh(self) -> None:
-        """When a resize leaves the console's screen larger than its window
-        (the classic Windows console, restored from maximised), the read
-        leaves the alternate screen, has the console refit the main one,
-        and enters it again, set up as before; the screen is then known to
-        have been cleared, once."""
+        """An outgrown screen is entered afresh."""
         self.console.stream = self.stream
         with Terminal(self.stream) as terminal:
             self.assertFalse(terminal.take_cleared())
@@ -176,8 +173,7 @@ class TerminalTests(unittest.TestCase):
         self.assertEqual(self.console.calls.count("refit"), 1)
 
     def test_outgrown_screen_without_the_mouse(self) -> None:
-        """Entering afresh does not turn on mouse reporting where it was not
-        asked for."""
+        """An outgrown screen without the mouse."""
         with Terminal(self.stream, mouse=False) as terminal:
             self.console.has_outgrown_window = True
             terminal.read()

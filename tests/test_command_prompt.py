@@ -1,7 +1,4 @@
-"""Tests for the command prompt (Command prompt in the system menu, or
-Alt+F12): the desktop gives the terminal back, runs the user's shell, and
-then draws every cell afresh from the windows it holds, never trusting
-what the terminal kept, as the shell's programs may have drawn over it."""
+"""Tests for the command prompt."""
 
 import os
 import unittest
@@ -31,10 +28,12 @@ SCRIBBLE = ansi.CLEAR_SCREEN + ansi.move_to(0, 0) + "Another program was here"
 
 
 class PromptTerminal:
-    """Stands in for Terminal: scripted input (``None`` in the script ends
-    the desktop), captured output, and a ``suspended`` that, once the
-    terminal is given back, draws over the screen as another program on
-    the alternate screen would."""
+    """A terminal stand-in that can be given back.
+
+    :param manager: The desktop.
+    :param inputs: Scripted input; ``None`` ends the desktop.
+    :param size: Screen (columns, lines).
+    """
 
     def __init__(
         self,
@@ -55,14 +54,20 @@ class PromptTerminal:
         return self.screen_size
 
     def write(self, text: str) -> None:
-        """Capture output."""
+        """Capture output.
+
+        :param text: The output.
+        """
         self.output.write(text)
 
     def flush(self) -> None:
         """Nothing to flush."""
 
     def read(self, timeout: float | None = None) -> str:
-        """The next scripted input."""
+        """The next scripted input.
+
+        :param timeout: Ignored.
+        """
         del timeout
         key = self.inputs.pop(0)
         if key is None:
@@ -72,8 +77,7 @@ class PromptTerminal:
 
     @contextmanager
     def suspended(self) -> Iterator[None]:
-        """Give the terminal back, as Terminal does; the screen is cleared
-        on taking it back, as Terminal does."""
+        """Give the terminal back, then clear the screen."""
         self.suspensions += 1
         self.frame_before = self.manager._on_screen  # pylint: disable=protected-access
         self.write(SCRIBBLE)
@@ -89,7 +93,10 @@ class PromptTerminal:
 
 
 def text_of(canvas: Canvas) -> list[str]:
-    """Every row of a canvas, as text."""
+    """A canvas's rows as text.
+
+    :param canvas: The canvas.
+    """
     return [canvas.text(row) for row in range(canvas.height)]
 
 
@@ -109,7 +116,7 @@ class RedrawTests(unittest.TestCase):
         self.manager.add_application(self.host.application)
 
     def open_hosted(self) -> RemoteWindow:
-        """Show a window of a hosted application, with a row painted in it."""
+        """Show a hosted application's window."""
         state: Message = {
             "type": "window", "id": 1, "title": "Hello", "rect": [2, 2, 6, 30],
             "maximised": False, "flags": [True, True, True, True], "look": "window",
@@ -125,16 +132,17 @@ class RedrawTests(unittest.TestCase):
         return self.host.windows[1]
 
     def run_desktop(self, terminal: PromptTerminal, **shell: Any) -> None:
-        """Run the desktop on the stand-in, with the shell's run patched."""
+        """Run the desktop with the shell patched.
+
+        :param terminal: The terminal stand-in.
+        :param shell: Patches for ``run_shell``.
+        """
         with patch("dasha.shell.run_shell", **shell) as run_shell:
             self.manager.run(cast(Terminal, terminal))
         self.assertEqual(run_shell.call_count, terminal.suspensions)
 
     def test_every_cell_is_drawn_again(self) -> None:
-        """After the shell, the screen is cleared and every cell written
-        again from what the desktop holds: the very frame from before,
-        a hosted application's window included, though another program
-        drew over the screen meanwhile."""
+        """Every cell is drawn again."""
         self.open_hosted()
         for survive_errors in (False, True):
             with self.subTest(survive_errors=survive_errors):
@@ -152,8 +160,7 @@ class RedrawTests(unittest.TestCase):
                 self.assertEqual(terminal.after(), before.render(None))
 
     def test_a_new_size(self) -> None:
-        """A terminal resized while the shell ran is drawn at its new
-        size."""
+        """A new size is used."""
         terminal = PromptTerminal(self.manager, [ALT_F12, None])
 
         def resized(**_: str) -> int:
@@ -167,8 +174,7 @@ class RedrawTests(unittest.TestCase):
         self.assertEqual(terminal.after(), after.render(None))
 
     def test_the_mouse_is_forgotten(self) -> None:
-        """With the mouse shown, the cell where it was is not shown inverted
-        once back, as it has surely moved, until it is next reported."""
+        """The mouse position is forgotten."""
         self.manager.show_mouse = True
         self.manager._mouse_at = (5, 10)  # pylint: disable=protected-access
         terminal = PromptTerminal(self.manager, [ALT_F12, None])
@@ -183,8 +189,7 @@ class RedrawTests(unittest.TestCase):
         self.assertFalse(self.manager.is_running)
 
     def test_the_key_is_the_desktops(self) -> None:
-        """Alt+F12 leaves for the shell even from a hosted application's
-        window, rather than going on to the application."""
+        """The key belongs to the desktop."""
         window = self.open_hosted()
         self.assertIs(self.manager.active_window, window)
         with patch.object(self.manager, "command_prompt") as command_prompt:
@@ -203,8 +208,7 @@ class KeyAndMenuTests(unittest.TestCase):
         self.manager.handle_resize(80, 24)
 
     def test_the_key(self) -> None:
-        """Alt+F12 by default; in a dialog too, but not in one asking for a
-        key."""
+        """The default key."""
         self.assertEqual(DEFAULTS["command_prompt"], ("alt+f12",))
         with patch.object(self.manager, "command_prompt") as command_prompt:
             self.manager.handle_event("alt+f12")
@@ -215,8 +219,7 @@ class KeyAndMenuTests(unittest.TestCase):
         self.assertEqual(asking.key, "alt+f12")
 
     def test_the_menu_item(self) -> None:
-        """In the system menu, with the key as its hint, which follows the
-        shortcuts."""
+        """The system menu item."""
         item = next(
             item
             for item in self.manager.system_menu.items
@@ -228,8 +231,7 @@ class KeyAndMenuTests(unittest.TestCase):
         self.assertEqual(item.shortcut, "Ctrl+F12")
 
     def test_only_on_a_terminal_that_can_be_given_back(self) -> None:
-        """Not before the desktop runs, nor on a terminal without
-        ``suspended``."""
+        """Only on a terminal that can be given back."""
         with patch("dasha.shell.run_shell") as run_shell:
             self.manager.command_prompt()
             # pylint: disable-next=protected-access

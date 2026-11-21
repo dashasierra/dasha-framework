@@ -1,19 +1,4 @@
-"""A dialog for choosing a file, to open or to save.
-
-The dialog only chooses a path: whether the file is to be opened or saved
-depends on the dialog's title, and on what the calling code does with the
-answer::
-
-    dialog = FileDialog(
-        title="Open", filters=[("Text files", "*.txt")], must_exist=True
-    )
-    if manager.execute(dialog=dialog) == "ok":
-        load(path=dialog.path)
-
-    dialog = FileDialog(title="Save as", name="notes.txt")
-    if manager.execute(dialog=dialog) == "ok":
-        save(path=dialog.path)  # ask about overwriting with confirm(), if wanted
-"""
+"""File open and save dialogs."""
 
 import fnmatch
 import ntpath
@@ -26,14 +11,11 @@ from dasha.dialog import Dialog
 from dasha.widgets import Button, ComboBox, Label, ListBox, TextBox, Widget
 
 ALL_FILES = ("All files", "*")
-"""The filter used when none are given, and offered after any that are
-given."""
+"""Filter matching every file."""
 
 
 def list_drives() -> list[str]:
-    """The drives on this computer, as roots (``C:\\``), on Windows, or an
-    empty list on other systems. Uses ``os.listdrives`` where Python has
-    it."""
+    """Windows drive roots, or none elsewhere."""
     if os.name != "nt":
         return []
     listdrives = getattr(os, "listdrives", None)
@@ -47,7 +29,10 @@ def list_drives() -> list[str]:
 
 
 def _drive_of(path: str) -> str:
-    """A path's drive, as the drive list shows it (``C:``), or ""."""
+    """A path's drive, or "".
+
+    :param path: The path.
+    """
     return ntpath.splitdrive(path)[0].upper()  # drives are Windows's alone
 
 
@@ -56,41 +41,14 @@ def _size_text(size: int) -> str:
 
 
 class FileDialog(Dialog):  # pylint: disable=too-many-instance-attributes
-    """Choose a file::
+    """A dialog for choosing a file.
 
-        ╔═[■]═══════════════════ Open ═══════════════════════╗
-        ║ Name                                               ║
-        ║  notes.txt                            OK        ▄  ║
-        ║ Files                                  ▀▀▀▀▀▀▀▀▀▀  ║
-        ║  ..\\              │ notes.txt        Cancel    ▄  ║
-        ║  docs\\            │ readme.txt        ▀▀▀▀▀▀▀▀▀▀  ║
-        ║  ...                                               ║
-        ║ Type  All files (*)         ▼  Drive  C:   ▼       ║
-        ║ C:\\GitHub\\dasha                                  ║
-        ║ notes.txt  1,204 bytes  17 Oct 2026 10:30          ║
-        ╚════════════════════════════════════════════════════╝
-
-    The list shows ``..`` (except at the top of a drive), then the
-    folders, marked with ``os.sep``, and then the files that match the
-    chosen type, with each group sorted alphabetically, ignoring case.
-    Highlighting an item puts its name in the Name box and its details on the
-    bottom line.
-
-    OK (or Enter) reads the Name box. A folder (``..``, ``docs\\``, or a
-    typed path to a folder) is opened; a name containing ``*`` or ``?``
-    becomes the filter; and anything else is the answer, so the dialog
-    answers ``"ok"``. With ``must_exist``, the file must already exist
-    (otherwise the dialog says "No such file"). A double-click on an item is
-    the same as choosing it and pressing OK. Typed paths can be absolute, or
-    relative to the folder shown.
-
-    ``filters`` is a list of (label, pattern) pairs, and a pattern can
-    combine several with ``;`` (``"*.py;*.pyw"``). "All files" is added
-    unless one of the filters already matches everything. On Windows, a
-    Drive box offers the other drives.
-
-    Afterwards, ``path`` is the full path of the chosen file, ``directory``
-    is its folder, and ``name`` is its name.
+    :param title: Title text.
+    :param directory: Starting folder.
+    :param filters: (label, pattern) pairs.
+    :param name: Starting file name.
+    :param must_exist: Whether the file must exist.
+    :param status: Status bar text.
     """
 
     list_rows: int = 8
@@ -130,7 +88,10 @@ class FileDialog(Dialog):  # pylint: disable=too-many-instance-attributes
             self.refresh()
 
     def _build(self, name: str) -> None:
-        """Lay the widgets out, in the order Tab visits them."""
+        """Lay out the widgets.
+
+        :param name: Starting file name.
+        """
         rows, field = self.list_rows, 36
         self.add(Label("Name", 0, 1))
         self.name_box = self.add(TextBox(1, 1, field, text=name, name="name"))
@@ -182,22 +143,24 @@ class FileDialog(Dialog):  # pylint: disable=too-many-instance-attributes
 
     @property
     def pattern(self) -> str:
-        """The filter in use: one typed into the Name box, or else the selected
-        type's."""
+        """The filter in use."""
         if self._typed_filter is not None:
             return self._typed_filter
         return self.filters[self.type_box.value][1]
 
     def matches(self, name: str) -> bool:
-        """Whether a file's name matches the filter."""
+        """Whether a name matches the filter.
+
+        :param name: The file name.
+        """
         patterns = [part.strip() for part in self.pattern.split(";")]
         return any(fnmatch.fnmatch(name, part) for part in patterns if part)
 
     def refresh(self, highlight: str | None = None) -> bool:
-        """Read the folder shown again, highlighting the item named
-        ``highlight`` if it is there. Returns whether the folder could be
-        read; if it could not, the list is left as it was, and the bottom
-        line says so."""
+        """Re-read the folder; return whether it could be read.
+
+        :param highlight: Item to highlight, if any.
+        """
         try:
             with os.scandir(self.directory) as scan:
                 found = [(entry.name, entry.is_dir()) for entry in scan]
@@ -239,13 +202,18 @@ class FileDialog(Dialog):  # pylint: disable=too-many-instance-attributes
                 )
 
     def say(self, text: str) -> None:
-        """Show a line of details (or a problem) at the bottom of the
-        dialog."""
+        """Show a line at the bottom.
+
+        :param text: The line.
+        """
         self.info_label.text = text[: self._text_width]
 
     def change_directory(self, directory: str, highlight: str | None = None) -> bool:
-        """Show another folder, and return whether it could be read (if it
-        could not, the folder shown stays as it was)."""
+        """Show another folder; return whether it could be read.
+
+        :param directory: The folder.
+        :param highlight: Item to highlight, if any.
+        """
         before = self.directory
         self.directory = os.path.abspath(directory)
         if self.refresh(highlight):
@@ -256,7 +224,10 @@ class FileDialog(Dialog):  # pylint: disable=too-many-instance-attributes
     # Answering
 
     def _highlighted(self, box: ListBox) -> None:
-        """The highlight moved: put the item in the Name box and describe it."""
+        """Show the highlighted item's name and details.
+
+        :param box: The list box.
+        """
         index = box.value
         if not isinstance(index, int) or not self._entries or self._refreshing:
             return
@@ -274,7 +245,10 @@ class FileDialog(Dialog):  # pylint: disable=too-many-instance-attributes
         self.say(f"{name}  {_size_text(info.st_size)}  {when}")
 
     def _chosen(self, box: ListBox) -> None:
-        """A double-click: OK on that item."""
+        """Accept a double-clicked item.
+
+        :param box: The list box.
+        """
         self._highlighted(box)
         self.accept()
 
@@ -289,15 +263,17 @@ class FileDialog(Dialog):  # pylint: disable=too-many-instance-attributes
             self._show_directory()  # back to the drive it was on
 
     def button_pressed(self, button: Widget) -> None:
-        """Pressing OK ends the dialog only once the Name box holds a file."""
+        """End only once a file is chosen.
+
+        :param button: The button pressed.
+        """
         if button.name == "ok":
             self.accept()
         else:
             super().button_pressed(button)
 
     def accept(self) -> None:
-        """Act on what the Name box holds: open a folder, set the filter, or
-        answer ``"ok"`` with the file."""
+        """Act on the Name box."""
         typed = self.name_box.text.strip()
         if not typed and self.focused is self.files and self.files.items:
             typed = self.files.items[self.files.cursor]  # Enter on the list

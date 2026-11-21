@@ -1,9 +1,4 @@
-"""Tests for hiding the classic Windows console's scroll bars.
-
-These use a private, inactive console screen buffer, so they do not disturb
-whatever is on screen. They are skipped off Windows, or when the process has
-no console (some CI runners).
-"""
+"""Tests for hiding Windows console scroll bars."""
 
 import ctypes
 import sys
@@ -81,14 +76,21 @@ if sys.platform == "win32":
             kernel32.SetConsoleCursorPosition(self.handle, COORD(0, 79))
 
         def write_row(self, row: int, text: str) -> None:
-            """Write text at the start of a row."""
+            """Write text at the start of a row.
+
+            :param row: The row.
+            :param text: The text.
+            """
             written = wintypes.DWORD()
             kernel32.WriteConsoleOutputCharacterW(
                 self.handle, text, len(text), COORD(0, row), ctypes.byref(written)
             )
 
         def read_row(self, row: int) -> str:
-            """The first characters of a row."""
+            """A row's first characters.
+
+            :param row: The row.
+            """
             buffer = ctypes.create_unicode_buffer(10)
             read = wintypes.DWORD()
             kernel32.ReadConsoleOutputCharacterW(
@@ -118,7 +120,12 @@ if sys.platform == "win32":
             self.assertEqual(self.read_row(80), "")
 
         def set_window(self, columns: int, lines: int, bottom: int) -> None:
-            """Show the buffer's left in a window of this size, down to a row."""
+            """Set the visible window.
+
+            :param columns: Window width.
+            :param lines: Window height.
+            :param bottom: Bottom row.
+            """
             window = SMALL_RECT(0, bottom - lines + 1, columns - 1, bottom)
             if not kernel32.SetConsoleWindowInfo(
                 self.handle, True, ctypes.byref(window)
@@ -126,11 +133,7 @@ if sys.platform == "win32":
                 self.skipTest(f"cannot make a {columns}x{lines} console window")
 
         def test_restore_while_the_window_is_larger(self) -> None:
-            """Maximised since hiding: the window stays, history comes back.
-
-            The window, now wider than the original buffer, cannot shrink
-            without leaving maximised, so the buffer takes its width.
-            """
+            """Restore while the window is larger."""
             self.set_window(40, 20, 19)
             # A pseudoconsole (Windows Terminal, say) keeps its buffer's width.
             if not kernel32.SetConsoleScreenBufferSize(self.handle, COORD(60, 300)):

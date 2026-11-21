@@ -37,7 +37,11 @@ class Folder(unittest.TestCase):
         self.root = Path(folder.name)
 
     def write(self, name: str, text: str) -> Path:
-        """Write a file in the folder; returns its path."""
+        """Write a file; return its path.
+
+        :param name: File name.
+        :param text: Its contents.
+        """
         path = self.root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
@@ -220,8 +224,7 @@ class VenvTests(Folder):
         self.assertEqual(len(list(self.root.iterdir())), 1)
 
     def test_lend_folder_follows_contents(self) -> None:
-        """Freshly written copies of the same files (a one-file build
-        unpacking itself) share a copy; changed files get one of their own."""
+        """The lend folder follows the contents."""
         package = self.root / "unpacked" / "dasha"
         shutil.copytree(
             Path(dasha.__file__).parent,

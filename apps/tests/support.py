@@ -1,5 +1,4 @@
-"""Helpers for the example applications' tests: a presentation manager
-run on scripted input, as Dasha Framework's own tests do."""
+"""Helpers for the example applications' tests."""
 
 from collections.abc import Callable
 from io import StringIO
@@ -11,7 +10,11 @@ from dasha.terminal import Terminal
 
 
 class FakeTerminal:
-    """Stands in for Terminal: scripted input, captured output."""
+    """A terminal stand-in with scripted input.
+
+    :param inputs: Reads; ``""`` is a timeout.
+    :param size: Screen (columns, lines).
+    """
 
     def __init__(self, inputs: list[str], size: tuple[int, int] = (80, 24)) -> None:
         self.inputs = inputs
@@ -23,14 +26,20 @@ class FakeTerminal:
         return self.screen_size
 
     def write(self, text: str) -> None:
-        """Capture output."""
+        """Capture output.
+
+        :param text: The output.
+        """
         self.output.write(text)
 
     def flush(self) -> None:
         """Nothing to flush."""
 
     def read(self, timeout: float | None = None) -> str:
-        """Return the next scripted input; ``""`` in the script is a timeout."""
+        """The next scripted input.
+
+        :param timeout: Ignored.
+        """
         del timeout
         return self.inputs.pop(0)
 
@@ -50,7 +59,11 @@ class Scripted(PresentationManager):
 
 
 def run(manager: PresentationManager, inputs: list[str]) -> FakeTerminal:
-    """Run a manager on scripted input, all of which must be read."""
+    """Run a manager on scripted input.
+
+    :param manager: The desktop.
+    :param inputs: Input to read.
+    """
     terminal = FakeTerminal(inputs)
     manager.run(cast(Terminal, terminal))
     return terminal

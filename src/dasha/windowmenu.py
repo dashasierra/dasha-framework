@@ -1,5 +1,4 @@
-"""The Window menu, which offers the things that can be done with a window
-from the menu bar."""
+"""The Window menu."""
 
 from collections.abc import Callable
 from functools import partial
@@ -14,9 +13,11 @@ if TYPE_CHECKING:
 
 
 def window_menu(manager: "PresentationManager", window: Window) -> Menu:
-    """A Window menu for a window, with items to maximise, minimise, move,
-    resize and close it, to send it to the back, and to move to the next
-    window, as far as the window allows each one."""
+    """A Window menu for a window.
+
+    :param manager: The presentation manager.
+    :param window: The window.
+    """
     hint = manager.shortcuts.hint
     items = []
     if window.maximisable:
@@ -82,17 +83,23 @@ def window_menu(manager: "PresentationManager", window: Window) -> Menu:
 def fill_application_window_menu(
     manager: "PresentationManager", application: "Application", menu: Menu
 ) -> None:
-    """Fill in, in place, the Window menu that Dasha Framework gives every
-    application: the actions for its active window (greyed out when it has
-    none), followed by a list of all its windows, including minimised ones,
-    to switch to."""
+    """Fill an application's Window menu in place.
+
+    :param manager: The presentation manager.
+    :param application: The application.
+    :param menu: The Window menu.
+    """
     hint = manager.shortcuts.hint
     window = application.active_window
 
     def needs(
         allowed: bool, method: Callable[[Window], object]
     ) -> Callable[[], object] | None:
-        """The window's action, or None (greyed out) without the window."""
+        """The window's action, or ``None`` without a window.
+
+        :param allowed: Whether the window allows it.
+        :param method: The manager's action.
+        """
         if window is None or not allowed:
             return None
         return partial(method, window)
