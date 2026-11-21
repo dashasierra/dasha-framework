@@ -143,6 +143,11 @@ dasha notepad
 
 ## Writing an application
 
+> [!CAUTION]
+> Do not develop an application using the `master` branch of the dasha-framework respository as it contains code not yet released and will likely change. (Consider it a development branch).
+>
+> Either use a [Release](https://github.com/dashasierra/dasha-framework/releases) or [Tag](https://github.com/dashasierra/dasha-framework/tags), or use the latest [dasha-framework PyPi release](https://pypi.org/project/dasha-framework/).
+
 An application is a class with a `start` method, which sets up its menus
 and opens its windows. It keeps running until it exits (File > Exit, here),
 not merely until its windows are closed. It can run on its own, with no
