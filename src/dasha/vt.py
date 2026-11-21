@@ -871,9 +871,7 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
         count = min(count, self.columns - self.column)
         self._clear_wide_at(row, self.column, self.column)
         row[self.column : self.column] = [self._blank()] * count
-        del row[self.columns :]
-        if row[-1][0] == "":  # a wide character pushed half off the end
-            row[-1] = (" ", row[-1][1])
+        self._cut(row, self.columns)
         self._pending_wrap = False
 
     def _delete_cells(self, count: int) -> None:
@@ -1014,11 +1012,20 @@ class Screen:  # pylint: disable=too-many-instance-attributes,too-many-public-me
             saved.column = min(saved.column, columns - 1)
 
     @staticmethod
-    def _fit(line: Line, columns: int) -> None:
+    def _cut(line: Line, columns: int) -> None:
+        """Drop cells past the end, blanking a wide character cut in half.
+
+        :param line: The line.
+        :param columns: Cells kept.
+        """
+        if len(line) > columns and line[columns][0] == "":
+            line[columns - 1] = (" ", line[columns - 1][1])
+        del line[columns:]
+
+    @classmethod
+    def _fit(cls, line: Line, columns: int) -> None:
         if len(line) > columns:
-            del line[columns:]
-            if line[-1][0] == "":
-                line[-1] = (" ", line[-1][1])
+            cls._cut(line, columns)
         else:
             line.extend([(" ", DEFAULT)] * (columns - len(line)))
 
