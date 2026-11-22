@@ -5,10 +5,11 @@ import re
 import threading
 import time
 from collections.abc import Sequence
-from dataclasses import asdict
+from dataclasses import asdict, astuple
 from multiprocessing.connection import Connection
 from typing import Any, Protocol
 
+from dasha.border import Border
 from dasha.canvas import Rect
 from dasha.events import MouseEvent
 from dasha.style import Colour, Rgb, Style
@@ -29,6 +30,27 @@ WINDOW_STYLES = (
     "scrollbar_style",
 )
 """Window attributes an application may set."""
+
+WINDOW_FRAME = (
+    "border",
+    "inactive_border",
+    "adjusting_border",
+    "shadow_style",
+    "shadow_width",
+    "shadow_height",
+    "resize_grip",
+    "close_button",
+    "minimise_button",
+    "maximise_button",
+    "restore_button",
+    "scroll_step",
+)
+"""Other window attributes an application may set (version 2)."""
+
+MAX_SYMBOLS = 8
+"""Most characters of a title bar button or resize grip."""
+MAX_SHADOW = 8
+"""Widest and highest a drop shadow may be."""
 
 ADDRESS_VARIABLE = "DASHA_ADDRESS"
 """Environment variable with the desktop's address."""
@@ -255,6 +277,39 @@ def decode_style(data: Sequence[Any]) -> Style:
         reverse=bool(reverse),
         underline=bool(underline),
     )
+
+
+def symbols(value: Any, limit: int = MAX_SYMBOLS) -> str:
+    """Printable characters from a message.
+
+    :param value: The encoded text.
+    :param limit: Most characters.
+    """
+    if not isinstance(value, str):
+        raise ProtocolError(f"not text: {value!r:.20}")
+    text = "".join(char for char in value if char.isprintable())[:limit]
+    if not text:
+        raise ProtocolError("no characters to draw")
+    return text
+
+
+def encode_border(border: Border) -> list[str]:
+    """Encode a border.
+
+    :param border: The border.
+    """
+    return list(astuple(border))
+
+
+def decode_border(data: Sequence[Any]) -> Border:
+    """Decode a border.
+
+    :param data: The encoded border.
+    """
+    parts = [symbols(part) for part in data]
+    if len(parts) != 6 or any(len(part) != 1 for part in parts):
+        raise ProtocolError("a border is six characters")
+    return Border(*parts)
 
 
 def encode_rect(rect: Rect) -> list[int]:

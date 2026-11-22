@@ -8,6 +8,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- On the desktop, a window of an application in its own process (started from Run..., the Applications menu or `dasha "Name"`) could be resized below its `min_width` by `min_height`, down to the default 12 by 3, though running the application on its own kept to them. The application now sends its windows' minimum size (protocol version 2), and the desktop keeps to it. An application of the first release still connects, and its windows keep the default minimum.
+- Other things that worked in an application on its own were lost on the desktop, and are now sent too (protocol version 2):
+  - A window's `border`, `inactive_border` and `adjusting_border`, its shadow (`shadow_style`, `shadow_width`, `shadow_height`), its `resize_grip` and title bar buttons (`close_button`, `minimise_button`, `maximise_button`, `restore_button`), and its `scroll_step` for clicks on its scroll bars' arrows. The desktop drew the theme's instead.
+  - A dialog that `takes_every_key` now gets the desktop's own keys while it waits (F6, Ctrl+Q, F10 and the rest), as it does on its own, unless its application is not responding.
+  - A menu's `on_open` was never called. Now the desktop asks the application as the menu opens, and its new items show a moment later.
+- On the desktop, a change to an application's menus while one of them was open closed it. It now stays open, showing the new items, and an open submenu stays open while its item is still there.
 - In the system menu's Themes, Default and Dark both had D as their letter, so pressing D could only ever choose Default. Dark now has A (D&ark). Each built-in theme takes the first letter of its name that no theme before it has, and C is kept for Colours file.
 - In a terminal window, a wide character (such as a CJK ideograph) cut in half at the right edge, by narrowing the window or by a program inserting characters (`CSI @`), was left showing in the last column, and one that just fitted lost its right half. Now a character cut in half is blanked, and one that fits is kept whole.
 - In the Window menu, Minimise and Next window both had N, so Next window could not be chosen by its letter. Next window now has T (Nex&t window).

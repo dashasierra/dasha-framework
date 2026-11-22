@@ -313,7 +313,11 @@ restyle it, and setting one on a window restyles only that window. It makes
 no difference whether that is before or after `super().__init__()`. In an
 application in its own process the desktop draws the frame, so the window
 sends it any of these colours that differ from the theme's
-(`protocol.WINDOW_STYLES`); the window's borders and shadow stay the desktop's.
+(`protocol.WINDOW_STYLES`), and any of its other frame attributes that do
+(`protocol.WINDOW_FRAME`: the three borders, the shadow, the resize grip and
+title bar buttons, and `scroll_step`). A border is six single characters, a
+grip or button up to `MAX_SYMBOLS` (8), and a shadow at most `MAX_SHADOW`
+(8) wide and high; the desktop leaves out anything that cannot be printed.
 To draw something other than lines of text, override `paint_content`.
 
 Each window casts a **drop shadow**: a strip two columns wide down the
@@ -359,7 +363,7 @@ Window(
   is, and the corner stays under the pointer, whichever cell was grabbed.
   Only the front-most window under the pointer can be grabbed.
 - **Limits.** A window is never smaller than `min_width` by `min_height`
-  (12 by 3). As with moving, resizing can take a window partly off the
+  (12 by 3), on the desktop as on its own. As with moving, resizing can take a window partly off the
   screen or under the status bar. The shadow follows the new size.
 - **Settings.** The grip's characters and colour (`resize_grip`,
   `resize_grip_style`) and the minimum size are class attributes.
@@ -1811,8 +1815,20 @@ outlives its desktop.
   `start_timeout` (30 seconds) is ended and reported. One that has connected
   but shows nothing is asked about instead (see "Loading" above).
 - **Protocol version.** `PROTOCOL_VERSION` is 2. Version 1 was the first
-  release; version 2 sends the colour roles added since (`theme.NEWER_ROLES`,
-  such as `tabs.disabled`) in a theme, which version 1 would refuse. It is
+  release. Version 2 sends the colour roles added since (`theme.NEWER_ROLES`,
+  such as `tabs.disabled`) in a theme, which version 1 would refuse. Its
+  `window` message also gives the window's `min_width` and `min_height`
+  (`"min_size"`), which the desktop keeps to when resizing it; its other
+  frame attributes that differ from the theme's (`"frame"`, see
+  [Windows](#windows-dashawindow)); and whether it is a dialog that
+  `takes_every_key` (`"every_key"`). A menu says whether it has an
+  `on_open` (`"on_open"`): as one opens, the desktop sends `menu_open` with
+  its path (the menu's index, then the item indexes down to it), the
+  application calls `on_open`, and the menus it sends next replace the
+  desktop's in place, so an open menu stays open showing its new items. The
+  desktop reads each of these only if it is there, so an application of
+  version 1 still works: its windows have the default 12 by 3 minimum and
+  the theme's frame, and its menus have no `on_open`. It is
   increased whenever a message changes in a way the other end
   would notice. `MINIMUM_VERSION` is the oldest version still understood,
   and is raised only when support for an old version is dropped. An
@@ -2058,7 +2074,9 @@ Shutdown; on the desktop, Help comes just before Settings.... Minimised
 windows that belong
 to no application are listed above all of these. A menu's `on_open` is called just before the menu opens, to
 bring its items up to date; Themes uses it to list the theme files present
-at that moment. The system menu is an ordinary `Menu`, stored in
+at that moment. In an application in its own process, `on_open` is called
+there when the desktop opens the menu, and the new items show a moment
+later. The system menu is an ordinary `Menu`, stored in
 `PresentationManager.system_menu`, so more items can be added to it:
 
 ```python
@@ -2363,6 +2381,9 @@ Some further points:
   before any event goes anywhere (`_notice`), and the `show_mouse` key
   (`` Alt+` `` by default) is taken there too, so it works wherever the focus is,
   dialogs included, except in a dialog that `takes_every_key` (Add key...).
+  A waiting dialog of an application in its own process that takes every
+  key is given the desktop's keys too (the `DESKTOP_KEYS`, the menu keys
+  and these), as long as the application is responding.
   It is off by default; `-m` (`--show-mouse`), `show_mouse = true` in
   `settings.toml`, the key and Settings... turn it on, and each of them is
   remembered for next time, as `-d` (`--colour-depth`) is.

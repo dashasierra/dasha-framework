@@ -1,19 +1,24 @@
 """The desktop's view of applications in other processes."""
 
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from dasha.application import Application
 from dasha.canvas import Canvas
 from dasha.dialog import Dialog, Popup
 from dasha.events import MouseEvent
 from dasha.protocol import (
+    MAX_SHADOW,
+    WINDOW_FRAME,
     WINDOW_STYLES,
     Message,
     ProtocolError,
     bounded,
+    decode_border,
     decode_rect,
     decode_style,
     encode_mouse,
+    symbols,
 )
 from dasha.shortcuts import DESKTOP_KEYS, Shortcuts
 from dasha.style import Style
@@ -59,6 +64,36 @@ def application_name(text: object) -> str:
     return name.strip()[:MAX_NAME]
 
 
+def _shadow_size(value: Any) -> int:
+    return min(bounded(value, 0), MAX_SHADOW)
+
+
+_FRAME: dict[str, Callable[[Any], object]] = {
+    "border": decode_border,
+    "inactive_border": decode_border,
+    "adjusting_border": decode_border,
+    "shadow_style": lambda value: None if value is None else decode_style(value),
+    "shadow_width": _shadow_size,
+    "shadow_height": _shadow_size,
+    "resize_grip": symbols,
+    "close_button": symbols,
+    "minimise_button": symbols,
+    "maximise_button": symbols,
+    "restore_button": symbols,
+    "scroll_step": lambda value: bounded(value, 1),
+}
+
+
+def decode_frame(frame: object) -> dict[str, object]:
+    """Decode a window's frame parts.
+
+    :param frame: The encoded parts.
+    """
+    if not isinstance(frame, dict):
+        raise ProtocolError("a window's frame is named parts")
+    return {name: _FRAME[name](frame[name]) for name in WINDOW_FRAME if name in frame}
+
+
 def never_enabled() -> bool:
     """Always ``False``, for greyed-out items."""
     return False
@@ -91,7 +126,10 @@ class RemoteWindow(Window):  # pylint: disable=too-many-instance-attributes
         """The number the application knows this window by."""
         self.look = "window"
         self._colours: dict[str, Style] = {}
+        self._frame: dict[str, object] = {}
         self.modal = False
+        self.every_key = False
+        """Whether the application's dialog takes every key."""
         self.close_on_outside_click = False
         self._runs: list[list[tuple[str, Style]]] = []
         self._cursor: tuple[int, int] | None = None
@@ -124,9 +162,12 @@ class RemoteWindow(Window):  # pylint: disable=too-many-instance-attributes
         self.told_rect = (self.rect, self.maximised)
         flags = [bool(flag) for flag in state["flags"]]
         self.resizable, self.maximisable, self.minimisable, self.closable = flags
-        self._set_look(str(state["look"]), state.get("colours", {}))
+        # An application of version 1 sends no frame.
+        frame = decode_frame(state.get("frame", {}))
+        self._set_look(str(state["look"]), state.get("colours", {}), frame)
         self.modal = bool(state["modal"])
         self.close_on_outside_click = bool(state["outside"])
+        self.every_key = state.get("every_key") is True  # not sent by version 1
         self.status = one_line(state["status"])
         self._remote_focus.status = self.status
         hints = state["hints"][:MAX_HINTS]
@@ -136,12 +177,16 @@ class RemoteWindow(Window):  # pylint: disable=too-many-instance-attributes
         row, column = state["scroll"]
         self.scroll_row, self.scroll_column = bounded(row), bounded(column)
         self.told_scroll = (self.scroll_row, self.scroll_column)
+        # An application of version 1 does not send its minimum size.
+        width, height = state.get("min_size", (Window.min_width, Window.min_height))
+        self.min_width, self.min_height = bounded(width, 0), bounded(height, 0)
 
-    def _set_look(self, look: str, colours: object) -> None:
-        """Set the frame look and colours.
+    def _set_look(self, look: str, colours: object, frame: dict[str, object]) -> None:
+        """Set the frame look, colours and parts.
 
         :param look: Frame look.
         :param colours: The application's colours.
+        :param frame: The application's frame parts.
         """
         if not isinstance(colours, dict):
             raise ProtocolError("a window's colours are named styles")
@@ -150,20 +195,21 @@ class RemoteWindow(Window):  # pylint: disable=too-many-instance-attributes
             for name in WINDOW_STYLES
             if name in colours
         }
-        if look == self.look and kept == self._colours:
+        if (look, kept, frame) == (self.look, self._colours, self._frame):
             return
         self.look = look
         self._colours = kept
+        self._frame = frame
         self.theme_changed()
 
     def theme_changed(self) -> None:
-        """Take on the theme's colours."""
-        theme_class = Dialog if self.look in ("dialog", "popup") else Window
+        """Take on the theme's colours and frame."""
+        theme_class = {"dialog": Dialog, "popup": Popup}.get(self.look, Window)
         for name in WINDOW_STYLES:
             style = self._colours.get(name, getattr(theme_class, name))
             setattr(self, name, style)
-        if self.look == "popup":
-            self.border = Popup.border
+        for name in WINDOW_FRAME:
+            setattr(self, name, self._frame.get(name, getattr(theme_class, name)))
 
     def apply_paint(self, message: Message) -> None:
         """Apply changed interior rows.
@@ -212,8 +258,15 @@ class RemoteWindow(Window):  # pylint: disable=too-many-instance-attributes
 
     # Sent to the application
 
+    @property
+    def takes_every_key(self) -> bool:
+        """Whether every key goes to it: a waiting dialog that responds."""
+        return self.every_key and self.modal and self.host.responding
+
     def handle_key(self, key: str, shortcuts: Shortcuts) -> bool:
-        if any(shortcuts.matches(action, key) for action in DESKTOP_KEYS):
+        if self.takes_every_key:
+            pass  # the desktop's keys too, as in the application's own process
+        elif any(shortcuts.matches(action, key) for action in DESKTOP_KEYS):
             return False  # the desktop's own: close, next window and so on
         self.host.input(self, "key", key=key)
         return True

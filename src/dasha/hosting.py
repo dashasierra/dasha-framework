@@ -66,6 +66,21 @@ if TYPE_CHECKING:
     from dasha.manager import PresentationManager
 
 
+def refill(old: Menu, new: Menu) -> None:
+    """Give a menu, and its submenus, another's contents.
+
+    :param old: The menu kept.
+    :param new: The menu it becomes.
+    """
+    for index, item in enumerate(new.items[: len(old.items)]):
+        submenu = old.items[index].submenu
+        if item.submenu is not None and submenu is not None:
+            refill(submenu, item.submenu)
+            item.submenu = submenu  # the same menu, if it is open
+    old.title, old.items = new.title, new.items
+    old.after_window, old.on_open = new.after_window, new.on_open
+
+
 def _squeezed(name: str) -> str:
     """A name lowercased without spaces, hyphens or underscores.
 
@@ -382,10 +397,26 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
         """
         reserved = self._reserved_keys()
         count = [0]
-        self.application.menus = [
+        new = [
             self._menu(menu, [number], reserved, count)
             for number, menu in enumerate(menus)
         ]
+        # Changed in place, as an application's menus are in its own
+        # process: one that is open stays open, showing its new items.
+        old = self.application.menus
+        for before, after in zip(old, new):
+            refill(before, after)
+        self.application.menus = [*old[: len(new)], *new[len(old) :]]
+        self.manager.menu_bar.items_changed()
+
+    def _menu_opening(self, path: Sequence[int], menu: Menu) -> None:
+        """Ask the application to bring a menu up to date.
+
+        :param path: Menu index, then item indexes.
+        :param menu: The menu opening.
+        """
+        del menu
+        self.send("menu_open", path=list(path))
 
     def _reserved_keys(self) -> set[str]:
         """The desktop's reserved keys."""
@@ -433,9 +464,14 @@ class AppHost:  # pylint: disable=too-many-instance-attributes
                         one_line(item["status"]),
                     )
                 )
-        # An application of an earlier version does not send after_window.
+        # An application of an earlier version sends neither of these.
         after_window = data.get("after_window") is True
-        return Menu(one_line(data["title"]), items, after_window=after_window)
+        on_open = (
+            partial(self._menu_opening, path) if data.get("on_open") is True else None
+        )
+        return Menu(
+            one_line(data["title"]), items, after_window=after_window, on_open=on_open
+        )
 
     def flush(self) -> None:
         """Tell the application what changed."""
