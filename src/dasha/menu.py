@@ -208,6 +208,16 @@ class MenuBar:  # pylint: disable=too-many-public-methods
         if self._open is not None and self._open in self.inert:
             self.close()
 
+    def items_changed(self) -> None:
+        """Follow changes to the open menus' items."""
+        for depth in range(1, len(self._levels)):
+            opener = self._item(depth - 1)
+            if opener is None or opener.submenu is not self._levels[depth].menu:
+                del self._levels[depth:]  # its item has gone, or is greyed out
+                break
+        if self._levels and self._item(len(self._levels) - 1) is None:
+            self._move_highlight(1)
+
     def check_mnemonics(self) -> None:
         """Raise ``DuplicateMnemonicError`` on repeated letters."""
         unique_mnemonics((menu.title for menu in self.menus), strict=True)

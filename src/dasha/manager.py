@@ -1328,7 +1328,17 @@ class PresentationManager:
         :param event: The event.
         """
         self._sync_menu_bar()
-        if self._notice(event):
+        active = self.active_window
+        # A dialog of an application in its own process that takes every key
+        # (as its own process's execute would give it).
+        held = (
+            isinstance(event, str)
+            and not self.menu_bar.is_open
+            and active is not None
+            and active.modal
+            and getattr(active, "takes_every_key", False) is True
+        )
+        if not held and self._notice(event):
             return
         if isinstance(event, MouseEvent):
             event = self._count_clicks(event)
@@ -1342,6 +1352,9 @@ class PresentationManager:
                 self.handle_paste(event.text)
         elif isinstance(event, MouseEvent):
             self._route_mouse(event)
+        elif held:
+            assert active is not None
+            active.handle_key(event, self.shortcuts)
         elif not self.menu_bar.handle_key(event):
             active = self.active_window
             if active is None or not active.handle_key(event, self.shortcuts):

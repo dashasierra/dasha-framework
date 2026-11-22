@@ -113,7 +113,7 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(receive(there), {"type": "key", "id": 1, "key": "a"})
 
 
-class ClientTests(unittest.TestCase):
+class ClientCase(unittest.TestCase):
     """The application's side, over a pipe instead of the desktop."""
 
     def setUp(self) -> None:
@@ -132,6 +132,10 @@ class ClientTests(unittest.TestCase):
         """
         send(self.desktop, kind, **fields)
         self.manager.pump()
+
+
+class ClientTests(ClientCase):
+    """The application's side, over a pipe instead of the desktop."""
 
     def test_a_change_of_colours_alone_is_sent(self) -> None:
         """A change of colours alone is sent."""
@@ -356,7 +360,7 @@ class ClientTests(unittest.TestCase):
         self.assertFalse(self.manager.is_running)
 
 
-class DesktopSideTests(unittest.TestCase):
+class DesktopCase(unittest.TestCase):
     """RemoteWindow and AppHost, with the application at the end of a pipe."""
 
     def setUp(self) -> None:
@@ -391,6 +395,10 @@ class DesktopSideTests(unittest.TestCase):
         self.host.handle(self.state(**changes))
         window = self.host.windows[int(cast(int, changes.get("id", 1)))]
         return window
+
+
+class DesktopSideTests(DesktopCase):
+    """RemoteWindow and AppHost, with the application at the end of a pipe."""
 
     def test_a_window_appears(self) -> None:
         """A window message puts a window on the desktop."""

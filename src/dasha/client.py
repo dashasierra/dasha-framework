@@ -13,6 +13,7 @@ from typing import Any, cast
 
 from dasha import theme
 from dasha.application import Application
+from dasha.border import Border
 from dasha.clipboard import CLIPBOARD, TEXT, Clipboard, ClipboardItem
 from dasha.dialog import Dialog, Popup
 from dasha.manager import PresentationManager, drawn_active
@@ -23,11 +24,13 @@ from dasha.protocol import (
     ADDRESS_VARIABLE,
     MINIMUM_VERSION,
     PROTOCOL_VERSION,
+    WINDOW_FRAME,
     WINDOW_STYLES,
     Message,
     StyleTable,
     decode_mouse,
     decode_rect,
+    encode_border,
     encode_rect,
     encode_row,
     encode_style,
@@ -36,6 +39,7 @@ from dasha.protocol import (
 )
 from dasha.shortcuts import Shortcuts
 from dasha.statusbar import status_text
+from dasha.style import Style
 from dasha.widgets import Widget
 from dasha.window import Window
 
@@ -62,9 +66,32 @@ def encode_menus(menus: Sequence[Menu]) -> list[dict[str, object]]:
         ]
 
     return [
-        {"title": menu.title, "after_window": menu.after_window, "items": items(menu)}
+        {
+            "title": menu.title,
+            "after_window": menu.after_window,
+            "on_open": menu.on_open is not None,
+            "items": items(menu),
+        }
         for menu in menus
     ]
+
+
+def menu_at(menus: Sequence[Menu], path: Sequence[Any]) -> Menu | None:
+    """The menu or submenu at a path, if any.
+
+    :param menus: The menus.
+    :param path: Menu index, then item indexes.
+    """
+    try:
+        menu = menus[int(path[0])]
+        for step in path[1:]:
+            submenu = menu.items[int(step)].submenu
+            if submenu is None:
+                return None
+            menu = submenu
+    except (IndexError, TypeError, ValueError):
+        return None
+    return menu
 
 
 def look_of(window: Window) -> str:
@@ -88,6 +115,29 @@ def colours_of(window: Window) -> dict[str, list[object]]:
         for name in WINDOW_STYLES
         if getattr(window, name) != getattr(theme_class, name)
     }
+
+
+def frame_of(window: Window) -> dict[str, object]:
+    """A window's frame parts that differ from the theme.
+
+    :param window: The window.
+    """
+    if isinstance(window, Popup):
+        theme_class: type[Window] = Popup
+    else:
+        theme_class = Dialog if isinstance(window, Dialog) else Window
+    frame: dict[str, object] = {}
+    for name in WINDOW_FRAME:
+        value = getattr(window, name)
+        if value == getattr(theme_class, name):
+            continue
+        if isinstance(value, Border):
+            frame[name] = encode_border(value)
+        elif isinstance(value, Style):
+            frame[name] = encode_style(value)
+        else:
+            frame[name] = value
+    return frame
 
 
 @dataclass
@@ -336,7 +386,7 @@ class ClientManager(PresentationManager):
     def _state(self, window: Window) -> dict[str, object]:
         focused = window.focused
         width, height = window.content_size
-        return {
+        state: dict[str, object] = {
             "title": window.title,
             "footer": window.footer_parts(),
             "rect": encode_rect(window.rect),
@@ -356,6 +406,11 @@ class ClientManager(PresentationManager):
             "content": [width, height],
             "scroll": [window.scroll_row, window.scroll_column],
         }
+        if self.version >= 2:  # version 1 has neither
+            state["min_size"] = [window.min_width, window.min_height]
+            state["frame"] = frame_of(window)
+            state["every_key"] = isinstance(window, Dialog) and window.takes_every_key
+        return state
 
     def _flush_window(self, window: Window) -> None:
         number = self.window_id(window)
@@ -421,6 +476,7 @@ class ClientManager(PresentationManager):
             "shortcuts": lambda m: self.set_shortcuts(Shortcuts(m["shortcuts"])),
             "active": lambda m: self._activated(m.get("id")),
             "menu": self._menu_message,
+            "menu_open": self._menu_opening,
             "help": lambda _: self.press_help(),
         }
         handler = handlers.get(message["type"])
@@ -464,6 +520,16 @@ class ClientManager(PresentationManager):
             self._menu_chosen(menus, message["path"])
         elif isinstance(key := message.get("key"), str):
             self._input(self._modal[-1], "key", {"type": "key", "key": key})
+
+    def _menu_opening(self, message: Message) -> None:
+        """Bring a menu up to date as it opens.
+
+        :param message: The menu_open message.
+        """
+        menus = [menu for app in self._applications for menu in app.menus]
+        menu = menu_at(menus, message["path"])
+        if menu is not None and menu.on_open is not None:
+            menu.on_open(menu)
 
     def looks_active(self, window: Window) -> bool:
         """Whether a window looks active.
