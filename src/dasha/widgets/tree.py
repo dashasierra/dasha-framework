@@ -11,7 +11,7 @@ from dasha.canvas import Canvas, Rect
 from dasha.events import MouseEvent
 from dasha.scrollbar import DOWN, RIGHT
 from dasha.shortcuts import Shortcuts
-from dasha.style import BLACK, BLUE, BRIGHT_WHITE, BRIGHT_YELLOW, CYAN, GREEN, Style
+from dasha.style import BLACK, BLUE, BRIGHT_WHITE, BRIGHT_YELLOW, CYAN, Style
 from dasha.widgets.listbox import ListBox
 
 BRANCH = "\N{BOX DRAWINGS LIGHT VERTICAL AND RIGHT}\N{BOX DRAWINGS LIGHT HORIZONTAL}"
@@ -112,7 +112,7 @@ class TreeView(ListBox):  # pylint: disable=too-many-instance-attributes
 
     style: Style = Style(foreground=BLACK, background=CYAN)
     """The style of the items."""
-    focused_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
+    focused_style: Style = Style(foreground=BRIGHT_WHITE, background=BLUE, bold=True)
     """Highlighted item style while focused."""
     selected_style: Style = Style(foreground=BRIGHT_YELLOW, background=CYAN, bold=True)
     """Selected item style."""

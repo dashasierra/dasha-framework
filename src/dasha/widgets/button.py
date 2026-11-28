@@ -5,7 +5,7 @@ from collections.abc import Callable
 from dasha.canvas import Canvas, Rect
 from dasha.events import MouseEvent
 from dasha.menu import mnemonic_key, split_mnemonic
-from dasha.style import BLACK, BRIGHT_WHITE, BRIGHT_YELLOW, GREEN, Colour, Style
+from dasha.style import BLACK, BRIGHT_WHITE, BRIGHT_GREEN, CYAN, Colour, Style
 from dasha.widgets.base import Widget
 
 SHADOW_BELOW = "\N{UPPER HALF BLOCK}"
@@ -37,14 +37,14 @@ class Button(Widget):
     """
 
     focusable = True
-    face_style: Style = Style(foreground=BLACK, background=GREEN)
+    face_style: Style = Style(foreground=BLACK, background=CYAN)
     """The style of the face and its label."""
-    focused_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
+    focused_style: Style = Style(foreground=BRIGHT_WHITE, background=CYAN, bold=True)
     """Face style while focused."""
-    mnemonic_style: Style = Style(foreground=BRIGHT_YELLOW, background=GREEN)
+    mnemonic_style: Style = Style(foreground=BRIGHT_GREEN, background=CYAN)
     """The style of the label's mnemonic letter."""
     focused_mnemonic_style: Style = Style(
-        foreground=BRIGHT_YELLOW, background=GREEN, bold=True
+        foreground=BRIGHT_GREEN, background=CYAN, bold=True
     )
     """The style of the mnemonic letter while the button has the focus."""
     shadow_style: Style = Style(foreground=BLACK)

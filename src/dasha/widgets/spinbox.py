@@ -7,7 +7,7 @@ from dasha.canvas import Canvas, Rect
 from dasha.events import MouseEvent
 from dasha.scrollbar import DOWN, UP, AutoRepeat
 from dasha.shortcuts import Shortcuts
-from dasha.style import BRIGHT_WHITE, GREEN, Style
+from dasha.style import BRIGHT_WHITE, BLUE, Style
 from dasha.widgets.base import Widget
 from dasha.widgets.textbox import TextBox
 
@@ -29,7 +29,7 @@ class SpinBox(Widget):  # pylint: disable=too-many-instance-attributes
     """
 
     focusable = True
-    arrow_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
+    arrow_style: Style = Style(foreground=BRIGHT_WHITE, background=BLUE, bold=True)
     """The style of the ``▼▲`` on the right."""
     min_width: int = 5
     """Narrowest width."""

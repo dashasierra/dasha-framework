@@ -9,7 +9,7 @@ from dasha.canvas import Canvas, Rect
 from dasha.clipboard import CLIPBOARD, Clipboard
 from dasha.events import MouseEvent
 from dasha.shortcuts import Shortcuts
-from dasha.style import BLUE, BRIGHT_WHITE, BRIGHT_YELLOW, CYAN, GREEN, Style
+from dasha.style import BLUE, BRIGHT_WHITE, BRIGHT_YELLOW, CYAN, Style
 from dasha.widgets.base import Widget
 from dasha.menu import Menu
 from dasha.widgets.editing import UndoHistory, edit_menu, word_left, word_right
@@ -50,7 +50,7 @@ class TextArea(Widget):
     focusable = True
     style: Style = Style(foreground=BRIGHT_YELLOW, background=BLUE)
     """The style of the text."""
-    selected_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
+    selected_style: Style = Style(foreground=BLUE, background=BRIGHT_WHITE, bold=True)
     """The style of selected text, while the text area has the focus."""
     number_style: Style = Style(foreground=CYAN, background=BLUE)
     """The style of the line numbers, and of the bar beside them."""
