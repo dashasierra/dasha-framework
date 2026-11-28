@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- A fourth built-in theme, Vision: blue windows, grey dialogs, menus and status bar, and green buttons and highlights, on a grey desktop. These are the Default theme's colours before this release, except for the desktop. Choose it from the system menu's Themes (its letter is V), with `set_theme("vision")`, or start a theme file from it with `"base": "vision"`.
+
 ### Fixed
 
 - On the desktop, a window of an application in its own process (started from Run..., the Applications menu or `dasha "Name"`) could be resized below its `min_width` by `min_height`, down to the default 12 by 3, though running the application on its own kept to them. The application now sends its windows' minimum size (protocol version 2), and the desktop keeps to it. An application of the first release still connects, and its windows keep the default minimum.
@@ -22,6 +26,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The Default theme has new colours. The desktop's pattern is bright blue on black. Dialogs are bright blue, with bright yellow text. The menu bar, its drop-downs and the status bar are bright white on bright blue, with bright green letters and keys, and the highlighted item is bright white on blue. Buttons are black on cyan, with bright green letters. The highlighted item of a list, table or tree, the selected text of a text box, and the buttons of combo boxes and spin boxes are blue, and selected text in a text area is blue on bright white. Title bar buttons are bright cyan. The file dialog has a blank row between its list of files and its Type and Drive boxes. The old colours are kept in the new Vision theme, and the Dark theme keeps its green buttons and highlights.
 - A mnemonic letter belongs to one item of a menu, and to one title on the menu bar. If a later item or title marks the same letter (in either case), the first keeps it, and the later one is drawn and treated as having no letter. This applies to the menu bar's menus and to context menus. Before, both letters were highlighted, the letter chose whichever of them was enabled first, and a greyed-out first item passed the letter on to the second.
 - `Menu.check_mnemonics()` and `MenuBar.check_mnemonics()` raise the new `DuplicateMnemonicError` (a `ValueError`) if two items of a menu, or of any submenu, or two titles on the bar, mark the same letter. `on_open` fills each menu in first, so menus like Themes are checked as they would be shown. `Menu.mnemonics()` gives each item's letter as it works, and `dasha.menu.unique_mnemonics(labels, strict=False)` does the same for any labels. Dasha Framework's tests now check every menu of the desktop and of the example applications this way, so a repeated letter fails the tests.
 - Extended the dasha namespace `__path__` in order to enable packages to share the dasha namespace.
