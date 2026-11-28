@@ -203,9 +203,10 @@ do, `Terminal.size()` falls back to 80x24.
 
 Every colour is a named role (`window.frame`, `menu.selected`,
 `button.face` and so on), backed by a class attribute. A theme maps every
-role to a `Style`. There are three built-in themes: `default` (blue windows
-and grey dialogs), `dark` (light text on black and dark grey) and
-`monochrome` (bold, underline and reverse only). A user's
+role to a `Style`. There are four built-in themes: `default` (blue windows
+and bright blue dialogs), `dark` (light text on black and dark grey),
+`monochrome` (bold, underline and reverse only) and `vision` (grey dialogs
+and green buttons on a grey desktop). A user's
 `~/.dasha/colours.json` chooses one of these and overrides any roles it
 likes; each file in `~/.dasha/themes/` adds another theme; and
 `--monochrome` or `NO_COLOR` selects the monochrome theme.
@@ -223,7 +224,7 @@ keeps its own copy of a style updates it in `theme_changed`. See
 
 `Desktop` draws the background that fills the whole screen. By default it
 is the traditional text-mode desktop: every cell holds a light shade
-character (`░`, code page 437 character 176), drawn in cyan on black
+character (`░`, code page 437 character 176), drawn in bright blue on black
 (the `desktop` colours). The source writes it as the Unicode escape
 `\u2591`, and any UTF-8 terminal can show it.
 
@@ -1104,7 +1105,7 @@ text arrives as if it were typed, and each character is checked separately.
 
 ## Dialog boxes (`dasha.dialog`)
 
-A `Dialog` is a modal window, grey.
+A `Dialog` is a modal window, bright blue.
 `PresentationManager.execute(dialog)` shows it in the middle of the work
 area, on top. Until it is answered, nothing else responds: other windows,
 the menu bar and window keys are all out of reach, and clicks outside it
@@ -2169,9 +2170,10 @@ of its frame (`MenuBar.frame_padding`). The open drop-down casts the same
 drop shadow as a window (`MenuBar.shadow_style`, `None` for none). The
 shadow is painted before the status bar and the drop-down after it, so that
 even on a short screen no shadow falls on the status bar. The menu colours
-(black on white, with green for the selection) are class attributes of
-`MenuBar`. Windows cannot be dragged under the menu bar, and resizing the
-terminal moves any window whose title bar would end up hidden beneath it.
+(bright white on bright blue, with bright green letters and blue for the
+selection) are class attributes of `MenuBar`. Windows cannot be dragged
+under the menu bar, and resizing the terminal moves any window whose title
+bar would end up hidden beneath it.
 
 ## Status bar (`dasha.statusbar`)
 
