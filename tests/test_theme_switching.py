@@ -19,6 +19,7 @@ from dasha.menu import Menu, MenuItem
 from dasha.registry import read_theme_setting, save_theme_setting
 from dasha.remote import RemoteWindow
 from dasha.settings import SettingsDialog
+from dasha.style import BLACK, BLUE, BRIGHT_WHITE, GREEN, RED, WHITE, Style
 from dasha.window import Window
 from tests.hosted_apps import Hello
 from tests.support import hosted, pipe
@@ -71,7 +72,7 @@ class ThemeFilesTests(Folder):
         self.write("aaa", {})
         self.assertEqual(
             theme.theme_names(self.folder),
-            ["default", "dark", "monochrome", "aaa", "ocean"],
+            ["default", "dark", "monochrome", "vision", "aaa", "ocean"],
         )
         self.assertEqual(theme.theme_names(self.root / "none"), list(theme.BASES))
 
@@ -95,6 +96,59 @@ class ThemeFilesTests(Folder):
         self.assertEqual(set(theme.DARK_THEME), set(theme.DEFAULT_THEME))
         body = theme.DARK_THEME["window.body"]
         self.assertEqual((body.foreground, body.background), (7, 0))  # type: ignore[union-attr]
+
+    def test_dark_buttons_and_highlights_are_green(self) -> None:
+        """Dark's buttons and highlights are green, whatever the default's are."""
+        roles = (
+            "button.face",
+            "button.focused",
+            "button.mnemonic",
+            "button.focused.mnemonic",
+            "combobox.button",
+            "listbox.focused",
+            "menu.selected",
+            "spinbox.arrows",
+            "table.focused",
+            "textarea.selected",
+            "textbox.selected",
+            "tree.focused",
+        )
+        for role in roles:
+            with self.subTest(role=role):
+                style = theme.DARK_THEME[role]
+                assert isinstance(style, Style)
+                self.assertEqual(style.background, GREEN)
+
+    def test_vision_has_every_role(self) -> None:
+        """Vision is a whole theme: grey dialogs and green buttons."""
+        vision = theme.VISION_THEME
+        self.assertEqual(set(vision), set(theme.DEFAULT_THEME))
+        expected = {
+            "desktop": (BLUE, WHITE),
+            "window.body": (WHITE, BLUE),
+            "dialog.body": (BLACK, WHITE),
+            "menu.mnemonic": (RED, WHITE),
+            "button.face": (BLACK, GREEN),
+            "listbox.focused": (BRIGHT_WHITE, GREEN),
+        }
+        for role, colours in expected.items():
+            with self.subTest(role=role):
+                style = vision[role]
+                assert isinstance(style, Style)
+                self.assertEqual((style.foreground, style.background), colours)
+        self.assertEqual(vision["button_shadow"], "solid")
+        self.assertEqual(theme.load_named_theme("vision", self.folder), vision)
+
+    def test_vision_as_a_base(self) -> None:
+        """A theme file can start from Vision."""
+        self.write("lake", {"base": "vision", "colours": {"desktop": {"bold": True}}})
+        lake = theme.load_named_theme("lake", self.folder)
+        self.assertEqual(lake["dialog.body"], theme.VISION_THEME["dialog.body"])
+        self.assertEqual(
+            lake["desktop"], Style(foreground=BLUE, background=WHITE, bold=True)
+        )
+        text = theme.theme_to_json(theme.VISION_THEME, base="vision")
+        self.assertEqual(theme.build_theme(json.loads(text)), theme.VISION_THEME)
 
 
 class SwitchingTests(Folder):
@@ -179,12 +233,19 @@ class MenuTests(Folder):
         manager = self.desktop()
         labels = [item.label for item in self.themes(manager).items]
         self.assertEqual(
-            labels, ["\N{SQUARE ROOT} &Default", "  D&ark", "  &Monochrome", "  ocean"]
+            labels,
+            [
+                "\N{SQUARE ROOT} &Default",
+                "  D&ark",
+                "  &Monochrome",
+                "  &Vision",
+                "  ocean",
+            ],
         )
         self.write("forest", {})
         manager.set_theme("ocean")
         labels = [item.label for item in self.themes(manager).items]
-        self.assertEqual(labels[3:], ["  forest", "\N{SQUARE ROOT} ocean"])
+        self.assertEqual(labels[4:], ["  forest", "\N{SQUARE ROOT} ocean"])
 
     def test_choosing_one(self) -> None:
         """Choosing an item changes the theme, through the menu bar too."""
@@ -199,6 +260,15 @@ class MenuTests(Folder):
             manager.handle_event(key)
         self.assertIn("\N{SQUARE ROOT} D&ark", [i.label for i in menu.items])
 
+    def test_v_chooses_vision(self) -> None:
+        """V, in the menu bar's Themes, chooses Vision."""
+        manager = self.desktop()
+        manager.handle_event("f10")
+        for key in ("down", "down", "right", "v"):  # Themes, then V
+            manager.handle_event(key)
+        self.assertEqual(manager.theme_name, "vision")
+        self.assertEqual(Dialog.body_style, theme.VISION_THEME["dialog.body"])
+
     def test_each_has_a_letter_of_its_own(self) -> None:
         """Each has a letter of its own."""
         manager = self.desktop()
@@ -207,8 +277,8 @@ class MenuTests(Folder):
         self.write("&a", {})
         menu = self.themes(manager)
         menu.check_mnemonics()
-        self.assertEqual(menu.mnemonics(), ["d", "a", "m", None, None, None, "c"])
-        self.assertEqual(menu.items[3].label, "  &&a")
+        self.assertEqual(menu.mnemonics(), ["d", "a", "m", "v", None, None, None, "c"])
+        self.assertEqual(menu.items[4].label, "  &&a")
 
     def test_the_colours_file(self) -> None:
         """The colours file."""
