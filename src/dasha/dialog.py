@@ -3,7 +3,15 @@
 from collections.abc import Sequence
 
 from dasha.canvas import Canvas, Rect
-from dasha.style import BLACK, BLUE, BRIGHT_GREEN, BRIGHT_WHITE, WHITE, Style
+from dasha.style import (
+    BLACK,
+    BLUE,
+    BRIGHT_WHITE,
+    BRIGHT_GREEN,
+    BRIGHT_BLUE,
+    BRIGHT_YELLOW,
+    Style,
+)
 from dasha.border import SINGLE
 from dasha.events import MouseEvent
 from dasha.menu import Menu, MenuBar, MenuItem, split_mnemonic, unique_mnemonics
@@ -29,12 +37,14 @@ class Dialog(Window):
     :param status: Status bar text.
     """
 
-    frame_style = Style(foreground=BRIGHT_WHITE, background=WHITE, bold=True)
-    inactive_frame_style = Style(foreground=BLACK, background=WHITE)
-    adjusting_frame_style = Style(foreground=BRIGHT_GREEN, background=WHITE, bold=True)
-    body_style = Style(foreground=BLACK, background=WHITE)
-    button_style = Style(foreground=BRIGHT_GREEN, background=WHITE, bold=True)
-    scrollbar_style = Style(foreground=BLUE, background=WHITE)
+    frame_style = Style(foreground=BRIGHT_WHITE, background=BRIGHT_BLUE, bold=True)
+    inactive_frame_style = Style(foreground=BLACK, background=BRIGHT_BLUE)
+    adjusting_frame_style = Style(
+        foreground=BRIGHT_GREEN, background=BRIGHT_BLUE, bold=True
+    )
+    body_style = Style(foreground=BRIGHT_YELLOW, background=BRIGHT_BLUE)
+    button_style = Style(foreground=BRIGHT_GREEN, background=BRIGHT_BLUE, bold=True)
+    scrollbar_style = Style(foreground=BLUE, background=BRIGHT_BLUE)
     plain_mnemonics = True  # in a dialog, O alone presses "&OK"
 
     cancel_result: str = "cancel"

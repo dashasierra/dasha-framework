@@ -67,7 +67,7 @@ class FileDialog(Dialog):  # pylint: disable=too-many-instance-attributes
         status: str = "",
     ) -> None:
         width = 54
-        super().__init__(title, width, self.list_rows + 8, status=status)
+        super().__init__(title, width, self.list_rows + 9, status=status)
         self.must_exist = must_exist
         self.filters = list(filters)
         if not any(pattern == "*" for _, pattern in self.filters):
@@ -109,7 +109,7 @@ class FileDialog(Dialog):  # pylint: disable=too-many-instance-attributes
                 name="files",
             )
         )
-        bottom = rows + 3
+        bottom = rows + 4  # a blank row below the list
         self.add(Label("Type", bottom, 1))
         self.type_box = self.add(
             ComboBox(

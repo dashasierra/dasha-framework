@@ -7,7 +7,15 @@ from dasha.border import SINGLE, Border
 from dasha.canvas import Canvas, Rect
 from dasha.events import MouseEvent
 from dasha.shortcuts import Shortcuts, pretty_key
-from dasha.style import BLACK, BRIGHT_BLACK, GREEN, RED, SHADOW, WHITE, Style
+from dasha.style import (
+    BRIGHT_WHITE,
+    WHITE,
+    BRIGHT_GREEN,
+    BLUE,
+    SHADOW,
+    BRIGHT_BLUE,
+    Style,
+)
 
 SEPARATOR_LEFT = "\N{BOX DRAWINGS LIGHT VERTICAL AND RIGHT}"
 SEPARATOR_RIGHT = "\N{BOX DRAWINGS LIGHT VERTICAL AND LEFT}"
@@ -159,15 +167,15 @@ class MenuBar:  # pylint: disable=too-many-public-methods
     :param shortcuts: Key bindings, or ``None`` for the defaults.
     """
 
-    bar_style: Style = Style(foreground=BLACK, background=WHITE)
+    bar_style: Style = Style(foreground=BRIGHT_WHITE, background=BRIGHT_BLUE)
     """The style of the bar, and of the drop-downs and their items."""
-    mnemonic_style: Style = Style(foreground=RED, background=WHITE)
+    mnemonic_style: Style = Style(foreground=BRIGHT_GREEN, background=BRIGHT_BLUE)
     """The style of mnemonic letters in titles and items."""
-    selected_style: Style = Style(foreground=BLACK, background=GREEN)
+    selected_style: Style = Style(foreground=BRIGHT_WHITE, background=BLUE)
     """The style of the open menu's title, and of the highlighted item."""
-    selected_mnemonic_style: Style = Style(foreground=RED, background=GREEN)
+    selected_mnemonic_style: Style = Style(foreground=BRIGHT_GREEN, background=BLUE)
     """Mnemonic style when highlighted."""
-    disabled_style: Style = Style(foreground=BRIGHT_BLACK, background=WHITE)
+    disabled_style: Style = Style(foreground=WHITE, background=BRIGHT_BLUE)
     """The style of items that cannot be chosen."""
     border: Border = SINGLE
     """The frame drawn around each drop-down and submenu."""

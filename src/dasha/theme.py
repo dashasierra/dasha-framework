@@ -21,6 +21,7 @@ from dasha.style import (
     BRIGHT_YELLOW,
     CYAN,
     GREEN,
+    RED,
     WHITE,
     Colour,
     Rgb,
@@ -389,8 +390,8 @@ def _dark() -> Theme:
         return Style(foreground=foreground, background=background, **flags)
 
     # Inside windows, black; dialogs, menus and the status bar, dark grey;
-    # fields to fill in, blue; buttons and highlights stay green.
-    window, panel, field_ = BLACK, BRIGHT_BLACK, BLUE
+    # fields to fill in, blue; buttons and highlights, green.
+    window, panel, field_, highlight = BLACK, BRIGHT_BLACK, BLUE, GREEN
     changes: Theme = {
         "desktop": on(BRIGHT_BLACK, BLACK),
         "window.frame": on(BRIGHT_WHITE, window, bold=True),
@@ -408,11 +409,15 @@ def _dark() -> Theme:
         "dialog.scrollbar": on(WHITE, window),
         "menu.bar": on(WHITE, panel),
         "menu.mnemonic": on(BRIGHT_YELLOW, panel),
-        "menu.selected": on(BLACK, GREEN),
-        "menu.selected.mnemonic": on(BRIGHT_YELLOW, GREEN),
+        "menu.selected": on(BLACK, highlight),
+        "menu.selected.mnemonic": on(BRIGHT_YELLOW, highlight),
         "menu.disabled": on(BLACK, panel),
         "status": on(WHITE, panel),
         "status.keys": on(BRIGHT_YELLOW, panel),
+        "button.face": on(BLACK, highlight),
+        "button.focused": on(BRIGHT_WHITE, highlight, bold=True),
+        "button.mnemonic": on(BRIGHT_YELLOW, highlight),
+        "button.focused.mnemonic": on(BRIGHT_YELLOW, highlight, bold=True),
         # Dark grey would not read on black: the label stays white.
         "collapsible.label": Style(foreground=WHITE),
         "cluster": on(WHITE, field_),
@@ -421,7 +426,9 @@ def _dark() -> Theme:
         "cluster.disabled": on(BRIGHT_BLACK, field_),
         "combobox": on(WHITE, field_),
         "combobox.focused": on(BRIGHT_WHITE, field_, bold=True),
+        "combobox.button": on(BRIGHT_WHITE, highlight, bold=True),
         "listbox": on(WHITE, field_),
+        "listbox.focused": on(BRIGHT_WHITE, highlight, bold=True),
         "listbox.selected": on(BRIGHT_YELLOW, field_, bold=True),
         "progress.filled": on(BRIGHT_WHITE, CYAN, bold=True),
         "progress.empty": on(BRIGHT_BLACK, window),
@@ -430,19 +437,24 @@ def _dark() -> Theme:
         "slider.focused": on(BRIGHT_WHITE, field_, bold=True),
         "slider.knob": on(BRIGHT_WHITE, field_),
         "slider.knob.focused": on(BRIGHT_GREEN, field_),
+        "spinbox.arrows": on(BRIGHT_WHITE, highlight, bold=True),
         "switch.off": on(WHITE, panel),
         "switch.disabled": on(BLACK, panel),
         "table": on(WHITE, field_),
         "table.header": on(BRIGHT_WHITE, panel),
+        "table.focused": on(BRIGHT_WHITE, highlight, bold=True),
         "table.selected": on(BRIGHT_YELLOW, field_, bold=True),
         # Dark grey would not read on the dark grey of dialogs.
         "tabs.disabled": Style(foreground=BLACK),
         "textarea": on(WHITE, window),
+        "textarea.selected": on(BRIGHT_WHITE, highlight, bold=True),
         "textarea.numbers": on(CYAN, window),
         "textbox": on(WHITE, field_),
         "textbox.focused": on(BRIGHT_WHITE, field_, bold=True),
+        "textbox.selected": on(BRIGHT_WHITE, highlight, bold=True),
         "textbox.arrows": on(CYAN, window, bold=True),
         "tree": on(WHITE, field_),
+        "tree.focused": on(BRIGHT_WHITE, highlight, bold=True),
         "tree.selected": on(BRIGHT_YELLOW, field_, bold=True),
         "tree.lines": on(CYAN, field_),
     }
@@ -452,10 +464,54 @@ def _dark() -> Theme:
 DARK_THEME: Theme = _dark()
 """The dark theme."""
 
+
+def _vision() -> Theme:
+    """The vision theme: the default's, with grey dialogs and green buttons."""
+
+    def on(foreground: int, background: int, **flags: bool) -> Style:
+        return Style(foreground=foreground, background=background, **flags)
+
+    # Dialogs, menus and the status bar, grey; buttons and highlights, green.
+    panel, highlight = WHITE, GREEN
+    changes: Theme = {
+        "desktop": on(BLUE, WHITE),
+        "window.buttons": on(BRIGHT_GREEN, BLUE, bold=True),
+        "dialog.frame": on(BRIGHT_WHITE, panel, bold=True),
+        "dialog.frame.inactive": on(BLACK, panel),
+        "dialog.frame.adjusting": on(BRIGHT_GREEN, panel, bold=True),
+        "dialog.body": on(BLACK, panel),
+        "dialog.buttons": on(BRIGHT_GREEN, panel, bold=True),
+        "dialog.scrollbar": on(BLUE, panel),
+        "menu.bar": on(BLACK, panel),
+        "menu.mnemonic": on(RED, panel),
+        "menu.selected": on(BLACK, highlight),
+        "menu.selected.mnemonic": on(RED, highlight),
+        "menu.disabled": on(BRIGHT_BLACK, panel),
+        "status": on(BLACK, panel),
+        "status.keys": on(RED, panel),
+        "button.face": on(BLACK, highlight),
+        "button.focused": on(BRIGHT_WHITE, highlight, bold=True),
+        "button.mnemonic": on(BRIGHT_YELLOW, highlight),
+        "button.focused.mnemonic": on(BRIGHT_YELLOW, highlight, bold=True),
+        "combobox.button": on(BRIGHT_WHITE, highlight, bold=True),
+        "listbox.focused": on(BRIGHT_WHITE, highlight, bold=True),
+        "spinbox.arrows": on(BRIGHT_WHITE, highlight, bold=True),
+        "table.focused": on(BRIGHT_WHITE, highlight, bold=True),
+        "textarea.selected": on(BRIGHT_WHITE, highlight, bold=True),
+        "textbox.selected": on(BRIGHT_WHITE, highlight, bold=True),
+        "tree.focused": on(BRIGHT_WHITE, highlight, bold=True),
+    }
+    return DEFAULT_THEME | changes
+
+
+VISION_THEME: Theme = _vision()
+"""The vision theme."""
+
 BASES: dict[str, Theme] = {
     "default": DEFAULT_THEME,
     "dark": DARK_THEME,
     "monochrome": MONOCHROME_THEME,
+    "vision": VISION_THEME,
 }
 """Built-in theme names."""
 

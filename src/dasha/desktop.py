@@ -1,7 +1,7 @@
 """The desktop background."""
 
 from dasha.canvas import Canvas
-from dasha.style import BLACK, Style, CYAN
+from dasha.style import BLACK, BRIGHT_BLUE, Style
 
 
 class Desktop:
@@ -14,7 +14,7 @@ class Desktop:
     pattern: str = "\u2591"
     """Pattern characters."""
 
-    style: Style = Style(foreground=CYAN, background=BLACK)
+    style: Style = Style(foreground=BRIGHT_BLUE, background=BLACK)
     """Colours and attributes applied to the whole desktop."""
 
     def __init__(self, pattern: str | None = None, style: Style | None = None) -> None:

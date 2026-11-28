@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 
 from dasha.canvas import Canvas, Rect
-from dasha.style import BLACK, RED, WHITE, Style
+from dasha.style import BRIGHT_WHITE, BRIGHT_GREEN, BRIGHT_BLUE, Style
 
 
 def status_text(source: object) -> str:
@@ -18,9 +18,9 @@ def status_text(source: object) -> str:
 class StatusBar:  # pylint: disable=too-few-public-methods
     """Draws status text and key hints on the bottom row."""
 
-    style: Style = Style(foreground=BLACK, background=WHITE)
+    style: Style = Style(foreground=BRIGHT_WHITE, background=BRIGHT_BLUE)
     """The style of the bar, its text and the hints' descriptions."""
-    key_style: Style = Style(foreground=RED, background=WHITE)
+    key_style: Style = Style(foreground=BRIGHT_GREEN, background=BRIGHT_BLUE)
     """The style of the key names in the hints on the right."""
 
     divider: str = "\N{BOX DRAWINGS LIGHT VERTICAL}"

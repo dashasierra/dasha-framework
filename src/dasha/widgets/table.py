@@ -13,7 +13,7 @@ from dasha.style import (
     BRIGHT_WHITE,
     BRIGHT_YELLOW,
     CYAN,
-    GREEN,
+    BLUE,
     WHITE,
     Style,
 )
@@ -70,7 +70,7 @@ class Table(ListBox):  # pylint: disable=too-many-instance-attributes
 
     style: Style = Style(foreground=BLACK, background=CYAN)
     """The style of the rows."""
-    focused_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
+    focused_style: Style = Style(foreground=BRIGHT_WHITE, background=BLUE, bold=True)
     """The style of the highlighted row, while the table has the focus."""
     selected_style: Style = Style(foreground=BRIGHT_YELLOW, background=CYAN, bold=True)
     """The style of the selected rows, with ``multiple=True``."""

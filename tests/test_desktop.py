@@ -4,7 +4,7 @@ import unittest
 
 from dasha.canvas import Canvas
 from dasha.desktop import Desktop
-from dasha.style import BLACK, BLUE, CYAN, Style
+from dasha.style import BLACK, BLUE, BRIGHT_BLUE, Style
 
 
 def paint(desktop: Desktop, width: int, height: int) -> Canvas:
@@ -25,7 +25,7 @@ class DesktopTests(unittest.TestCase):
     def test_default_pattern_is_light_shade(self) -> None:
         """The default pattern is light shade."""
         self.assertEqual(Desktop.pattern, "\N{LIGHT SHADE}")
-        self.assertEqual(Desktop.style, Style(foreground=CYAN, background=BLACK))
+        self.assertEqual(Desktop.style, Style(foreground=BRIGHT_BLUE, background=BLACK))
 
     def test_paint_fills_every_cell(self) -> None:
         """Every row is filled to the full width."""

@@ -18,7 +18,7 @@ terminal directly.
   context menus; and a status bar showing help and clickable key hints.
 - Several applications side by side, each in its own process, so one that
   crashes or hangs affects only its own windows.
-- Themes (Default, Dark, Monochrome, or your own) and animations, both of
+- Themes (Default, Dark, Monochrome, Vision, or your own) and animations, both of
   which can be changed while Dasha Framework is running and are remembered.
 - Settings... in the system menu changes everything that the command line
   and the settings files do: the theme and every colour, the keyboard
@@ -252,7 +252,7 @@ dasha --key-test
 For a terminal without colour, run `dasha desktop --monochrome`, or set
 `NO_COLOR` to keep colour out altogether (the themes cannot be changed until
 it is removed). To change the colours while Dasha Framework is running, choose a
-theme from the system menu's Themes: Default, Dark, Monochrome, or one of
+theme from the system menu's Themes: Default, Dark, Monochrome, Vision, or one of
 your own in `~/.dasha/themes/` (see [docs/colours.md](https://github.com/dashasierra/dasha-framework/blob/HEAD/docs/colours.md)).
 Menus drop down, and windows zoom as they are minimised, maximised and
 restored. To turn these animations off, or back on, choose Animations from

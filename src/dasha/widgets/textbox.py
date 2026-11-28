@@ -10,7 +10,7 @@ from dasha.clipboard import CLIPBOARD, Clipboard
 from dasha.events import MouseEvent
 from dasha.scrollbar import LEFT, RIGHT
 from dasha.shortcuts import Shortcuts
-from dasha.style import BLUE, BRIGHT_WHITE, CYAN, GREEN, Style
+from dasha.style import BLUE, BRIGHT_WHITE, CYAN, Style
 from dasha.widgets.base import Widget
 from dasha.menu import Menu
 from dasha.widgets.editing import (
@@ -48,7 +48,7 @@ class TextBox(Widget):
     """The style of the box and its text."""
     focused_style: Style = Style(foreground=BRIGHT_WHITE, background=CYAN, bold=True)
     """Style while focused."""
-    selected_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
+    selected_style: Style = Style(foreground=BRIGHT_WHITE, background=BLUE, bold=True)
     """The style of selected text, while the box has the focus."""
     arrow_style: Style = Style(foreground=CYAN, background=BLUE, bold=True)
     """Style of the scroll arrows."""

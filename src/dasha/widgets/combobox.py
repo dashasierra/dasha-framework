@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterable
 from dasha.canvas import Canvas, Rect
 from dasha.events import MouseEvent
 from dasha.shortcuts import Shortcuts
-from dasha.style import BLUE, BRIGHT_WHITE, CYAN, GREEN, Style
+from dasha.style import BLUE, BRIGHT_WHITE, CYAN, Style
 from dasha.widgets.base import Widget
 
 DROP_DOWN = "\N{BLACK DOWN-POINTING TRIANGLE}"
@@ -30,7 +30,7 @@ class ComboBox(Widget):  # pylint: disable=too-many-instance-attributes
     """The style of the field."""
     focused_style: Style = Style(foreground=BRIGHT_WHITE, background=CYAN, bold=True)
     """The style of the field while it has the focus."""
-    button_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
+    button_style: Style = Style(foreground=BRIGHT_WHITE, background=BLUE, bold=True)
     """The style of the ``▼`` on the right."""
     min_width: int = 3
 

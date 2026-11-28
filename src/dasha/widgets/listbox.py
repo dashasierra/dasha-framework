@@ -6,7 +6,7 @@ from collections.abc import Callable, Iterable
 from dasha.canvas import Canvas, Rect
 from dasha.events import MouseEvent
 from dasha.shortcuts import Shortcuts
-from dasha.style import BLACK, BRIGHT_WHITE, BRIGHT_YELLOW, CYAN, GREEN, Style
+from dasha.style import BLACK, BRIGHT_WHITE, BRIGHT_YELLOW, CYAN, BLUE, Style
 from dasha.widgets.base import Widget
 from dasha.widgets.scrollbar import ScrollBar
 
@@ -32,7 +32,7 @@ class ListBox(Widget):  # pylint: disable=too-many-instance-attributes
     focusable = True
     style: Style = Style(foreground=BLACK, background=CYAN)
     """The style of the items."""
-    focused_style: Style = Style(foreground=BRIGHT_WHITE, background=GREEN, bold=True)
+    focused_style: Style = Style(foreground=BRIGHT_WHITE, background=BLUE, bold=True)
     """Highlighted item style while focused."""
     selected_style: Style = Style(foreground=BRIGHT_YELLOW, background=CYAN, bold=True)
     """Selected item style."""
