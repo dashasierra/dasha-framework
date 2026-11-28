@@ -12,6 +12,7 @@ from dasha.shortcuts import Shortcuts
 from dasha.style import (
     BLUE,
     BRIGHT_GREEN,
+    BRIGHT_CYAN,
     CYAN,
     BRIGHT_WHITE,
     SHADOW,
@@ -123,7 +124,7 @@ class Window:
     maximise_button: str = "[\N{UPWARDS ARROW}]"
     restore_button: str = "[\N{UP DOWN ARROW}]"
     """Title bar button symbols."""
-    button_style: Style = Style(foreground=BRIGHT_GREEN, background=BLUE, bold=True)
+    button_style: Style = Style(foreground=BRIGHT_CYAN, background=BLUE, bold=True)
     """Title bar button symbol style."""
 
     scrollbar_style: Style = Style(foreground=BLUE, background=CYAN)
