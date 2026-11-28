@@ -11,9 +11,11 @@ the system menu (`≡`) and choose **Themes**. The whole screen changes at
 once, including the windows of every application, with nothing to restart.
 Dasha Framework remembers your choice and starts with it next time.
 
-- **Built-in themes:** Default (blue windows and grey dialogs), Dark (light
-  text on black windows, with dark grey dialogs) and Monochrome (no
-  colours; see below). These are always available.
+- **Built-in themes:** Default (blue windows, with bright blue dialogs,
+  menus and status bar, and cyan buttons), Dark (light
+  text on black windows, with dark grey dialogs), Monochrome (no
+  colours; see below) and Vision (blue windows, grey dialogs and green
+  buttons on a grey desktop). These are always available.
 - **Theme files:** each file in `~/.dasha/themes/` is a theme, named
   after the file, so `ocean.json` is the theme `ocean`. The menu reads the
   folder each time it opens, so a file added or changed while Dasha Framework is
@@ -140,8 +142,8 @@ such as one an application has in its own virtual environment, can still
 read the file. Add it yourself to change it: every role is listed under
 [Roles](#roles).
 
-The file chooses a base theme (`"default"`, `"dark"` or `"monochrome"`) and
-changes whichever roles you want:
+The file chooses a base theme (`"default"`, `"dark"`, `"monochrome"` or
+`"vision"`) and changes whichever roles you want:
 
 ```json
 {
@@ -227,8 +229,8 @@ file can be UTF-8 (with or without a byte order mark) or UTF-16.
 
 ## Roles
 
-This table lists every role and its colours in the Default, Dark and
-Monochrome themes. It is generated from `dasha.theme` when the
+This table lists every role and its colours in the Default, Dark,
+Monochrome and Vision themes. It is generated from `dasha.theme` when the
 documentation is built, so it always matches the code. "The window's" means
 the colours of the window or dialog that the widget is in.
 
