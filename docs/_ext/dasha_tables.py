@@ -103,10 +103,18 @@ class ColourRoles(SphinxDirective):
                     describe(theme.DEFAULT_THEME[role]),
                     describe(theme.DARK_THEME[role]),
                     describe(theme.MONOCHROME_THEME[role], colours=False),
+                    describe(theme.VISION_THEME[role]),
                     theme.DESCRIPTIONS[role],
                 )
             )
-        headings = ("Role", "Default", "Dark", "Monochrome", "What it colours")
+        headings = (
+            "Role",
+            "Default",
+            "Dark",
+            "Monochrome",
+            "Vision",
+            "What it colours",
+        )
         return [table(headings, rows)]
 
 
